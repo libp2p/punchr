@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "github.com/dennis-tra/punchr/pkg/pb";
+
+service PunchrService {
+  rpc GetAddrInfo(GetAddrInfoRequest) returns (GetAddrInfoResponse);
+  rpc TrackHolePunch(TrackHolePunchRequest) returns (TrackHolePunchResponse);
+}
+
+message GetAddrInfoRequest {
+  // Peer ID of the requesting punchr client
+  bytes peer_id = 1;
+}
+
+message GetAddrInfoResponse {
+  bytes peer_id = 1;
+  bytes multi_address = 2;
+}
+
+message TrackHolePunchRequest {
+}
+
+message TrackHolePunchResponse {
+}

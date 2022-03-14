@@ -1,0 +1,1 @@
+DROP TABLE multi_addresses_x_ip_addresses;
