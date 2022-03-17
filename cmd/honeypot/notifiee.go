@@ -91,12 +91,13 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 
 	dbConnEvt := &models.ConnectionEvent{
-		LocalID:                  h.DBPeer.ID,
-		RemoteID:                 dbPeer.ID,
-		ConnectionMultiAddressID: connMaddrID,
-		Direction:                db.MapNetDirection(conn),
-		HasRelayMultiAddress:     hasRelayMaddr,
-		OpenedAt:                 conn.Stat().Opened,
+		LocalID:                    h.DBPeer.ID,
+		RemoteID:                   dbPeer.ID,
+		ConnectionMultiAddressID:   connMaddrID,
+		Direction:                  db.MapNetDirection(conn),
+		ListensOnRelayMultiAddress: hasRelayMaddr,
+		SupportsDcutr:              dbPeer.SupportsDcutr,
+		OpenedAt:                   conn.Stat().Opened,
 	}
 	if err = dbConnEvt.Insert(h.ctx, txn, boil.Infer()); err != nil {
 		return errors.Wrap(err, "insert connection event")

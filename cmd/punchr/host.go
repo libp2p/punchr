@@ -3,64 +3,57 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
+	"sort"
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/punchr/pkg/util"
-
-	"github.com/multiformats/go-multiaddr"
-
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 
-	"github.com/dennis-tra/punchr/pkg/maxmind"
+	"github.com/dennis-tra/punchr/pkg/key"
 	"github.com/dennis-tra/punchr/pkg/pb"
+	"github.com/dennis-tra/punchr/pkg/util"
 )
 
-// Host holds information of the honeypot
-// libp2p host.
+// Host holds information of the honeypot libp2p host.
 type Host struct {
 	host.Host
 
 	ctx       context.Context
-	MMClient  *maxmind.Client
 	APIClient pb.PunchrServiceClient
 
 	hpStatesLk sync.RWMutex
 	hpStates   map[peer.ID]HolePunchState
 }
 
-func InitHost(ctx context.Context, version string, port string) (*Host, error) {
+func InitHost(c *cli.Context, port string) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
-	// Create maxmind client to derive geo information
-	mmClient, err := maxmind.NewClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "new maxmind client")
-	}
-
 	h := &Host{
-		ctx:      ctx,
-		MMClient: mmClient,
+		ctx:      c.Context,
 		hpStates: map[peer.ID]HolePunchState{},
 	}
 
 	// Load private key data from file or create a new identity
-	key, err := loadOrCreateKeyPair()
+	privKeyFile := c.String("key")
+	privKey, err := key.Load(privKeyFile)
 	if err != nil {
-		return nil, errors.Wrap(err, "load or create key pair")
+		privKey, err = key.Create(privKeyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "load or create key pair")
+		}
 	}
 
 	// Configure new libp2p host
 	libp2pHost, err := libp2p.New(
-		libp2p.Identity(key),
-		libp2p.UserAgent("punchr/"+version),
+		libp2p.Identity(privKey),
+		libp2p.UserAgent("punchr/go-client/"+c.App.Version),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%s/quic", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/tcp/%s", port)),
@@ -76,83 +69,156 @@ func InitHost(ctx context.Context, version string, port string) (*Host, error) {
 	return h, nil
 }
 
-func loadOrCreateKeyPair() (crypto.PrivKey, error) {
-	keyFile := "./punchr.key"
-
-	if _, err := os.Stat(keyFile); err == nil {
-		dat, err := os.ReadFile(keyFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "reading key data")
-		}
-
-		key, err := crypto.UnmarshalPrivateKey(dat)
-		if err != nil {
-			return nil, errors.Wrap(err, "unmarshal private key")
-		}
-
-		return key, err
+// GetAgentVersion pulls the agent version from the peer store. Returns nil if no information is available.
+func (h *Host) GetAgentVersion(pid peer.ID) *string {
+	if value, err := h.Peerstore().Get(pid, "AgentVersion"); err == nil {
+		av := value.(string)
+		return &av
+	} else {
+		return nil
 	}
-
-	key, _, err := crypto.GenerateKeyPair(crypto.Ed25519, 256)
-	if err != nil {
-		return nil, errors.Wrap(err, "generate key pair")
-	}
-
-	keyDat, err := crypto.MarshalPrivateKey(key)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal private key")
-	}
-
-	if err = os.WriteFile(keyFile, keyDat, 0o644); err != nil {
-		return nil, errors.Wrap(err, "write marshaled private key")
-	}
-
-	return key, nil
 }
 
-func (h *Host) StartHolePunching() {
+// GetProtocols pulls the supported protocols of a peer from the peer store. Returns nil if no information is available.
+func (h *Host) GetProtocols(pid peer.ID) []string {
+	protocols, err := h.Peerstore().GetProtocols(pid)
+	if err != nil {
+		log.WithError(err).Warnln("Could not get protocols from peerstore")
+		return nil
+	}
+	sort.Strings(protocols)
+	return protocols
+}
+
+func (h *Host) StartHolePunching() error {
 	for {
+		select {
+		case <-h.ctx.Done():
+			return h.ctx.Err()
+		default:
+		}
+
 		log.Infoln("Requesting addr infos from server")
 
-		remoteID, remoteMaddr, err := h.RequestAddrInfo()
+		addrInfo, err := h.RequestAddrInfo()
 		if err != nil {
 			log.WithError(err).Warnln("Error requesting addr info - sleeping 10s")
 			time.Sleep(10 * time.Second)
-			continue
+			select {
+			case <-h.ctx.Done():
+				return h.ctx.Err()
+			case <-time.After(10 * time.Second):
+				continue
+			}
+		} else if addrInfo == nil {
+			log.Infoln("No peer to hole punch received")
+			select {
+			case <-h.ctx.Done():
+				return h.ctx.Err()
+			case <-time.After(10 * time.Second):
+				continue
+			}
 		}
 		logEntry := log.WithFields(log.Fields{
-			"remoteID":    util.FmtPeerID(remoteID),
-			"remoteMaddr": remoteMaddr.String(),
+			"remoteID": util.FmtPeerID(addrInfo.ID),
 		})
 
 		logEntry.Infoln("Connecting to peer")
-		hpState := h.NewHolePunchState(remoteID, remoteMaddr)
+		hpState := h.NewHolePunchState(addrInfo.ID, addrInfo.Addrs)
 
-		if err = h.Connect(h.ctx, peer.AddrInfo{ID: remoteID, Addrs: []multiaddr.Multiaddr{remoteMaddr}}); err != nil {
+		if err = h.Connect(h.ctx, *addrInfo); err != nil {
 			logEntry.WithError(err).Warnln("Error connecting to remote peer")
+		} else {
+			logEntry.Infoln("Successfully connected to peer!")
 		}
-		logEntry.Infoln("Successfully connected to peer!")
 
-		h.Peerstore().RemovePeer(hpState.PeerID)
-		if err = h.Network().ClosePeer(hpState.PeerID); err != nil {
+		h.Peerstore().RemovePeer(hpState.RemoteID)
+		if err = h.Network().ClosePeer(hpState.RemoteID); err != nil {
 			logEntry.WithError(err).Warnln("Error closing connection")
 		}
 
-		hpState = h.DeleteHolePunchState(remoteID)
+		hpState = h.DeleteHolePunchState(addrInfo.ID)
 
 		// Persist it
-		_ = hpState
+		if err = h.TrackHolePunchResult(hpState); err != nil {
+			logEntry.WithError(err).Warnln("Error tracking hole punch result")
+		}
 	}
 }
 
-func (h *Host) NewHolePunchState(remoteID peer.ID, maddr multiaddr.Multiaddr) HolePunchState {
+func (h *Host) RegisterHost() error {
+	log.Infoln("Registering at API server")
+
+	bytesLocalPeerID, err := h.ID().Marshal()
+	if err != nil {
+		return errors.Wrap(err, "marshal peer id")
+	}
+
+	_, err = h.APIClient.Register(h.ctx, &pb.RegisterRequest{
+		ClientId: bytesLocalPeerID,
+		// AgentVersion: *h.GetAgentVersion(h.ID()),
+		AgentVersion: "punchr/go-client/0.1.0",
+		Protocols:    h.GetProtocols(h.ID()),
+	})
+	if err != nil {
+		return errors.Wrap(err, "register client")
+	}
+	return nil
+}
+
+func (h *Host) RequestAddrInfo() (*peer.AddrInfo, error) {
+	bytesLocalPeerID, err := h.ID().Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal peer id")
+	}
+
+	res, err := h.APIClient.GetAddrInfo(h.ctx, &pb.GetAddrInfoRequest{ClientId: bytesLocalPeerID})
+	if err != nil {
+		return nil, errors.Wrap(err, "get addr info RPC")
+	}
+	if res.GetRemoteId() == nil {
+		return nil, nil
+	}
+
+	remoteID, err := peer.IDFromBytes(res.RemoteId)
+	if err != nil {
+		return nil, errors.Wrap(err, "peer ID from bytes")
+	}
+
+	maddrs := make([]multiaddr.Multiaddr, len(res.MultiAddresses))
+	for i, maddrBytes := range res.MultiAddresses {
+		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "multi address from bytes")
+		}
+		maddrs[i] = maddr
+	}
+
+	return &peer.AddrInfo{ID: remoteID, Addrs: maddrs}, nil
+}
+
+func (h *Host) TrackHolePunchResult(hps HolePunchState) error {
+	req, err := hps.ToProto(h.ID())
+	if err != nil {
+		return err
+	}
+
+	_, err = h.APIClient.TrackHolePunch(h.ctx, req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *Host) NewHolePunchState(remoteID peer.ID, maddrs []multiaddr.Multiaddr) HolePunchState {
 	h.hpStatesLk.Lock()
 	defer h.hpStatesLk.Unlock()
 
 	h.hpStates[remoteID] = HolePunchState{
-		PeerID:              remoteID,
+		RemoteID:            remoteID,
 		ConnectionStartedAt: time.Now(),
-		RemoteMaddr:         maddr,
+		RemoteMaddrs:        maddrs,
 	}
 
 	return h.hpStates[remoteID]
@@ -168,30 +234,6 @@ func (h *Host) DeleteHolePunchState(remoteID peer.ID) HolePunchState {
 	return hpState
 }
 
-func (h *Host) RequestAddrInfo() (peer.ID, multiaddr.Multiaddr, error) {
-	bytesLocalPeerID, err := h.ID().Marshal()
-	if err != nil {
-		return "", nil, errors.Wrap(err, "marshal peer id")
-	}
-
-	res, err := h.APIClient.GetAddrInfo(h.ctx, &pb.GetAddrInfoRequest{PeerId: bytesLocalPeerID})
-	if err != nil {
-		return "", nil, errors.Wrap(err, "get addr info RPC")
-	}
-
-	peerID, err := peer.IDFromBytes(res.PeerId)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "peer ID from bytes")
-	}
-
-	maddr, err := multiaddr.NewMultiaddrBytes(res.MultiAddress)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "multi address from bytes")
-	}
-
-	return peerID, maddr, nil
-}
-
 type EndReason string
 
 const (
@@ -200,10 +242,23 @@ const (
 	EndReasonHolePunchEnd  EndReason = "HOLE_PUNCH"
 )
 
+func (er EndReason) ToProto() pb.HolePunchEndReason {
+	switch er {
+	case EndReasonDirectDial:
+		return pb.HolePunchEndReason_DIRECT_DIAL
+	case EndReasonProtocolError:
+		return pb.HolePunchEndReason_PROTOCOL_ERROR
+	case EndReasonHolePunchEnd:
+		return pb.HolePunchEndReason_HOLE_PUNCH
+	default:
+		return pb.HolePunchEndReason_UNKNOWN
+	}
+}
+
 type HolePunchState struct {
-	PeerID              peer.ID
+	RemoteID            peer.ID
 	ConnectionStartedAt time.Time
-	RemoteMaddr         multiaddr.Multiaddr
+	RemoteMaddrs        []multiaddr.Multiaddr
 	StartRTT            time.Duration
 	ElapsedTime         time.Duration
 	EndReason           EndReason
@@ -211,6 +266,37 @@ type HolePunchState struct {
 	Success             bool
 	Error               string
 	DirectDialError     string
+}
+
+func (hps HolePunchState) ToProto(peerID peer.ID) (*pb.TrackHolePunchRequest, error) {
+	localID, err := peerID.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal local peer id")
+	}
+
+	remoteID, err := hps.RemoteID.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal remote peer id")
+	}
+
+	maddrsBytes := make([][]byte, len(hps.RemoteMaddrs))
+	for i, maddr := range hps.RemoteMaddrs {
+		maddrsBytes[i] = maddr.Bytes()
+	}
+
+	return &pb.TrackHolePunchRequest{
+		ClientId:             localID,
+		RemoteId:             remoteID,
+		Success:              hps.Success,
+		StartedAt:            hps.ConnectionStartedAt.UnixMilli(),
+		RemoteMultiAddresses: maddrsBytes,
+		Attempts:             int32(hps.Attempts),
+		Error:                hps.Error,
+		DirectDialError:      hps.DirectDialError,
+		StartRtt:             float32(hps.StartRTT.Seconds()),
+		ElapsedTime:          float32(hps.ElapsedTime.Seconds()),
+		EndReason:            hps.EndReason.ToProto(),
+	}, nil
 }
 
 func (h *Host) Trace(evt *holepunch.Event) {

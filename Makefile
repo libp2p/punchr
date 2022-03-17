@@ -3,10 +3,27 @@ default: all
 test:
 	go test ./...
 
-linux-build: linux-build-honeypot
+build-linux: build-linux-honeypot build-linux-punchr build-linux-api
 
-linux-build-honeypot:
-	GOOS=linux GOARCH=amd64 go build -o honeypot cmd/honeypot/*
+build-linux-honeypot:
+	GOOS=linux GOARCH=amd64 go build -o dist/honeypot cmd/honeypot/*
+
+build-linux-punchr:
+	GOOS=linux GOARCH=amd64 go build -o dist/punchr cmd/punchr/*
+
+build-linux-api:
+	GOOS=linux GOARCH=amd64 go build -o dist/punchrapi cmd/api/*
+
+build: build-honeypot build-punchr build-api
+
+build-honeypot:
+	go build -o dist/honeypot cmd/honeypot/*
+
+build-punchr:
+	go build -o dist/punchr cmd/punchr/*
+
+build-api:
+	go build -o dist/punchrapi cmd/api/*
 
 format:
 	gofumpt -w -l .
@@ -21,16 +38,17 @@ tools:
 proto:
 	protoc --proto_path=. --go_out=pkg/pb --go_opt=paths=source_relative --go-grpc_out=pkg/pb --go-grpc_opt=paths=source_relative api.proto
 
-db-reset: migrate-down migrate-up models
-
 models:
 	sqlboiler psql
 
-test-db:
+database:
 	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=punchr -e POSTGRES_DB=punchr postgres:13
+
+database-reset: migrate-down migrate-up models
 
 migrate-up:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path migrations up
 
 migrate-down:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path migrations down
+

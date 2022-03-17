@@ -681,13 +681,19 @@ func testMultiAddressToManyHolePunchResults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.MultiAddressID = a.ID
-	c.MultiAddressID = a.ID
-
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"multi_address_id\", \"hole_punch_result\") values ($1, $2)", a.ID, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"multi_address_id\", \"hole_punch_result\") values ($1, $2)", a.ID, c.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -698,10 +704,10 @@ func testMultiAddressToManyHolePunchResults(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.MultiAddressID == b.MultiAddressID {
+		if v.ID == b.ID {
 			bFound = true
 		}
-		if v.MultiAddressID == c.MultiAddressID {
+		if v.ID == c.ID {
 			cFound = true
 		}
 	}
@@ -1166,18 +1172,11 @@ func testMultiAddressToManyAddOpHolePunchResults(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.MultiAddressID {
-			t.Error("foreign key was wrong value", a.ID, first.MultiAddressID)
+		if first.R.MultiAddresses[0] != &a {
+			t.Error("relationship was not added properly to the slice")
 		}
-		if a.ID != second.MultiAddressID {
-			t.Error("foreign key was wrong value", a.ID, second.MultiAddressID)
-		}
-
-		if first.R.MultiAddress != &a {
-			t.Error("relationship was not added properly to the foreign slice")
-		}
-		if second.R.MultiAddress != &a {
-			t.Error("relationship was not added properly to the foreign slice")
+		if second.R.MultiAddresses[0] != &a {
+			t.Error("relationship was not added properly to the slice")
 		}
 
 		if a.R.HolePunchResults[i*2] != first {
@@ -1196,6 +1195,166 @@ func testMultiAddressToManyAddOpHolePunchResults(t *testing.T) {
 		}
 	}
 }
+
+func testMultiAddressToManySetOpHolePunchResults(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c, d, e HolePunchResult
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*HolePunchResult{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.SetHolePunchResults(ctx, tx, false, &b, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.HolePunchResults().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.SetHolePunchResults(ctx, tx, true, &d, &e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.HolePunchResults().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	// The following checks cannot be implemented since we have no handle
+	// to these when we call Set(). Leaving them here as wishful thinking
+	// and to let people know there's dragons.
+	//
+	// if len(b.R.MultiAddresses) != 0 {
+	// 	t.Error("relationship was not removed properly from the slice")
+	// }
+	// if len(c.R.MultiAddresses) != 0 {
+	// 	t.Error("relationship was not removed properly from the slice")
+	// }
+	if d.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the slice")
+	}
+	if e.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the slice")
+	}
+
+	if a.R.HolePunchResults[0] != &d {
+		t.Error("relationship struct slice not set to correct value")
+	}
+	if a.R.HolePunchResults[1] != &e {
+		t.Error("relationship struct slice not set to correct value")
+	}
+}
+
+func testMultiAddressToManyRemoveOpHolePunchResults(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c, d, e HolePunchResult
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*HolePunchResult{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.AddHolePunchResults(ctx, tx, true, foreigners...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.HolePunchResults().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.RemoveHolePunchResults(ctx, tx, foreigners[:2]...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.HolePunchResults().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if len(b.R.MultiAddresses) != 0 {
+		t.Error("relationship was not removed properly from the slice")
+	}
+	if len(c.R.MultiAddresses) != 0 {
+		t.Error("relationship was not removed properly from the slice")
+	}
+	if d.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+
+	if len(a.R.HolePunchResults) != 2 {
+		t.Error("should have preserved two relationships")
+	}
+
+	// Removal doesn't do a stable deletion for performance so we have to flip the order
+	if a.R.HolePunchResults[1] != &d {
+		t.Error("relationship to d should have been preserved")
+	}
+	if a.R.HolePunchResults[0] != &e {
+		t.Error("relationship to e should have been preserved")
+	}
+}
+
 func testMultiAddressToManyAddOpIPAddresses(t *testing.T) {
 	var err error
 

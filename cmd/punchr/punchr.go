@@ -60,6 +60,14 @@ func main() {
 				Value:       "12500",
 				DefaultText: "12500",
 			},
+			&cli.StringFlag{
+				Name:        "key",
+				Usage:       "Load private key for peer ID from `FILE`",
+				TakesFile:   true,
+				EnvVars:     []string{"PUNCHR_KEY_FILE"},
+				DefaultText: "punchr.key",
+				Value:       "punchr.key",
+			},
 		},
 		EnableBashCompletion: true,
 	}
@@ -78,18 +86,26 @@ func RootAction(c *cli.Context) error {
 	// Start telemetry endpoints
 	go serveTelemetry(c)
 
-	h, err := InitHost(c.Context, c.App.Version, c.String("port"))
+	h, err := InitHost(c, c.String("port"))
 	if err != nil {
 		return errors.Wrap(err, "init host")
 	}
 
 	addr := fmt.Sprintf("%s:%s", c.String("api-host"), c.String("api-port"))
-	conn, err := grpc.Dial(addr)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
 
 	h.APIClient = pb.NewPunchrServiceClient(conn)
+
+	if err := h.RegisterHost(); err != nil {
+		return err
+	}
+
+	if err = h.StartHolePunching(); err != nil {
+		log.Fatalf("failed to hole punch: %v", err)
+	}
 
 	// Waiting for shutdown signal
 	<-c.Context.Done()

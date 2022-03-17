@@ -122,13 +122,13 @@ var PeerWhere = struct {
 var PeerRels = struct {
 	LocalConnectionEvents  string
 	RemoteConnectionEvents string
-	LocalHolePunchResults  string
+	ClientHolePunchResults string
 	RemoteHolePunchResults string
 	PeerLogs               string
 }{
 	LocalConnectionEvents:  "LocalConnectionEvents",
 	RemoteConnectionEvents: "RemoteConnectionEvents",
-	LocalHolePunchResults:  "LocalHolePunchResults",
+	ClientHolePunchResults: "ClientHolePunchResults",
 	RemoteHolePunchResults: "RemoteHolePunchResults",
 	PeerLogs:               "PeerLogs",
 }
@@ -137,7 +137,7 @@ var PeerRels = struct {
 type peerR struct {
 	LocalConnectionEvents  ConnectionEventSlice `boil:"LocalConnectionEvents" json:"LocalConnectionEvents" toml:"LocalConnectionEvents" yaml:"LocalConnectionEvents"`
 	RemoteConnectionEvents ConnectionEventSlice `boil:"RemoteConnectionEvents" json:"RemoteConnectionEvents" toml:"RemoteConnectionEvents" yaml:"RemoteConnectionEvents"`
-	LocalHolePunchResults  HolePunchResultSlice `boil:"LocalHolePunchResults" json:"LocalHolePunchResults" toml:"LocalHolePunchResults" yaml:"LocalHolePunchResults"`
+	ClientHolePunchResults HolePunchResultSlice `boil:"ClientHolePunchResults" json:"ClientHolePunchResults" toml:"ClientHolePunchResults" yaml:"ClientHolePunchResults"`
 	RemoteHolePunchResults HolePunchResultSlice `boil:"RemoteHolePunchResults" json:"RemoteHolePunchResults" toml:"RemoteHolePunchResults" yaml:"RemoteHolePunchResults"`
 	PeerLogs               PeerLogSlice         `boil:"PeerLogs" json:"PeerLogs" toml:"PeerLogs" yaml:"PeerLogs"`
 }
@@ -474,15 +474,15 @@ func (o *Peer) RemoteConnectionEvents(mods ...qm.QueryMod) connectionEventQuery 
 	return query
 }
 
-// LocalHolePunchResults retrieves all the hole_punch_result's HolePunchResults with an executor via local_id column.
-func (o *Peer) LocalHolePunchResults(mods ...qm.QueryMod) holePunchResultQuery {
+// ClientHolePunchResults retrieves all the hole_punch_result's HolePunchResults with an executor via client_id column.
+func (o *Peer) ClientHolePunchResults(mods ...qm.QueryMod) holePunchResultQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
 	}
 
 	queryMods = append(queryMods,
-		qm.Where("\"hole_punch_results\".\"local_id\"=?", o.ID),
+		qm.Where("\"hole_punch_results\".\"client_id\"=?", o.ID),
 	)
 
 	query := HolePunchResults(queryMods...)
@@ -733,9 +733,9 @@ func (peerL) LoadRemoteConnectionEvents(ctx context.Context, e boil.ContextExecu
 	return nil
 }
 
-// LoadLocalHolePunchResults allows an eager lookup of values, cached into the
+// LoadClientHolePunchResults allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (peerL) LoadLocalHolePunchResults(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+func (peerL) LoadClientHolePunchResults(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
 	var slice []*Peer
 	var object *Peer
 
@@ -774,7 +774,7 @@ func (peerL) LoadLocalHolePunchResults(ctx context.Context, e boil.ContextExecut
 
 	query := NewQuery(
 		qm.From(`hole_punch_results`),
-		qm.WhereIn(`hole_punch_results.local_id in ?`, args...),
+		qm.WhereIn(`hole_punch_results.client_id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -805,24 +805,24 @@ func (peerL) LoadLocalHolePunchResults(ctx context.Context, e boil.ContextExecut
 		}
 	}
 	if singular {
-		object.R.LocalHolePunchResults = resultSlice
+		object.R.ClientHolePunchResults = resultSlice
 		for _, foreign := range resultSlice {
 			if foreign.R == nil {
 				foreign.R = &holePunchResultR{}
 			}
-			foreign.R.Local = object
+			foreign.R.Client = object
 		}
 		return nil
 	}
 
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == foreign.LocalID {
-				local.R.LocalHolePunchResults = append(local.R.LocalHolePunchResults, foreign)
+			if local.ID == foreign.ClientID {
+				local.R.ClientHolePunchResults = append(local.R.ClientHolePunchResults, foreign)
 				if foreign.R == nil {
 					foreign.R = &holePunchResultR{}
 				}
-				foreign.R.Local = local
+				foreign.R.Client = local
 				break
 			}
 		}
@@ -1133,22 +1133,22 @@ func (o *Peer) AddRemoteConnectionEvents(ctx context.Context, exec boil.ContextE
 	return nil
 }
 
-// AddLocalHolePunchResults adds the given related objects to the existing relationships
+// AddClientHolePunchResults adds the given related objects to the existing relationships
 // of the peer, optionally inserting them as new records.
-// Appends related to o.R.LocalHolePunchResults.
-// Sets related.R.Local appropriately.
-func (o *Peer) AddLocalHolePunchResults(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResult) error {
+// Appends related to o.R.ClientHolePunchResults.
+// Sets related.R.Client appropriately.
+func (o *Peer) AddClientHolePunchResults(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResult) error {
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.LocalID = o.ID
+			rel.ClientID = o.ID
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
 		} else {
 			updateQuery := fmt.Sprintf(
 				"UPDATE \"hole_punch_results\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"local_id"}),
+				strmangle.SetParamNames("\"", "\"", 1, []string{"client_id"}),
 				strmangle.WhereClause("\"", "\"", 2, holePunchResultPrimaryKeyColumns),
 			)
 			values := []interface{}{o.ID, rel.ID}
@@ -1162,25 +1162,25 @@ func (o *Peer) AddLocalHolePunchResults(ctx context.Context, exec boil.ContextEx
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.LocalID = o.ID
+			rel.ClientID = o.ID
 		}
 	}
 
 	if o.R == nil {
 		o.R = &peerR{
-			LocalHolePunchResults: related,
+			ClientHolePunchResults: related,
 		}
 	} else {
-		o.R.LocalHolePunchResults = append(o.R.LocalHolePunchResults, related...)
+		o.R.ClientHolePunchResults = append(o.R.ClientHolePunchResults, related...)
 	}
 
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &holePunchResultR{
-				Local: o,
+				Client: o,
 			}
 		} else {
-			rel.R.Local = o
+			rel.R.Client = o
 		}
 	}
 	return nil

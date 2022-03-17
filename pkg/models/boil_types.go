@@ -60,7 +60,8 @@ const (
 
 // Enum values for hole_punch_end_reason
 const (
-	HolePunchEndReasonDirectDial    = "direct_dial"
-	HolePunchEndReasonProtocolError = "protocol_error"
-	HolePunchEndReasonHolePunch     = "hole_punch"
+	HolePunchEndReasonUNKNOWN        = "UNKNOWN"
+	HolePunchEndReasonDIRECT_DIAL    = "DIRECT_DIAL"
+	HolePunchEndReasonPROTOCOL_ERROR = "PROTOCOL_ERROR"
+	HolePunchEndReasonHOLE_PUNCH     = "HOLE_PUNCH"
 )

@@ -22,7 +22,13 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PunchrServiceClient interface {
+	// Register takes punchr client information and saves them to the database.
+	// This should be called upon start of a client.
+	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	// GetAddrInfo returns peer address information that should be used to attempt
+	// a hole punch. Clients should call this endpoint periodically.
 	GetAddrInfo(ctx context.Context, in *GetAddrInfoRequest, opts ...grpc.CallOption) (*GetAddrInfoResponse, error)
+	// TrackHolePunch takes measurement data from the client and persists them in the database
 	TrackHolePunch(ctx context.Context, in *TrackHolePunchRequest, opts ...grpc.CallOption) (*TrackHolePunchResponse, error)
 }
 
@@ -32,6 +38,15 @@ type punchrServiceClient struct {
 
 func NewPunchrServiceClient(cc grpc.ClientConnInterface) PunchrServiceClient {
 	return &punchrServiceClient{cc}
+}
+
+func (c *punchrServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
+	out := new(RegisterResponse)
+	err := c.cc.Invoke(ctx, "/PunchrService/Register", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *punchrServiceClient) GetAddrInfo(ctx context.Context, in *GetAddrInfoRequest, opts ...grpc.CallOption) (*GetAddrInfoResponse, error) {
@@ -56,7 +71,13 @@ func (c *punchrServiceClient) TrackHolePunch(ctx context.Context, in *TrackHoleP
 // All implementations must embed UnimplementedPunchrServiceServer
 // for forward compatibility
 type PunchrServiceServer interface {
+	// Register takes punchr client information and saves them to the database.
+	// This should be called upon start of a client.
+	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	// GetAddrInfo returns peer address information that should be used to attempt
+	// a hole punch. Clients should call this endpoint periodically.
 	GetAddrInfo(context.Context, *GetAddrInfoRequest) (*GetAddrInfoResponse, error)
+	// TrackHolePunch takes measurement data from the client and persists them in the database
 	TrackHolePunch(context.Context, *TrackHolePunchRequest) (*TrackHolePunchResponse, error)
 	mustEmbedUnimplementedPunchrServiceServer()
 }
@@ -65,6 +86,9 @@ type PunchrServiceServer interface {
 type UnimplementedPunchrServiceServer struct {
 }
 
+func (UnimplementedPunchrServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
+}
 func (UnimplementedPunchrServiceServer) GetAddrInfo(context.Context, *GetAddrInfoRequest) (*GetAddrInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAddrInfo not implemented")
 }
@@ -82,6 +106,24 @@ type UnsafePunchrServiceServer interface {
 
 func RegisterPunchrServiceServer(s grpc.ServiceRegistrar, srv PunchrServiceServer) {
 	s.RegisterService(&PunchrService_ServiceDesc, srv)
+}
+
+func _PunchrService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PunchrServiceServer).Register(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/PunchrService/Register",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PunchrServiceServer).Register(ctx, req.(*RegisterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PunchrService_GetAddrInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -127,6 +169,10 @@ var PunchrService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "PunchrService",
 	HandlerType: (*PunchrServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Register",
+			Handler:    _PunchrService_Register_Handler,
+		},
 		{
 			MethodName: "GetAddrInfo",
 			Handler:    _PunchrService_GetAddrInfo_Handler,

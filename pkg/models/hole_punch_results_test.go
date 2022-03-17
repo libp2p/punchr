@@ -494,7 +494,319 @@ func testHolePunchResultsInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testHolePunchResultToOnePeerUsingLocal(t *testing.T) {
+func testHolePunchResultToManyMultiAddresses(t *testing.T) {
+	var err error
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a HolePunchResult
+	var b, c MultiAddress
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, true, holePunchResultColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize HolePunchResult struct: %s", err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = randomize.Struct(seed, &b, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result\", \"multi_address_id\") values ($1, $2)", a.ID, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result\", \"multi_address_id\") values ($1, $2)", a.ID, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.MultiAddresses().All(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.ID == b.ID {
+			bFound = true
+		}
+		if v.ID == c.ID {
+			cFound = true
+		}
+	}
+
+	if !bFound {
+		t.Error("expected to find b")
+	}
+	if !cFound {
+		t.Error("expected to find c")
+	}
+
+	slice := HolePunchResultSlice{&a}
+	if err = a.L.LoadMultiAddresses(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.MultiAddresses); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.MultiAddresses = nil
+	if err = a.L.LoadMultiAddresses(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.MultiAddresses); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
+	}
+}
+
+func testHolePunchResultToManyAddOpMultiAddresses(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a HolePunchResult
+	var b, c, d, e MultiAddress
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*MultiAddress{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	foreignersSplitByInsertion := [][]*MultiAddress{
+		{&b, &c},
+		{&d, &e},
+	}
+
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddMultiAddresses(ctx, tx, i != 0, x...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		first := x[0]
+		second := x[1]
+
+		if first.R.HolePunchResults[0] != &a {
+			t.Error("relationship was not added properly to the slice")
+		}
+		if second.R.HolePunchResults[0] != &a {
+			t.Error("relationship was not added properly to the slice")
+		}
+
+		if a.R.MultiAddresses[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.MultiAddresses[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
+
+		count, err := a.MultiAddresses().Count(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
+		}
+	}
+}
+
+func testHolePunchResultToManySetOpMultiAddresses(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a HolePunchResult
+	var b, c, d, e MultiAddress
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*MultiAddress{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.SetMultiAddresses(ctx, tx, false, &b, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.MultiAddresses().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.SetMultiAddresses(ctx, tx, true, &d, &e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.MultiAddresses().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	// The following checks cannot be implemented since we have no handle
+	// to these when we call Set(). Leaving them here as wishful thinking
+	// and to let people know there's dragons.
+	//
+	// if len(b.R.HolePunchResults) != 0 {
+	// 	t.Error("relationship was not removed properly from the slice")
+	// }
+	// if len(c.R.HolePunchResults) != 0 {
+	// 	t.Error("relationship was not removed properly from the slice")
+	// }
+	if d.R.HolePunchResults[0] != &a {
+		t.Error("relationship was not added properly to the slice")
+	}
+	if e.R.HolePunchResults[0] != &a {
+		t.Error("relationship was not added properly to the slice")
+	}
+
+	if a.R.MultiAddresses[0] != &d {
+		t.Error("relationship struct slice not set to correct value")
+	}
+	if a.R.MultiAddresses[1] != &e {
+		t.Error("relationship struct slice not set to correct value")
+	}
+}
+
+func testHolePunchResultToManyRemoveOpMultiAddresses(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a HolePunchResult
+	var b, c, d, e MultiAddress
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*MultiAddress{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.AddMultiAddresses(ctx, tx, true, foreigners...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.MultiAddresses().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.RemoveMultiAddresses(ctx, tx, foreigners[:2]...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.MultiAddresses().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if len(b.R.HolePunchResults) != 0 {
+		t.Error("relationship was not removed properly from the slice")
+	}
+	if len(c.R.HolePunchResults) != 0 {
+		t.Error("relationship was not removed properly from the slice")
+	}
+	if d.R.HolePunchResults[0] != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.HolePunchResults[0] != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+
+	if len(a.R.MultiAddresses) != 2 {
+		t.Error("should have preserved two relationships")
+	}
+
+	// Removal doesn't do a stable deletion for performance so we have to flip the order
+	if a.R.MultiAddresses[1] != &d {
+		t.Error("relationship to d should have been preserved")
+	}
+	if a.R.MultiAddresses[0] != &e {
+		t.Error("relationship to e should have been preserved")
+	}
+}
+
+func testHolePunchResultToOnePeerUsingClient(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
@@ -514,12 +826,12 @@ func testHolePunchResultToOnePeerUsingLocal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	local.LocalID = foreign.ID
+	local.ClientID = foreign.ID
 	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := local.Local().One(ctx, tx)
+	check, err := local.Client().One(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -529,69 +841,18 @@ func testHolePunchResultToOnePeerUsingLocal(t *testing.T) {
 	}
 
 	slice := HolePunchResultSlice{&local}
-	if err = local.L.LoadLocal(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
+	if err = local.L.LoadClient(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.Local == nil {
+	if local.R.Client == nil {
 		t.Error("struct should have been eager loaded")
 	}
 
-	local.R.Local = nil
-	if err = local.L.LoadLocal(ctx, tx, true, &local, nil); err != nil {
+	local.R.Client = nil
+	if err = local.L.LoadClient(ctx, tx, true, &local, nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.Local == nil {
-		t.Error("struct should have been eager loaded")
-	}
-}
-
-func testHolePunchResultToOneMultiAddressUsingMultiAddress(t *testing.T) {
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var local HolePunchResult
-	var foreign MultiAddress
-
-	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, holePunchResultDBTypes, false, holePunchResultColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize HolePunchResult struct: %s", err)
-	}
-	if err := randomize.Struct(seed, &foreign, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
-	}
-
-	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	local.MultiAddressID = foreign.ID
-	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	check, err := local.MultiAddress().One(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if check.ID != foreign.ID {
-		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
-	}
-
-	slice := HolePunchResultSlice{&local}
-	if err = local.L.LoadMultiAddress(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.MultiAddress == nil {
-		t.Error("struct should have been eager loaded")
-	}
-
-	local.R.MultiAddress = nil
-	if err = local.L.LoadMultiAddress(ctx, tx, true, &local, nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.MultiAddress == nil {
+	if local.R.Client == nil {
 		t.Error("struct should have been eager loaded")
 	}
 }
@@ -647,7 +908,7 @@ func testHolePunchResultToOnePeerUsingRemote(t *testing.T) {
 	}
 }
 
-func testHolePunchResultToOneSetOpPeerUsingLocal(t *testing.T) {
+func testHolePunchResultToOneSetOpPeerUsingClient(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -676,88 +937,31 @@ func testHolePunchResultToOneSetOpPeerUsingLocal(t *testing.T) {
 	}
 
 	for i, x := range []*Peer{&b, &c} {
-		err = a.SetLocal(ctx, tx, i != 0, x)
+		err = a.SetClient(ctx, tx, i != 0, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if a.R.Local != x {
+		if a.R.Client != x {
 			t.Error("relationship struct not set to correct value")
 		}
 
-		if x.R.LocalHolePunchResults[0] != &a {
+		if x.R.ClientHolePunchResults[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
-		if a.LocalID != x.ID {
-			t.Error("foreign key was wrong value", a.LocalID)
+		if a.ClientID != x.ID {
+			t.Error("foreign key was wrong value", a.ClientID)
 		}
 
-		zero := reflect.Zero(reflect.TypeOf(a.LocalID))
-		reflect.Indirect(reflect.ValueOf(&a.LocalID)).Set(zero)
+		zero := reflect.Zero(reflect.TypeOf(a.ClientID))
+		reflect.Indirect(reflect.ValueOf(&a.ClientID)).Set(zero)
 
 		if err = a.Reload(ctx, tx); err != nil {
 			t.Fatal("failed to reload", err)
 		}
 
-		if a.LocalID != x.ID {
-			t.Error("foreign key was wrong value", a.LocalID, x.ID)
-		}
-	}
-}
-func testHolePunchResultToOneSetOpMultiAddressUsingMultiAddress(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a HolePunchResult
-	var b, c MultiAddress
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &b, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	for i, x := range []*MultiAddress{&b, &c} {
-		err = a.SetMultiAddress(ctx, tx, i != 0, x)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if a.R.MultiAddress != x {
-			t.Error("relationship struct not set to correct value")
-		}
-
-		if x.R.HolePunchResults[0] != &a {
-			t.Error("failed to append to foreign relationship struct")
-		}
-		if a.MultiAddressID != x.ID {
-			t.Error("foreign key was wrong value", a.MultiAddressID)
-		}
-
-		zero := reflect.Zero(reflect.TypeOf(a.MultiAddressID))
-		reflect.Indirect(reflect.ValueOf(&a.MultiAddressID)).Set(zero)
-
-		if err = a.Reload(ctx, tx); err != nil {
-			t.Fatal("failed to reload", err)
-		}
-
-		if a.MultiAddressID != x.ID {
-			t.Error("foreign key was wrong value", a.MultiAddressID, x.ID)
+		if a.ClientID != x.ID {
+			t.Error("foreign key was wrong value", a.ClientID, x.ID)
 		}
 	}
 }
@@ -893,7 +1097,7 @@ func testHolePunchResultsSelect(t *testing.T) {
 }
 
 var (
-	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `LocalID`: `bigint`, `RemoteID`: `bigint`, `MultiAddressID`: `bigint`, `StartRTT`: `interval`, `ElapsedTime`: `interval`, `EndReason`: `enum.hole_punch_end_reason('direct_dial','protocol_error','hole_punch')`, `Attempts`: `smallint`, `Success`: `boolean`, `Error`: `text`, `DirectDialError`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `RemoteID`: `bigint`, `StartRTT`: `interval`, `ElapsedTime`: `interval`, `EndReason`: `enum.hole_punch_end_reason('UNKNOWN','DIRECT_DIAL','PROTOCOL_ERROR','HOLE_PUNCH')`, `Attempts`: `smallint`, `Success`: `boolean`, `Error`: `text`, `DirectDialError`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                      = bytes.MinRead
 )
 

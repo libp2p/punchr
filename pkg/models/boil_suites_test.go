@@ -131,8 +131,7 @@ func TestToOne(t *testing.T) {
 	t.Run("ConnectionEventToPeerUsingLocal", testConnectionEventToOnePeerUsingLocal)
 	t.Run("ConnectionEventToMultiAddressUsingConnectionMultiAddress", testConnectionEventToOneMultiAddressUsingConnectionMultiAddress)
 	t.Run("ConnectionEventToPeerUsingRemote", testConnectionEventToOnePeerUsingRemote)
-	t.Run("HolePunchResultToPeerUsingLocal", testHolePunchResultToOnePeerUsingLocal)
-	t.Run("HolePunchResultToMultiAddressUsingMultiAddress", testHolePunchResultToOneMultiAddressUsingMultiAddress)
+	t.Run("HolePunchResultToPeerUsingClient", testHolePunchResultToOnePeerUsingClient)
 	t.Run("HolePunchResultToPeerUsingRemote", testHolePunchResultToOnePeerUsingRemote)
 	t.Run("PeerLogToPeerUsingPeer", testPeerLogToOnePeerUsingPeer)
 }
@@ -145,6 +144,7 @@ func TestOneToOne(t *testing.T) {}
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyMultiAddresses)
+	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManyMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyMultiAddresses)
 	t.Run("MultiAddressToConnectionMultiAddressConnectionEvents", testMultiAddressToManyConnectionMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyConnectionEvents)
@@ -152,7 +152,7 @@ func TestToMany(t *testing.T) {
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyIPAddresses)
 	t.Run("PeerToLocalConnectionEvents", testPeerToManyLocalConnectionEvents)
 	t.Run("PeerToRemoteConnectionEvents", testPeerToManyRemoteConnectionEvents)
-	t.Run("PeerToLocalHolePunchResults", testPeerToManyLocalHolePunchResults)
+	t.Run("PeerToClientHolePunchResults", testPeerToManyClientHolePunchResults)
 	t.Run("PeerToRemoteHolePunchResults", testPeerToManyRemoteHolePunchResults)
 	t.Run("PeerToPeerLogs", testPeerToManyPeerLogs)
 }
@@ -163,8 +163,7 @@ func TestToOneSet(t *testing.T) {
 	t.Run("ConnectionEventToPeerUsingLocalConnectionEvents", testConnectionEventToOneSetOpPeerUsingLocal)
 	t.Run("ConnectionEventToMultiAddressUsingConnectionMultiAddressConnectionEvents", testConnectionEventToOneSetOpMultiAddressUsingConnectionMultiAddress)
 	t.Run("ConnectionEventToPeerUsingRemoteConnectionEvents", testConnectionEventToOneSetOpPeerUsingRemote)
-	t.Run("HolePunchResultToPeerUsingLocalHolePunchResults", testHolePunchResultToOneSetOpPeerUsingLocal)
-	t.Run("HolePunchResultToMultiAddressUsingHolePunchResults", testHolePunchResultToOneSetOpMultiAddressUsingMultiAddress)
+	t.Run("HolePunchResultToPeerUsingClientHolePunchResults", testHolePunchResultToOneSetOpPeerUsingClient)
 	t.Run("HolePunchResultToPeerUsingRemoteHolePunchResults", testHolePunchResultToOneSetOpPeerUsingRemote)
 	t.Run("PeerLogToPeerUsingPeerLogs", testPeerLogToOneSetOpPeerUsingPeer)
 }
@@ -185,6 +184,7 @@ func TestOneToOneRemove(t *testing.T) {}
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyAddOpMultiAddresses)
+	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManyAddOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyAddOpMultiAddresses)
 	t.Run("MultiAddressToConnectionMultiAddressConnectionEvents", testMultiAddressToManyAddOpConnectionMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyAddOpConnectionEvents)
@@ -192,7 +192,7 @@ func TestToManyAdd(t *testing.T) {
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyAddOpIPAddresses)
 	t.Run("PeerToLocalConnectionEvents", testPeerToManyAddOpLocalConnectionEvents)
 	t.Run("PeerToRemoteConnectionEvents", testPeerToManyAddOpRemoteConnectionEvents)
-	t.Run("PeerToLocalHolePunchResults", testPeerToManyAddOpLocalHolePunchResults)
+	t.Run("PeerToClientHolePunchResults", testPeerToManyAddOpClientHolePunchResults)
 	t.Run("PeerToRemoteHolePunchResults", testPeerToManyAddOpRemoteHolePunchResults)
 	t.Run("PeerToPeerLogs", testPeerToManyAddOpPeerLogs)
 }
@@ -201,8 +201,10 @@ func TestToManyAdd(t *testing.T) {
 // or deadlocks can occur.
 func TestToManySet(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManySetOpMultiAddresses)
+	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManySetOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManySetOpMultiAddresses)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManySetOpConnectionEvents)
+	t.Run("MultiAddressToHolePunchResults", testMultiAddressToManySetOpHolePunchResults)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManySetOpIPAddresses)
 }
 
@@ -210,8 +212,10 @@ func TestToManySet(t *testing.T) {
 // or deadlocks can occur.
 func TestToManyRemove(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyRemoveOpMultiAddresses)
+	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManyRemoveOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyRemoveOpMultiAddresses)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyRemoveOpConnectionEvents)
+	t.Run("MultiAddressToHolePunchResults", testMultiAddressToManyRemoveOpHolePunchResults)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyRemoveOpIPAddresses)
 }
 

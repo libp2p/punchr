@@ -125,9 +125,11 @@ func RootAction(c *cli.Context) error {
 	})
 
 	log.WithField("addr", lis.Addr().String()).Infoln("Starting server")
-	if err := s.Serve(lis); err != nil {
-		return errors.Wrap(err, "failed to serve")
-	}
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			log.Fatalln(errors.Wrap(err, "failed to serve"))
+		}
+	}()
 
 	// Waiting for shutdown signal
 	<-c.Context.Done()
@@ -136,6 +138,8 @@ func RootAction(c *cli.Context) error {
 	if err = dbClient.Close(); err != nil {
 		log.WithError(err).Warnln("closing db client")
 	}
+
+	s.Stop()
 
 	log.Info("Done!")
 	return nil

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -66,6 +68,21 @@ func NewClient(c *cli.Context) (*Client, error) {
 	mmClient, err := maxmind.NewClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "new maxmind client")
+	}
+
+	driver, err := postgres.WithInstance(dbh, &postgres.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://./migrations", "punchr", driver)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return nil, err
 	}
 
 	return &Client{DB: dbh, MMClient: mmClient}, nil

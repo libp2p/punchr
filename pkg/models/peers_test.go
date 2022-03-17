@@ -650,7 +650,7 @@ func testPeerToManyRemoteConnectionEvents(t *testing.T) {
 	}
 }
 
-func testPeerToManyLocalHolePunchResults(t *testing.T) {
+func testPeerToManyClientHolePunchResults(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -675,8 +675,8 @@ func testPeerToManyLocalHolePunchResults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.LocalID = a.ID
-	c.LocalID = a.ID
+	b.ClientID = a.ID
+	c.ClientID = a.ID
 
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
@@ -685,17 +685,17 @@ func testPeerToManyLocalHolePunchResults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	check, err := a.LocalHolePunchResults().All(ctx, tx)
+	check, err := a.ClientHolePunchResults().All(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.LocalID == b.LocalID {
+		if v.ClientID == b.ClientID {
 			bFound = true
 		}
-		if v.LocalID == c.LocalID {
+		if v.ClientID == c.ClientID {
 			cFound = true
 		}
 	}
@@ -708,18 +708,18 @@ func testPeerToManyLocalHolePunchResults(t *testing.T) {
 	}
 
 	slice := PeerSlice{&a}
-	if err = a.L.LoadLocalHolePunchResults(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
+	if err = a.L.LoadClientHolePunchResults(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.LocalHolePunchResults); got != 2 {
+	if got := len(a.R.ClientHolePunchResults); got != 2 {
 		t.Error("number of eager loaded records wrong, got:", got)
 	}
 
-	a.R.LocalHolePunchResults = nil
-	if err = a.L.LoadLocalHolePunchResults(ctx, tx, true, &a, nil); err != nil {
+	a.R.ClientHolePunchResults = nil
+	if err = a.L.LoadClientHolePunchResults(ctx, tx, true, &a, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.LocalHolePunchResults); got != 2 {
+	if got := len(a.R.ClientHolePunchResults); got != 2 {
 		t.Error("number of eager loaded records wrong, got:", got)
 	}
 
@@ -1034,7 +1034,7 @@ func testPeerToManyAddOpRemoteConnectionEvents(t *testing.T) {
 		}
 	}
 }
-func testPeerToManyAddOpLocalHolePunchResults(t *testing.T) {
+func testPeerToManyAddOpClientHolePunchResults(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -1071,7 +1071,7 @@ func testPeerToManyAddOpLocalHolePunchResults(t *testing.T) {
 	}
 
 	for i, x := range foreignersSplitByInsertion {
-		err = a.AddLocalHolePunchResults(ctx, tx, i != 0, x...)
+		err = a.AddClientHolePunchResults(ctx, tx, i != 0, x...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1079,28 +1079,28 @@ func testPeerToManyAddOpLocalHolePunchResults(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.LocalID {
-			t.Error("foreign key was wrong value", a.ID, first.LocalID)
+		if a.ID != first.ClientID {
+			t.Error("foreign key was wrong value", a.ID, first.ClientID)
 		}
-		if a.ID != second.LocalID {
-			t.Error("foreign key was wrong value", a.ID, second.LocalID)
+		if a.ID != second.ClientID {
+			t.Error("foreign key was wrong value", a.ID, second.ClientID)
 		}
 
-		if first.R.Local != &a {
+		if first.R.Client != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
-		if second.R.Local != &a {
+		if second.R.Client != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
 
-		if a.R.LocalHolePunchResults[i*2] != first {
+		if a.R.ClientHolePunchResults[i*2] != first {
 			t.Error("relationship struct slice not set to correct value")
 		}
-		if a.R.LocalHolePunchResults[i*2+1] != second {
+		if a.R.ClientHolePunchResults[i*2+1] != second {
 			t.Error("relationship struct slice not set to correct value")
 		}
 
-		count, err := a.LocalHolePunchResults().Count(ctx, tx)
+		count, err := a.ClientHolePunchResults().Count(ctx, tx)
 		if err != nil {
 			t.Fatal(err)
 		}
