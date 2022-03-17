@@ -518,7 +518,7 @@ func (o *HolePunchResult) MultiAddresses(mods ...qm.QueryMod) multiAddressQuery 
 
 	queryMods = append(queryMods,
 		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" on \"multi_addresses\".\"id\" = \"hole_punch_results_x_multi_addresses\".\"multi_address_id\""),
-		qm.Where("\"hole_punch_results_x_multi_addresses\".\"hole_punch_result\"=?", o.ID),
+		qm.Where("\"hole_punch_results_x_multi_addresses\".\"hole_punch_result_id\"=?", o.ID),
 	)
 
 	query := MultiAddresses(queryMods...)
@@ -779,10 +779,10 @@ func (holePunchResultL) LoadMultiAddresses(ctx context.Context, e boil.ContextEx
 	}
 
 	query := NewQuery(
-		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".country, \"multi_addresses\".continent, \"multi_addresses\".asn, \"multi_addresses\".is_public, \"multi_addresses\".is_relay, \"multi_addresses\".ip_address_count, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"hole_punch_result\""),
+		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".country, \"multi_addresses\".continent, \"multi_addresses\".asn, \"multi_addresses\".is_public, \"multi_addresses\".is_relay, \"multi_addresses\".ip_address_count, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"hole_punch_result_id\""),
 		qm.From("\"multi_addresses\""),
 		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
-		qm.WhereIn("\"a\".\"hole_punch_result\" in ?", args...),
+		qm.WhereIn("\"a\".\"hole_punch_result_id\" in ?", args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -963,7 +963,7 @@ func (o *HolePunchResult) AddMultiAddresses(ctx context.Context, exec boil.Conte
 	}
 
 	for _, rel := range related {
-		query := "insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result\", \"multi_address_id\") values ($1, $2)"
+		query := "insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result_id\", \"multi_address_id\") values ($1, $2)"
 		values := []interface{}{o.ID, rel.ID}
 
 		if boil.IsDebug(ctx) {
@@ -1003,7 +1003,7 @@ func (o *HolePunchResult) AddMultiAddresses(ctx context.Context, exec boil.Conte
 // Replaces o.R.MultiAddresses with related.
 // Sets related.R.HolePunchResults's MultiAddresses accordingly.
 func (o *HolePunchResult) SetMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
-	query := "delete from \"hole_punch_results_x_multi_addresses\" where \"hole_punch_result\" = $1"
+	query := "delete from \"hole_punch_results_x_multi_addresses\" where \"hole_punch_result_id\" = $1"
 	values := []interface{}{o.ID}
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1032,7 +1032,7 @@ func (o *HolePunchResult) RemoveMultiAddresses(ctx context.Context, exec boil.Co
 
 	var err error
 	query := fmt.Sprintf(
-		"delete from \"hole_punch_results_x_multi_addresses\" where \"hole_punch_result\" = $1 and \"multi_address_id\" in (%s)",
+		"delete from \"hole_punch_results_x_multi_addresses\" where \"hole_punch_result_id\" = $1 and \"multi_address_id\" in (%s)",
 		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
 	)
 	values := []interface{}{o.ID}

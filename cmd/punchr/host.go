@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/routing"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -29,7 +32,7 @@ type Host struct {
 	APIClient pb.PunchrServiceClient
 
 	hpStatesLk sync.RWMutex
-	hpStates   map[peer.ID]HolePunchState
+	hpStates   map[peer.ID]*HolePunchState
 }
 
 func InitHost(c *cli.Context, port string) (*Host, error) {
@@ -37,7 +40,7 @@ func InitHost(c *cli.Context, port string) (*Host, error) {
 
 	h := &Host{
 		ctx:      c.Context,
-		hpStates: map[peer.ID]HolePunchState{},
+		hpStates: map[peer.ID]*HolePunchState{},
 	}
 
 	// Load private key data from file or create a new identity
@@ -59,6 +62,9 @@ func InitHost(c *cli.Context, port string) (*Host, error) {
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/tcp/%s", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/udp/%s/quic", port)),
 		libp2p.EnableHolePunching(holepunch.WithTracer(h)),
+		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
+			return kaddht.New(c.Context, h, kaddht.Mode(kaddht.ModeClient))
+		}),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
@@ -67,6 +73,17 @@ func InitHost(c *cli.Context, port string) (*Host, error) {
 	h.Host = libp2pHost
 
 	return h, nil
+}
+
+// Bootstrap connects this host to bootstrap peers.
+func (h *Host) Bootstrap(ctx context.Context) error {
+	for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
+		log.WithField("remoteID", util.FmtPeerID(bp.ID)).Info("Connecting to bootstrap peer...")
+		if err := h.Connect(ctx, bp); err != nil {
+			return errors.Wrap(err, "connecting to bootstrap peer")
+		}
+	}
+	return nil
 }
 
 // GetAgentVersion pulls the agent version from the peer store. Returns nil if no information is available.
@@ -98,20 +115,12 @@ func (h *Host) StartHolePunching() error {
 		default:
 		}
 
-		log.Infoln("Requesting addr infos from server")
-
 		addrInfo, err := h.RequestAddrInfo()
 		if err != nil {
-			log.WithError(err).Warnln("Error requesting addr info - sleeping 10s")
-			time.Sleep(10 * time.Second)
-			select {
-			case <-h.ctx.Done():
-				return h.ctx.Err()
-			case <-time.After(10 * time.Second):
-				continue
-			}
-		} else if addrInfo == nil {
-			log.Infoln("No peer to hole punch received")
+			log.WithError(err).Warnln("Error requesting addr info")
+		}
+		if addrInfo == nil {
+			log.Infoln("No peer to hole punch received waiting 10s")
 			select {
 			case <-h.ctx.Done():
 				return h.ctx.Err()
@@ -123,23 +132,36 @@ func (h *Host) StartHolePunching() error {
 			"remoteID": util.FmtPeerID(addrInfo.ID),
 		})
 
-		logEntry.Infoln("Connecting to peer")
+		log.Infoln("Connecting to", addrInfo.ID.String())
+		for i, maddr := range addrInfo.Addrs {
+			log.Infoln("\t["+strconv.Itoa(i)+"]", maddr.String())
+		}
 		hpState := h.NewHolePunchState(addrInfo.ID, addrInfo.Addrs)
-
 		if err = h.Connect(h.ctx, *addrInfo); err != nil {
 			logEntry.WithError(err).Warnln("Error connecting to remote peer")
+			hpState.Error = err.Error()
+			hpState.EndReason = pb.HolePunchEndReason_NO_CONNECTION
 		} else {
-			logEntry.Infoln("Successfully connected to peer!")
-		}
-
-		h.Peerstore().RemovePeer(hpState.RemoteID)
-		if err = h.Network().ClosePeer(hpState.RemoteID); err != nil {
-			logEntry.WithError(err).Warnln("Error closing connection")
+			if err = hpState.WaitForHolePunch(h.ctx); err != nil {
+				logEntry.WithError(err).Warnln("Hole punch (initiation) timeout")
+				hpState.Error = err.Error()
+			}
 		}
 
 		hpState = h.DeleteHolePunchState(addrInfo.ID)
 
+		h.Peerstore().RemovePeer(addrInfo.ID)
+		if err = h.Network().ClosePeer(addrInfo.ID); err != nil {
+			logEntry.WithError(err).Warnln("Error closing connection")
+		}
+
 		// Persist it
+		logEntry.WithFields(log.Fields{
+			"attempts":  hpState.Attempts,
+			"success":   hpState.Success,
+			"duration":  hpState.ElapsedTime,
+			"endReason": hpState.EndReason,
+		}).Infoln("Tracking hole punch result")
 		if err = h.TrackHolePunchResult(hpState); err != nil {
 			logEntry.WithError(err).Warnln("Error tracking hole punch result")
 		}
@@ -167,6 +189,8 @@ func (h *Host) RegisterHost() error {
 }
 
 func (h *Host) RequestAddrInfo() (*peer.AddrInfo, error) {
+	log.Infoln("Requesting addr infos from server...")
+
 	bytesLocalPeerID, err := h.ID().Marshal()
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal peer id")
@@ -197,7 +221,7 @@ func (h *Host) RequestAddrInfo() (*peer.AddrInfo, error) {
 	return &peer.AddrInfo{ID: remoteID, Addrs: maddrs}, nil
 }
 
-func (h *Host) TrackHolePunchResult(hps HolePunchState) error {
+func (h *Host) TrackHolePunchResult(hps *HolePunchState) error {
 	req, err := hps.ToProto(h.ID())
 	if err != nil {
 		return err
@@ -211,20 +235,22 @@ func (h *Host) TrackHolePunchResult(hps HolePunchState) error {
 	return nil
 }
 
-func (h *Host) NewHolePunchState(remoteID peer.ID, maddrs []multiaddr.Multiaddr) HolePunchState {
+func (h *Host) NewHolePunchState(remoteID peer.ID, maddrs []multiaddr.Multiaddr) *HolePunchState {
 	h.hpStatesLk.Lock()
 	defer h.hpStatesLk.Unlock()
 
-	h.hpStates[remoteID] = HolePunchState{
+	h.hpStates[remoteID] = &HolePunchState{
 		RemoteID:            remoteID,
 		ConnectionStartedAt: time.Now(),
 		RemoteMaddrs:        maddrs,
+		holePunchStarted:    make(chan struct{}),
+		holePunchFinished:   make(chan struct{}),
 	}
 
 	return h.hpStates[remoteID]
 }
 
-func (h *Host) DeleteHolePunchState(remoteID peer.ID) HolePunchState {
+func (h *Host) DeleteHolePunchState(remoteID peer.ID) *HolePunchState {
 	h.hpStatesLk.Lock()
 	defer h.hpStatesLk.Unlock()
 
@@ -234,38 +260,19 @@ func (h *Host) DeleteHolePunchState(remoteID peer.ID) HolePunchState {
 	return hpState
 }
 
-type EndReason string
-
-const (
-	EndReasonDirectDial    EndReason = "DIRECT_DIAL"
-	EndReasonProtocolError EndReason = "PROTOCOL_ERROR"
-	EndReasonHolePunchEnd  EndReason = "HOLE_PUNCH"
-)
-
-func (er EndReason) ToProto() pb.HolePunchEndReason {
-	switch er {
-	case EndReasonDirectDial:
-		return pb.HolePunchEndReason_DIRECT_DIAL
-	case EndReasonProtocolError:
-		return pb.HolePunchEndReason_PROTOCOL_ERROR
-	case EndReasonHolePunchEnd:
-		return pb.HolePunchEndReason_HOLE_PUNCH
-	default:
-		return pb.HolePunchEndReason_UNKNOWN
-	}
-}
-
 type HolePunchState struct {
 	RemoteID            peer.ID
 	ConnectionStartedAt time.Time
 	RemoteMaddrs        []multiaddr.Multiaddr
 	StartRTT            time.Duration
 	ElapsedTime         time.Duration
-	EndReason           EndReason
+	EndReason           pb.HolePunchEndReason
 	Attempts            int
 	Success             bool
 	Error               string
 	DirectDialError     string
+	holePunchStarted    chan struct{}
+	holePunchFinished   chan struct{}
 }
 
 func (hps HolePunchState) ToProto(peerID peer.ID) (*pb.TrackHolePunchRequest, error) {
@@ -295,8 +302,34 @@ func (hps HolePunchState) ToProto(peerID peer.ID) (*pb.TrackHolePunchRequest, er
 		DirectDialError:      hps.DirectDialError,
 		StartRtt:             float32(hps.StartRTT.Seconds()),
 		ElapsedTime:          float32(hps.ElapsedTime.Seconds()),
-		EndReason:            hps.EndReason.ToProto(),
+		EndReason:            hps.EndReason,
 	}, nil
+}
+
+func (hps HolePunchState) WaitForHolePunch(ctx context.Context) error {
+	logEntry := log.WithFields(log.Fields{"remoteID": util.FmtPeerID(hps.RemoteID)})
+	logEntry.WithField("waitDur", 15*time.Second).Infoln("Waiting for hole punch initiation...")
+
+	select {
+	case <-hps.holePunchStarted:
+	case <-time.After(15 * time.Second):
+		return errors.New("Hole punch was not initiated")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	logEntry.Infoln("Hole punch initiated!")
+	logEntry.WithField("waitDur", time.Minute).Infoln("Waiting to finish...")
+
+	// Then wait for the hole punch to finish
+	select {
+	case <-hps.holePunchFinished:
+		return nil
+	case <-time.After(time.Minute):
+		return errors.New("Hole punch did not finish after one minute")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (h *Host) Trace(evt *holepunch.Event) {
@@ -311,23 +344,28 @@ func (h *Host) Trace(evt *holepunch.Event) {
 	switch event := evt.Evt.(type) {
 	case *holepunch.StartHolePunchEvt:
 		hpState.StartRTT = event.RTT
+		close(hpState.holePunchStarted)
 	case *holepunch.EndHolePunchEvt:
-		hpState.EndReason = EndReasonHolePunchEnd
+		hpState.EndReason = pb.HolePunchEndReason_HOLE_PUNCH
 		hpState.Error = event.Error
 		hpState.Success = event.Success
 		hpState.ElapsedTime = event.EllapsedTime
+		close(hpState.holePunchFinished)
 	case *holepunch.HolePunchAttemptEvt:
-		hpState.Attempts = event.Attempt
+		hpState.Attempts += 1 // event.Attempt <-- does not count correctly if hole punching with same peer happens shortly after one another.
 	case *holepunch.ProtocolErrorEvt:
-		hpState.EndReason = EndReasonProtocolError
+		hpState.EndReason = pb.HolePunchEndReason_PROTOCOL_ERROR
 		hpState.Error = event.Error
 		hpState.Success = false
 		hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
+		close(hpState.holePunchFinished)
 	case *holepunch.DirectDialEvt:
+		log.Warnln("Unexpected event DirectDialEvt")
 		if event.Success {
-			hpState.EndReason = EndReasonDirectDial
+			hpState.EndReason = pb.HolePunchEndReason_DIRECT_DIAL
 			hpState.Success = event.Success
 			hpState.ElapsedTime = event.EllapsedTime
+			close(hpState.holePunchFinished)
 		} else {
 			hpState.DirectDialError = event.Error
 		}

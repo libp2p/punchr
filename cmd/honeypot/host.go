@@ -136,8 +136,8 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 }
 
 // WalkDHT slowly enumerates the whole DHT to announce ourselves to the network.
-func (h *Host) WalkDHT() {
-	c, err := crawler.New(h, crawler.WithParallelism(100))
+func (h *Host) WalkDHT(ctx context.Context) {
+	c, err := crawler.New(h, crawler.WithParallelism(100), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
 	if err != nil {
 		panic(err)
 	}
@@ -163,14 +163,14 @@ func (h *Host) WalkDHT() {
 		}
 
 		handleFail := func(p peer.ID, err error) {
-			if errors.Is(h.ctx.Err(), context.Canceled) {
+			if errors.Is(ctx.Err(), context.Canceled) {
 				return
 			}
 			log.WithError(err).WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
 			crawledPeers.With(prometheus.Labels{"status": "error"}).Inc()
 		}
 
-		c.Run(h.ctx, seedPeers, handleSuccess, handleFail)
+		c.Run(ctx, seedPeers, handleSuccess, handleFail)
 
 		log.Infoln("Done walking the DHT!")
 		completedWalks.Inc()

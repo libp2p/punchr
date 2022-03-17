@@ -114,16 +114,15 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "new db client")
 	}
 
+	// Initialize gRPC server
 	s := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", c.String("port")))
 	if err != nil {
 		return errors.Wrap(err, "failed to listen")
 	}
+	pb.RegisterPunchrServiceServer(s, &Server{DBClient: dbClient})
 
-	pb.RegisterPunchrServiceServer(s, &Server{
-		DBClient: dbClient,
-	})
-
+	// Start gRPC server
 	log.WithField("addr", lis.Addr().String()).Infoln("Starting server")
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -135,10 +134,12 @@ func RootAction(c *cli.Context) error {
 	<-c.Context.Done()
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
+	// Closing database connection
 	if err = dbClient.Close(); err != nil {
 		log.WithError(err).Warnln("closing db client")
 	}
 
+	// Stopping gRPC server
 	s.Stop()
 
 	log.Info("Done!")
@@ -148,7 +149,7 @@ func RootAction(c *cli.Context) error {
 // serveTelemetry starts an HTTP server for the prometheus and pprof handler.
 func serveTelemetry(c *cli.Context) {
 	addr := fmt.Sprintf("%s:%s", c.String("telemetry-host"), c.String("telemetry-port"))
-	log.WithField("addr", addr).Debugln("Starting prometheus endpoint")
+	log.WithField("addr", addr).Infoln("Starting telemetry endpoints")
 	http.Handle("/metrics", promhttp.Handler())
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Warnln("Error serving prometheus")

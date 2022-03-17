@@ -3,7 +3,10 @@ default: all
 test:
 	go test ./...
 
-build-linux: build-linux-honeypot build-linux-punchr build-linux-api
+clean:
+	rm -r dist
+
+build-linux: clean build-linux-honeypot build-linux-punchr build-linux-api
 
 build-linux-honeypot:
 	GOOS=linux GOARCH=amd64 go build -o dist/honeypot cmd/honeypot/*
@@ -14,7 +17,7 @@ build-linux-punchr:
 build-linux-api:
 	GOOS=linux GOARCH=amd64 go build -o dist/punchrapi cmd/api/*
 
-build: build-honeypot build-punchr build-api
+build: clean build-honeypot build-punchr build-api
 
 build-honeypot:
 	go build -o dist/honeypot cmd/honeypot/*

@@ -526,11 +526,11 @@ func testHolePunchResultToManyMultiAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result\", \"multi_address_id\") values ($1, $2)", a.ID, b.ID)
+	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result_id\", \"multi_address_id\") values ($1, $2)", a.ID, b.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result\", \"multi_address_id\") values ($1, $2)", a.ID, c.ID)
+	_, err = tx.Exec("insert into \"hole_punch_results_x_multi_addresses\" (\"hole_punch_result_id\", \"multi_address_id\") values ($1, $2)", a.ID, c.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1097,7 +1097,7 @@ func testHolePunchResultsSelect(t *testing.T) {
 }
 
 var (
-	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `RemoteID`: `bigint`, `StartRTT`: `interval`, `ElapsedTime`: `interval`, `EndReason`: `enum.hole_punch_end_reason('UNKNOWN','DIRECT_DIAL','PROTOCOL_ERROR','HOLE_PUNCH')`, `Attempts`: `smallint`, `Success`: `boolean`, `Error`: `text`, `DirectDialError`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `RemoteID`: `bigint`, `StartRTT`: `interval`, `ElapsedTime`: `interval`, `EndReason`: `enum.hole_punch_end_reason('UNKNOWN','NO_CONNECTION','DIRECT_DIAL','PROTOCOL_ERROR','HOLE_PUNCH')`, `Attempts`: `smallint`, `Success`: `boolean`, `Error`: `text`, `DirectDialError`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                      = bytes.MinRead
 )
 

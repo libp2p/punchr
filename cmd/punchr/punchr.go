@@ -86,23 +86,30 @@ func RootAction(c *cli.Context) error {
 	// Start telemetry endpoints
 	go serveTelemetry(c)
 
-	h, err := InitHost(c, c.String("port"))
-	if err != nil {
-		return errors.Wrap(err, "init host")
-	}
-
 	addr := fmt.Sprintf("%s:%s", c.String("api-host"), c.String("api-port"))
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
 
+	h, err := InitHost(c, c.String("port"))
+	if err != nil {
+		return errors.Wrap(err, "init host")
+	}
+
 	h.APIClient = pb.NewPunchrServiceClient(conn)
 
+	// Connect punchr host to bootstrap nodes
+	if err := h.Bootstrap(c.Context); err != nil {
+		return errors.Wrap(err, "bootstrap host")
+	}
+
+	// Register host at the API server
 	if err := h.RegisterHost(); err != nil {
 		return err
 	}
 
+	// Finally, start hole punching
 	if err = h.StartHolePunching(); err != nil {
 		log.Fatalf("failed to hole punch: %v", err)
 	}

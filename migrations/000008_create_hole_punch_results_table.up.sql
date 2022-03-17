@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE TYPE hole_punch_end_reason AS ENUM (
     'UNKNOWN',
+    'NO_CONNECTION',
     'DIRECT_DIAL',
     'PROTOCOL_ERROR',
     'HOLE_PUNCH'
@@ -10,7 +11,7 @@ CREATE TYPE hole_punch_end_reason AS ENUM (
 CREATE TABLE hole_punch_results
 (
     id                INT GENERATED ALWAYS AS IDENTITY,
-    client_id          BIGINT                NOT NULL,
+    client_id         BIGINT                NOT NULL,
     remote_id         BIGINT                NOT NULL,
     start_rtt         INTERVAL              NOT NULL,
     elapsed_time      INTERVAL              NOT NULL,

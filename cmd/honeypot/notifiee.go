@@ -69,16 +69,19 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 	defer db.DeferRollback(txn)
 
+	// Save all multi addresses of the connected peer
 	dbMaddrs, err := h.DBClient.UpsertMultiAddresses(h.ctx, txn, maddrs)
 	if err != nil {
 		return errors.Wrap(err, "upsert multi addresses")
 	}
 
+	// Save the connected peer
 	dbPeer, err := h.DBClient.UpsertPeer(h.ctx, txn, conn.RemotePeer(), agentVersion, protocols)
 	if err != nil {
 		return errors.Wrap(err, "upsert peer")
 	}
 
+	// Determine if there is at least one relay multi address and determine the database
 	var connMaddrID int64
 	var hasRelayMaddr bool
 	for _, dbMaddr := range dbMaddrs {
@@ -90,6 +93,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		}
 	}
 
+	// Save this connection event
 	dbConnEvt := &models.ConnectionEvent{
 		LocalID:                    h.DBPeer.ID,
 		RemoteID:                   dbPeer.ID,
@@ -103,6 +107,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		return errors.Wrap(err, "insert connection event")
 	}
 
+	// Associate multi addresses with this connection event
 	if err = dbConnEvt.SetMultiAddresses(h.ctx, txn, false, dbMaddrs...); err != nil {
 		return errors.Wrap(err, "set connection event multi addresses")
 	}

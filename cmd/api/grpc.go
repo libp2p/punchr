@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -49,23 +48,25 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 	}
 
 	query := `
-SELECT p.multi_hash, array_agg(ma.maddr)
+SELECT p.multi_hash, ma.maddr
 FROM connection_events ce
          INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
          INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
          INNER JOIN peers p ON ce.remote_id = p.id
 WHERE ce.listens_on_relay_multi_address = true
   AND ce.supports_dcutr = true
-  AND ce.created_at > NOW() - '10min'::INTERVAL
+  AND ce.opened_at > NOW() - '10min'::INTERVAL
+  AND ma.is_relay = true
   AND NOT EXISTS(
         SELECT
         FROM hole_punch_results hpr
-        WHERE hpr.remote_id = ce.remote_id
+                 INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
+        WHERE hpr.remote_id =  ce.remote_id
           AND hpr.client_id = $1
+          AND hprxma.multi_address_id =ma.id
           AND hpr.created_at > NOW() - '10min'::INTERVAL
     )
-GROUP BY p.multi_hash
-LIMIT 1;
+LIMIT 1
 `
 	rows, err := s.DBClient.QueryContext(ctx, query, dbClientPeer.ID)
 	if err != nil {
@@ -80,16 +81,12 @@ LIMIT 1;
 	if !rows.Next() {
 		return &pb.GetAddrInfoResponse{}, nil
 	}
+
 	var remoteMultiHash string
-	var remoteMaddrArrayStr string
-	if err = rows.Scan(&remoteMultiHash, &remoteMaddrArrayStr); err != nil {
+	var remoteMaddrStr string
+	if err = rows.Scan(&remoteMultiHash, &remoteMaddrStr); err != nil {
 		return nil, errors.Wrap(err, "map query results")
 	}
-
-	remoteMaddrArrayStr = strings.TrimPrefix(remoteMaddrArrayStr, "{")
-	remoteMaddrArrayStr = strings.TrimSuffix(remoteMaddrArrayStr, "}")
-	remoteMaddrStrs := strings.Split(remoteMaddrArrayStr, ",")
-
 	remoteID, err := peer.Decode(remoteMultiHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "query addr infos")
@@ -100,18 +97,14 @@ LIMIT 1;
 		return nil, errors.Wrap(err, "marshal remote ID to bytes")
 	}
 
-	maddrsBytes := make([][]byte, len(remoteMaddrStrs))
-	for i, maddrStr := range remoteMaddrStrs {
-		maddr, err := multiaddr.NewMultiaddr(maddrStr)
-		if err != nil {
-			return nil, errors.Wrapf(err, "parse multi address %s", maddrStr)
-		}
-		maddrsBytes[i] = maddr.Bytes()
+	maddr, err := multiaddr.NewMultiaddr(remoteMaddrStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse multi address %s", remoteMaddrStr)
 	}
 
 	resp := &pb.GetAddrInfoResponse{
 		RemoteId:       remoteIDBytes,
-		MultiAddresses: maddrsBytes,
+		MultiAddresses: [][]byte{maddr.Bytes()},
 	}
 
 	return resp, nil
@@ -146,6 +139,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		endReason = models.HolePunchEndReasonDIRECT_DIAL
 	case pb.HolePunchEndReason_HOLE_PUNCH:
 		endReason = models.HolePunchEndReasonHOLE_PUNCH
+	case pb.HolePunchEndReason_NO_CONNECTION:
+		endReason = models.HolePunchEndReasonNO_CONNECTION
 	}
 
 	// Start a database transaction

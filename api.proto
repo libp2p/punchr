@@ -37,9 +37,10 @@ message GetAddrInfoResponse {
 
 enum HolePunchEndReason {
   UNKNOWN = 0;
-  DIRECT_DIAL = 1;
-  PROTOCOL_ERROR = 2;
-  HOLE_PUNCH = 3;
+  NO_CONNECTION = 1;
+  DIRECT_DIAL = 2;
+  PROTOCOL_ERROR = 3;
+  HOLE_PUNCH = 4;
 }
 
 message TrackHolePunchRequest {

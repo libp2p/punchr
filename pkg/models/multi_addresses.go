@@ -475,7 +475,7 @@ func (o *MultiAddress) HolePunchResults(mods ...qm.QueryMod) holePunchResultQuer
 	}
 
 	queryMods = append(queryMods,
-		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" on \"hole_punch_results\".\"id\" = \"hole_punch_results_x_multi_addresses\".\"hole_punch_result\""),
+		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" on \"hole_punch_results\".\"id\" = \"hole_punch_results_x_multi_addresses\".\"hole_punch_result_id\""),
 		qm.Where("\"hole_punch_results_x_multi_addresses\".\"multi_address_id\"=?", o.ID),
 	)
 
@@ -766,7 +766,7 @@ func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExe
 	query := NewQuery(
 		qm.Select("\"hole_punch_results\".id, \"hole_punch_results\".client_id, \"hole_punch_results\".remote_id, \"hole_punch_results\".start_rtt, \"hole_punch_results\".elapsed_time, \"hole_punch_results\".end_reason, \"hole_punch_results\".attempts, \"hole_punch_results\".success, \"hole_punch_results\".error, \"hole_punch_results\".direct_dial_error, \"hole_punch_results\".updated_at, \"hole_punch_results\".created_at, \"a\".\"multi_address_id\""),
 		qm.From("\"hole_punch_results\""),
-		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" as \"a\" on \"hole_punch_results\".\"id\" = \"a\".\"hole_punch_result\""),
+		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" as \"a\" on \"hole_punch_results\".\"id\" = \"a\".\"hole_punch_result_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
 	)
 	if mods != nil {
@@ -1166,7 +1166,7 @@ func (o *MultiAddress) AddHolePunchResults(ctx context.Context, exec boil.Contex
 	}
 
 	for _, rel := range related {
-		query := "insert into \"hole_punch_results_x_multi_addresses\" (\"multi_address_id\", \"hole_punch_result\") values ($1, $2)"
+		query := "insert into \"hole_punch_results_x_multi_addresses\" (\"multi_address_id\", \"hole_punch_result_id\") values ($1, $2)"
 		values := []interface{}{o.ID, rel.ID}
 
 		if boil.IsDebug(ctx) {
@@ -1235,7 +1235,7 @@ func (o *MultiAddress) RemoveHolePunchResults(ctx context.Context, exec boil.Con
 
 	var err error
 	query := fmt.Sprintf(
-		"delete from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\" = $1 and \"hole_punch_result\" in (%s)",
+		"delete from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\" = $1 and \"hole_punch_result_id\" in (%s)",
 		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
 	)
 	values := []interface{}{o.ID}
