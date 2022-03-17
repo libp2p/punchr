@@ -62,6 +62,7 @@ const (
 const (
 	HolePunchEndReasonUNKNOWN        = "UNKNOWN"
 	HolePunchEndReasonNO_CONNECTION  = "NO_CONNECTION"
+	HolePunchEndReasonNOT_INITIATED  = "NOT_INITIATED"
 	HolePunchEndReasonDIRECT_DIAL    = "DIRECT_DIAL"
 	HolePunchEndReasonPROTOCOL_ERROR = "PROTOCOL_ERROR"
 	HolePunchEndReasonHOLE_PUNCH     = "HOLE_PUNCH"

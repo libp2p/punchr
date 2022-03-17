@@ -3,6 +3,7 @@ BEGIN;
 CREATE TYPE hole_punch_end_reason AS ENUM (
     'UNKNOWN',
     'NO_CONNECTION',
+    'NOT_INITIATED',
     'DIRECT_DIAL',
     'PROTOCOL_ERROR',
     'HOLE_PUNCH'

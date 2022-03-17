@@ -144,6 +144,7 @@ func (h *Host) StartHolePunching() error {
 		} else {
 			if err = hpState.WaitForHolePunch(h.ctx); err != nil {
 				logEntry.WithError(err).Warnln("Hole punch (initiation) timeout")
+				hpState.EndReason = pb.HolePunchEndReason_NOT_INITIATED
 				hpState.Error = err.Error()
 			}
 		}
@@ -313,7 +314,7 @@ func (hps HolePunchState) WaitForHolePunch(ctx context.Context) error {
 	select {
 	case <-hps.holePunchStarted:
 	case <-time.After(15 * time.Second):
-		return errors.New("Hole punch was not initiated")
+		return errors.New("hole punch was not initiated")
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -326,7 +327,7 @@ func (hps HolePunchState) WaitForHolePunch(ctx context.Context) error {
 	case <-hps.holePunchFinished:
 		return nil
 	case <-time.After(time.Minute):
-		return errors.New("Hole punch did not finish after one minute")
+		return errors.New("hole punch did not finish in time")
 	case <-ctx.Done():
 		return ctx.Err()
 	}

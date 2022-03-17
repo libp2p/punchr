@@ -144,7 +144,7 @@ func (h *Host) WalkDHT(ctx context.Context) {
 
 	for {
 		select {
-		case <-h.ctx.Done():
+		case <-ctx.Done():
 			return
 		default:
 		}
@@ -163,16 +163,22 @@ func (h *Host) WalkDHT(ctx context.Context) {
 		}
 
 		handleFail := func(p peer.ID, err error) {
-			if errors.Is(ctx.Err(), context.Canceled) {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				return
 			}
 			log.WithError(err).WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
 			crawledPeers.With(prometheus.Labels{"status": "error"}).Inc()
 		}
 
-		c.Run(ctx, seedPeers, handleSuccess, handleFail)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		c.Run(timeoutCtx, seedPeers, handleSuccess, handleFail)
+		cancel()
 
-		log.Infoln("Done walking the DHT!")
+		if timeoutCtx.Err() == nil {
+			log.Infoln("Done walking the DHT!")
+		} else {
+			log.WithError(timeoutCtx.Err()).Infoln("Done walking the DHT!")
+		}
 		completedWalks.Inc()
 	}
 }

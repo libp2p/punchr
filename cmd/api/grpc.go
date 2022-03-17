@@ -141,6 +141,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		endReason = models.HolePunchEndReasonHOLE_PUNCH
 	case pb.HolePunchEndReason_NO_CONNECTION:
 		endReason = models.HolePunchEndReasonNO_CONNECTION
+	case pb.HolePunchEndReason_NOT_INITIATED:
+		endReason = models.HolePunchEndReasonNOT_INITIATED
 	}
 
 	// Start a database transaction
