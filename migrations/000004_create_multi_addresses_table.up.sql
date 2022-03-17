@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE multi_addresses
 (
     id               BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -8,6 +6,7 @@ CREATE TABLE multi_addresses
     continent        VARCHAR(2),
     asn              INT,
     is_public        BOOL        NOT NULL,
+    is_relay         BOOL        NOT NULL,
     ip_address_count INT         NOT NULL,
 
     updated_at       TIMESTAMPTZ NOT NULL,
@@ -17,5 +16,3 @@ CREATE TABLE multi_addresses
 
     PRIMARY KEY (id)
 );
-
-COMMIT;

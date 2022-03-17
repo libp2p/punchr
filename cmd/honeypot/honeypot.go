@@ -20,39 +20,27 @@ import (
 )
 
 var (
-	connOpen = promauto.NewCounterVec(
+	handledConns = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name:      "connection_open",
+			Name:      "handled_connections",
 			Namespace: "honeypot",
-			Help:      "The connection open events of the honeypot libp2p host",
+			Help:      "The number of handled connections",
 		},
-		[]string{"direction"},
+		[]string{"status"},
 	)
-
-	connClose = promauto.NewCounterVec(
+	crawledPeers = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name:      "connection_close",
+			Name:      "crawled_peers",
 			Namespace: "honeypot",
-			Help:      "The connection close events of the honeypot libp2p host",
+			Help:      "The number of crawled peers during DHT walks",
 		},
-		[]string{"direction"},
+		[]string{"status"},
 	)
-
-	openConns = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "open_connections_total",
+	completedWalks = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name:      "completed_walks",
 			Namespace: "honeypot",
-			Help:      "The currently open connection of the honeypot libp2p host",
-		},
-		[]string{"direction"},
-	)
-
-	handleConnDur = promauto.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:      "handle_connected_duration",
-			Namespace: "honeypot",
-			Help:      "The time it took to handle a connection establishment event",
-			Buckets:   prometheus.DefBuckets,
+			Help:      "The number of completed DHT walks",
 		},
 	)
 )
@@ -128,6 +116,14 @@ func main() {
 				DefaultText: "disable",
 				Value:       "disable",
 			},
+			&cli.StringFlag{
+				Name:        "key",
+				Usage:       "Load private key for peer ID from `FILE`",
+				TakesFile:   true,
+				EnvVars:     []string{"PUNCHR_HONEYPOT_KEY_FILE"},
+				DefaultText: "honeypot.key",
+				Value:       "honeypot.key",
+			},
 		},
 		EnableBashCompletion: true,
 	}
@@ -153,7 +149,7 @@ func RootAction(c *cli.Context) error {
 	}
 
 	// Initialize honeypot libp2p host
-	h, err := InitHost(c.Context, c.App.Version, c.String("port"), dbClient)
+	h, err := InitHost(c, c.String("port"), dbClient)
 	if err != nil {
 		return errors.Wrap(err, "init host")
 	}
@@ -170,7 +166,7 @@ func RootAction(c *cli.Context) error {
 	<-c.Context.Done()
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
-	if err = h.Close(); err != nil {
+	if err = h.Host.Close(); err != nil {
 		log.WithError(err).Warnln("closing libp2p host")
 	}
 
@@ -182,7 +178,7 @@ func RootAction(c *cli.Context) error {
 	return nil
 }
 
-// serveTelemetry starts an HTTP server for the prometheus and pprof handler.
+// serveTelemetry starts an HTTP server for the prometheus and pprof handlers.
 func serveTelemetry(c *cli.Context) {
 	addr := fmt.Sprintf("%s:%s", c.String("telemetry-host"), c.String("telemetry-port"))
 	log.WithField("addr", addr).Debugln("Starting prometheus endpoint")

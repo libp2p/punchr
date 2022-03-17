@@ -3,62 +3,59 @@ package main
 import (
 	"context"
 	"fmt"
-	"math"
 	"os"
 	"sort"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/libp2p/go-libp2p-kad-dht/crawler"
+
+	"github.com/dennis-tra/punchr/pkg/util"
+
 	"github.com/libp2p/go-libp2p"
-	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	kbucket "github.com/libp2p/go-libp2p-kbucket"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/punchr/pkg/db"
-	"github.com/dennis-tra/punchr/pkg/maxmind"
 	"github.com/dennis-tra/punchr/pkg/models"
-	"github.com/dennis-tra/punchr/pkg/util"
 )
 
-// Host holds information of the honeypot
-// libp2p host.
+// Host holds information of the honeypot libp2p host.
 type Host struct {
 	host.Host
 
 	ctx      context.Context
 	DBPeer   *models.Peer
 	DBClient *db.Client
-	MMClient *maxmind.Client
 	DHT      *kaddht.IpfsDHT
 	pm       *pb.ProtocolMessenger
 }
 
-func InitHost(ctx context.Context, version string, port string, dbClient *db.Client) (*Host, error) {
+func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
 	// Load private key data from file or create a new identity
-	key, err := loadOrCreateKeyPair()
+	privKeyFile := c.String("key")
+	key, err := loadKeyPair(privKeyFile)
 	if err != nil {
-		return nil, errors.Wrap(err, "load or create key pair")
-	}
-
-	// Configure connection manager to allow unlimited incoming connections
-	cmgr, err := connmgr.NewConnManager(0, math.MaxInt)
-	if err != nil {
-		return nil, errors.Wrap(err, "new connection manager")
+		key, err = createKeyPair(privKeyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "load or create key pair")
+		}
 	}
 
 	// Configure new libp2p host
 	var dht *kaddht.IpfsDHT
-	agentVersion := "punchr/honeypot/" + version
+	agentVersion := "punchr/honeypot/" + c.App.Version
 	libp2pHost, err := libp2p.New(
 		libp2p.Identity(key),
 		libp2p.UserAgent(agentVersion),
@@ -66,10 +63,9 @@ func InitHost(ctx context.Context, version string, port string, dbClient *db.Cli
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%s/quic", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/tcp/%s", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/udp/%s/quic", port)),
-		libp2p.ConnectionManager(cmgr),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			var err error
-			dht, err = kaddht.New(ctx, h, kaddht.Mode(kaddht.ModeServer))
+			dht, err = kaddht.New(c.Context, h, kaddht.Mode(kaddht.ModeServer))
 			return dht, err
 		}),
 	)
@@ -87,22 +83,15 @@ func InitHost(ctx context.Context, version string, port string, dbClient *db.Cli
 		return nil, errors.Wrap(err, "new protocol messenger")
 	}
 
-	// Create maxmind client to derive geo information
-	mmClient, err := maxmind.NewClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "new maxmind client")
-	}
-
 	h := &Host{
-		ctx:      ctx,
+		ctx:      c.Context,
 		Host:     libp2pHost,
 		DBClient: dbClient,
-		MMClient: mmClient,
 		DHT:      dht,
 		pm:       pm,
 	}
 
-	h.DBPeer, err = h.saveIdentity(ctx, agentVersion)
+	h.DBPeer, err = h.DBClient.UpsertPeer(c.Context, h.DBClient, h.ID(), &agentVersion, h.GetProtocols(h.ID()))
 	if err != nil {
 		return nil, errors.Wrap(err, "save new host identity")
 	}
@@ -113,22 +102,30 @@ func InitHost(ctx context.Context, version string, port string, dbClient *db.Cli
 	return h, nil
 }
 
-func loadOrCreateKeyPair() (crypto.PrivKey, error) {
-	keyFile := "./honeypot.key"
+// loadKeyPair attempts to load private key information from the given private key file.
+func loadKeyPair(privKeyFile string) (crypto.PrivKey, error) {
+	log.WithField("privKeyFile", privKeyFile).Infoln("Loading private key file...")
 
-	if _, err := os.Stat(keyFile); err == nil {
-		dat, err := os.ReadFile(keyFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "reading key data")
-		}
-
-		key, err := crypto.UnmarshalPrivateKey(dat)
-		if err != nil {
-			return nil, errors.Wrap(err, "unmarshal private key")
-		}
-
-		return key, err
+	if _, err := os.Stat(privKeyFile); err != nil {
+		return nil, err
 	}
+
+	dat, err := os.ReadFile(privKeyFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "reading key data")
+	}
+
+	key, err := crypto.UnmarshalPrivateKey(dat)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal private key")
+	}
+
+	return key, nil
+}
+
+// createKeyPair generates a new 256-bit Ed25519 key pair and save the private key to the given file.
+func createKeyPair(privKeyFile string) (crypto.PrivKey, error) {
+	log.WithField("privKeyFile", privKeyFile).Infoln("Generating new key pair...")
 
 	key, _, err := crypto.GenerateKeyPair(crypto.Ed25519, 256)
 	if err != nil {
@@ -140,39 +137,11 @@ func loadOrCreateKeyPair() (crypto.PrivKey, error) {
 		return nil, errors.Wrap(err, "marshal private key")
 	}
 
-	if err = os.WriteFile(keyFile, keyDat, 0o644); err != nil {
+	if err = os.WriteFile(privKeyFile, keyDat, 0o644); err != nil {
 		return nil, errors.Wrap(err, "write marshaled private key")
 	}
 
 	return key, nil
-}
-
-func (h *Host) saveIdentity(ctx context.Context, agentVersion string) (*models.Peer, error) {
-	dbPeer := &models.Peer{
-		MultiHash:     h.ID().String(),
-		AgentVersion:  null.StringFrom(agentVersion),
-		Protocols:     h.GetProtocols(h.ID()),
-		SupportsDcutr: false,
-	}
-
-	err := dbPeer.Upsert(
-		ctx,
-		h.DBClient,
-		true,
-		[]string{models.PeerColumns.MultiHash},
-		boil.Whitelist( // which columns to update on conflict
-			models.PeerColumns.UpdatedAt,
-			models.PeerColumns.AgentVersion,
-			models.PeerColumns.Protocols,
-			models.PeerColumns.SupportsDcutr,
-		),
-		boil.Infer(),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "upsert host peer")
-	}
-
-	return dbPeer, nil
 }
 
 // GetAgentVersion pulls the agent version from the peer store. Returns nil if no information is available.
@@ -196,6 +165,11 @@ func (h *Host) GetProtocols(pid peer.ID) []string {
 	return protocols
 }
 
+// GetMultiAddresses returns a list of multi addresses for the given peer.
+func (h *Host) GetMultiAddresses(pid peer.ID) []ma.Multiaddr {
+	return h.Peerstore().Addrs(pid)
+}
+
 // Bootstrap connects this host to bootstrap peers.
 func (h *Host) Bootstrap(ctx context.Context) error {
 	for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
@@ -209,77 +183,42 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 
 // WalkDHT slowly enumerates the whole DHT to announce ourselves to the network.
 func (h *Host) WalkDHT() {
+	c, err := crawler.New(h, crawler.WithParallelism(100))
+	if err != nil {
+		panic(err)
+	}
+
 	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		default:
+		}
+
 		log.Infoln("Start walking the DHT...")
 
-		dialed := map[peer.ID]peer.AddrInfo{}
-		toDial := map[peer.ID]peer.AddrInfo{}
-
-		for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
-			toDial[bp.ID] = bp
+		bps := kaddht.GetDefaultBootstrapPeerAddrInfos()
+		seedPeers := make([]*peer.AddrInfo, len(bps))
+		for i, bp := range bps {
+			seedPeers[i] = &bp
 		}
 
-		for {
-			select {
-			case <-h.ctx.Done():
+		handleSuccess := func(p peer.ID, rtPeers []*peer.AddrInfo) {
+			log.WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
+			crawledPeers.With(prometheus.Labels{"status": "ok"}).Inc()
+		}
+
+		handleFail := func(p peer.ID, err error) {
+			if errors.Is(h.ctx.Err(), context.Canceled) {
 				return
-			default:
 			}
-
-			p, ok := anyAddrInfo(toDial)
-			if !ok {
-				break
-			}
-
-			log.WithField("remoteID", util.FmtPeerID(p.ID)).Infoln("Crawling remote peer")
-
-			delete(toDial, p.ID)
-			dialed[p.ID] = p
-
-			connCtx, cancel := context.WithTimeout(h.ctx, 10*time.Second) // Be aggressive
-			if err := h.Connect(connCtx, p); err != nil {
-				log.Warnln(errors.Wrapf(err, "connect to peer"))
-				cancel()
-				continue
-			}
-			cancel()
-
-			rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(p.ID), time.Hour, nil, time.Hour, nil)
-			if err != nil {
-				log.Warnln(errors.Wrapf(err, "create new routing table"))
-				continue
-			}
-
-			for i := uint(0); i <= 15; i++ { // 15 is maximum
-				// Generate a peer with the given common prefix length
-				rpi, err := rt.GenRandPeerID(i)
-				if err != nil {
-					log.Warnln(errors.Wrapf(err, "generating random peer ID with CPL %d", i))
-					break
-				}
-
-				neighbors, err := h.pm.GetClosestPeers(h.ctx, p.ID, rpi)
-				if err != nil {
-					log.Warnln(errors.Wrapf(err, "getting closest peer with CPL %d", i))
-					break
-				}
-
-				for _, n := range neighbors {
-					if _, found := dialed[n.ID]; !found {
-						toDial[n.ID] = *n
-					}
-				}
-			}
+			log.WithError(err).WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
+			crawledPeers.With(prometheus.Labels{"status": "error"}).Inc()
 		}
+
+		c.Run(h.ctx, seedPeers, handleSuccess, handleFail)
 
 		log.Infoln("Done walking the DHT!")
+		completedWalks.Inc()
 	}
-}
-
-// anyAddrInfo returns a "random" address information struct from the given map.
-func anyAddrInfo(m map[peer.ID]peer.AddrInfo) (peer.AddrInfo, bool) {
-	for _, addrInfo := range m {
-		return addrInfo, true
-	}
-	return peer.AddrInfo{}, false
 }

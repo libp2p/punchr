@@ -6,26 +6,39 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/dennis-tra/punchr/pkg/models"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/queries"
-	"github.com/volatiletech/sqlboiler/v4/types"
-
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+
+	"github.com/dennis-tra/punchr/pkg/maxmind"
+	"github.com/dennis-tra/punchr/pkg/models"
+	"github.com/dennis-tra/punchr/pkg/util"
 )
 
 type Client struct {
 	*sql.DB
+
+	MMClient *maxmind.Client
 }
 
 func NewClient(c *cli.Context) (*Client, error) {
+	log.WithFields(log.Fields{
+		"host":     c.String("db-host"),
+		"port":     c.String("db-port"),
+		"name":     c.String("db-name"),
+		"user":     c.String("db-user"),
+		"password": "****",
+		"sslmode":  c.String("db-sslmode"),
+	}).Infoln("Connecting to postgres database...")
+
 	// Open database handle
 	srcName := fmt.Sprintf(
 		"host=%s port=%s dbname=%s user=%s password=%s sslmode=%s",
@@ -46,51 +59,148 @@ func NewClient(c *cli.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "pinging database")
 	}
 
-	driver, err := postgres.WithInstance(dbh, &postgres.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := migrate.NewWithDatabaseInstance("file://./migrations", "optprov", driver)
-	if err != nil {
-		return nil, err
-	}
-
-	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
-		return nil, err
-	}
-
+	// Set global database handler
 	boil.SetDB(dbh)
 
-	return &Client{DB: dbh}, nil
+	// Create maxmind client to derive geo information
+	mmClient, err := maxmind.NewClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "new maxmind client")
+	}
+
+	return &Client{DB: dbh, MMClient: mmClient}, nil
 }
 
-func (c *Client) UpsertPeer(ctx context.Context, exec boil.ContextExecutor, pid peer.ID, av string, protocols []string) (*models.Peer, error) {
-	sort.Strings(protocols)
+func DeferRollback(txn *sql.Tx) {
+	if err := txn.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		log.WithError(err).Warnln("An error occurred when rolling back transaction")
+	}
+}
 
+func (c *Client) UpsertPeer(ctx context.Context, exec boil.ContextExecutor, pid peer.ID, agentVersion *string, protocols []string) (*models.Peer, error) {
 	dbPeer := &models.Peer{
-		MultiHash:    pid.String(),
-		AgentVersion: null.NewString(av, av != ""),
-		Protocols:    types.StringArray(protocols),
-	}
-	var prots interface{} = types.StringArray(protocols)
-	if len(protocols) == 0 {
-		prots = nil
+		MultiHash:     pid.String(),
+		AgentVersion:  null.StringFromPtr(agentVersion),
+		Protocols:     protocols,
+		SupportsDcutr: util.SupportDCUtR(protocols),
 	}
 
-	rows, err := queries.Raw("SELECT upsert_peer($1, $2, $3)", dbPeer.MultiHash, dbPeer.AgentVersion.Ptr(), prots).QueryContext(ctx, exec)
+	err := dbPeer.Upsert(
+		ctx,
+		exec,
+		true,
+		[]string{models.PeerColumns.MultiHash},
+		boil.Whitelist( // which columns to update on conflict
+			models.PeerColumns.UpdatedAt,
+			models.PeerColumns.AgentVersion,
+			models.PeerColumns.Protocols,
+			models.PeerColumns.SupportsDcutr,
+		),
+		boil.Infer(),
+	)
+	return dbPeer, err
+}
+
+func (c *Client) UpsertMultiAddresses(ctx context.Context, exec boil.ContextExecutor, maddrs []ma.Multiaddr) (models.MultiAddressSlice, error) {
+	// Sort maddrs to avoid dead-locks when inserting
+	sort.SliceStable(maddrs, func(i, j int) bool {
+		return maddrs[i].String() < maddrs[j].String()
+	})
+
+	dbMaddrs := make([]*models.MultiAddress, len(maddrs))
+	for i, maddr := range maddrs {
+		dbIPAddresses, country, continent, asn, err := c.UpsertIPAddresses(ctx, exec, maddr)
+		if err != nil {
+			return nil, errors.Wrap(err, "save ip addresses")
+		}
+
+		dbMaddr := &models.MultiAddress{
+			Maddr:          maddr.String(),
+			Country:        null.StringFromPtr(country),
+			Continent:      null.StringFromPtr(continent),
+			Asn:            null.IntFromPtr(asn),
+			IsPublic:       manet.IsPublicAddr(maddr),
+			IsRelay:        util.IsRelayedMaddr(maddr),
+			IPAddressCount: len(dbIPAddresses),
+		}
+		if err = dbMaddr.Upsert(ctx, exec, true, []string{models.MultiAddressColumns.Maddr}, boil.Whitelist(models.MultiAddressColumns.UpdatedAt), boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "upsert multi address")
+		}
+
+		if err := dbMaddr.SetIPAddresses(ctx, exec, false); err != nil {
+			return nil, errors.Wrap(err, "removing ip addresses to multi addresses association")
+		}
+
+		if err = dbMaddr.AddIPAddresses(ctx, exec, false, dbIPAddresses...); err != nil {
+			return nil, errors.Wrap(err, "adding ip addresses to multi address")
+		}
+
+		dbMaddrs[i] = dbMaddr
+	}
+
+	return dbMaddrs, nil
+}
+
+func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecutor, maddr ma.Multiaddr) (models.IPAddressSlice, *string, *string, *int, error) {
+	var (
+		countries     []string
+		continents    []string
+		asns          []int
+		dbIPAddresses []*models.IPAddress
+	)
+
+	addrInfos, err := c.MMClient.MaddrInfo(ctx, maddr)
 	if err != nil {
-		return nil, err
+		// That's not an error that should be returned
+		log.WithError(err).Warnln("Could not get multi address information")
 	}
 
-	if !rows.Next() {
-		return nil, rows.Err()
+	for ipAddress, addrInfo := range addrInfos {
+		if addrInfo.Country != "" {
+			countries = append(countries, addrInfo.Country)
+		}
+
+		if addrInfo.Continent != "" {
+			continents = append(continents, addrInfo.Continent)
+		}
+
+		if addrInfo.ASN != 0 {
+			asns = append(asns, int(addrInfo.ASN))
+		}
+
+		dbIPAddress := &models.IPAddress{
+			Address:   ipAddress,
+			Country:   null.NewString(addrInfo.Country, addrInfo.Country != ""),
+			Continent: null.NewString(addrInfo.Continent, addrInfo.Continent != ""),
+			Asn:       null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
+			IsPublic:  manet.IsPublicAddr(maddr),
+		}
+
+		err = dbIPAddress.Upsert(
+			ctx,
+			exec,
+			true,
+			[]string{models.IPAddressColumns.Address},
+			boil.Whitelist(models.IPAddressColumns.UpdatedAt),
+			boil.Infer(),
+		)
+		if err != nil {
+			return nil, nil, nil, nil, errors.Wrap(err, "upsert ip address")
+		}
+
+		dbIPAddresses = append(dbIPAddresses, dbIPAddress)
 	}
 
-	if err = rows.Scan(&dbPeer.ID); err != nil {
-		return nil, err
-	}
+	return dbIPAddresses, util.UniqueStr(countries), util.UniqueStr(continents), util.UniqueInt(asns), nil
+}
 
-	return dbPeer, rows.Close()
+func MapNetDirection(conn network.Conn) string {
+	switch conn.Stat().Direction {
+	case network.DirInbound:
+		return models.ConnectionDirectionINBOUND
+	case network.DirOutbound:
+		return models.ConnectionDirectionOUTBOUND
+	default:
+		return models.ConnectionDirectionUNKNOWN
+	}
 }

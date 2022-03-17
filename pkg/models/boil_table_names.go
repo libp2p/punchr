@@ -4,19 +4,21 @@
 package models
 
 var TableNames = struct {
-	ConnectionEvents           string
-	HolePunchResults           string
-	IPAddresses                string
-	MultiAddresses             string
-	MultiAddressesXIPAddresses string
-	PeerLogs                   string
-	Peers                      string
+	ConnectionEvents                string
+	ConnectionEventsXMultiAddresses string
+	HolePunchResults                string
+	IPAddresses                     string
+	MultiAddresses                  string
+	MultiAddressesXIPAddresses      string
+	PeerLogs                        string
+	Peers                           string
 }{
-	ConnectionEvents:           "connection_events",
-	HolePunchResults:           "hole_punch_results",
-	IPAddresses:                "ip_addresses",
-	MultiAddresses:             "multi_addresses",
-	MultiAddressesXIPAddresses: "multi_addresses_x_ip_addresses",
-	PeerLogs:                   "peer_logs",
-	Peers:                      "peers",
+	ConnectionEvents:                "connection_events",
+	ConnectionEventsXMultiAddresses: "connection_events_x_multi_addresses",
+	HolePunchResults:                "hole_punch_results",
+	IPAddresses:                     "ip_addresses",
+	MultiAddresses:                  "multi_addresses",
+	MultiAddressesXIPAddresses:      "multi_addresses_x_ip_addresses",
+	PeerLogs:                        "peer_logs",
+	Peers:                           "peers",
 }

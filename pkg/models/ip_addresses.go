@@ -486,7 +486,7 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 	}
 
 	query := NewQuery(
-		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".country, \"multi_addresses\".continent, \"multi_addresses\".asn, \"multi_addresses\".is_public, \"multi_addresses\".ip_address_count, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"ip_address_id\""),
+		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".country, \"multi_addresses\".continent, \"multi_addresses\".asn, \"multi_addresses\".is_public, \"multi_addresses\".is_relay, \"multi_addresses\".ip_address_count, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"ip_address_id\""),
 		qm.From("\"multi_addresses\""),
 		qm.InnerJoin("\"multi_addresses_x_ip_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
 		qm.WhereIn("\"a\".\"ip_address_id\" in ?", args...),
@@ -507,7 +507,7 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 		one := new(MultiAddress)
 		var localJoinCol int64
 
-		err = results.Scan(&one.ID, &one.Maddr, &one.Country, &one.Continent, &one.Asn, &one.IsPublic, &one.IPAddressCount, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
+		err = results.Scan(&one.ID, &one.Maddr, &one.Country, &one.Continent, &one.Asn, &one.IsPublic, &one.IsRelay, &one.IPAddressCount, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for multi_addresses")
 		}

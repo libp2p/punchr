@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE multi_addresses_x_ip_addresses
 (
     multi_address_id BIGINT NOT NULL,

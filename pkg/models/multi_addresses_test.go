@@ -494,6 +494,84 @@ func testMultiAddressesInsertWhitelist(t *testing.T) {
 	}
 }
 
+func testMultiAddressToManyConnectionMultiAddressConnectionEvents(t *testing.T) {
+	var err error
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c ConnectionEvent
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = randomize.Struct(seed, &b, connectionEventDBTypes, false, connectionEventColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, connectionEventDBTypes, false, connectionEventColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+
+	b.ConnectionMultiAddressID = a.ID
+	c.ConnectionMultiAddressID = a.ID
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.ConnectionMultiAddressConnectionEvents().All(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.ConnectionMultiAddressID == b.ConnectionMultiAddressID {
+			bFound = true
+		}
+		if v.ConnectionMultiAddressID == c.ConnectionMultiAddressID {
+			cFound = true
+		}
+	}
+
+	if !bFound {
+		t.Error("expected to find b")
+	}
+	if !cFound {
+		t.Error("expected to find c")
+	}
+
+	slice := MultiAddressSlice{&a}
+	if err = a.L.LoadConnectionMultiAddressConnectionEvents(ctx, tx, false, (*[]*MultiAddress)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.ConnectionMultiAddressConnectionEvents); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.ConnectionMultiAddressConnectionEvents = nil
+	if err = a.L.LoadConnectionMultiAddressConnectionEvents(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.ConnectionMultiAddressConnectionEvents); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
+	}
+}
+
 func testMultiAddressToManyConnectionEvents(t *testing.T) {
 	var err error
 	ctx := context.Background()
@@ -519,13 +597,19 @@ func testMultiAddressToManyConnectionEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.MultiAddressID = a.ID
-	c.MultiAddressID = a.ID
-
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = tx.Exec("insert into \"connection_events_x_multi_addresses\" (\"multi_address_id\", \"connection_event_id\") values ($1, $2)", a.ID, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec("insert into \"connection_events_x_multi_addresses\" (\"multi_address_id\", \"connection_event_id\") values ($1, $2)", a.ID, c.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -536,10 +620,10 @@ func testMultiAddressToManyConnectionEvents(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.MultiAddressID == b.MultiAddressID {
+		if v.ID == b.ID {
 			bFound = true
 		}
-		if v.MultiAddressID == c.MultiAddressID {
+		if v.ID == c.ID {
 			cFound = true
 		}
 	}
@@ -734,6 +818,81 @@ func testMultiAddressToManyIPAddresses(t *testing.T) {
 	}
 }
 
+func testMultiAddressToManyAddOpConnectionMultiAddressConnectionEvents(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c, d, e ConnectionEvent
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*ConnectionEvent{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, connectionEventDBTypes, false, strmangle.SetComplement(connectionEventPrimaryKeyColumns, connectionEventColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	foreignersSplitByInsertion := [][]*ConnectionEvent{
+		{&b, &c},
+		{&d, &e},
+	}
+
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddConnectionMultiAddressConnectionEvents(ctx, tx, i != 0, x...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		first := x[0]
+		second := x[1]
+
+		if a.ID != first.ConnectionMultiAddressID {
+			t.Error("foreign key was wrong value", a.ID, first.ConnectionMultiAddressID)
+		}
+		if a.ID != second.ConnectionMultiAddressID {
+			t.Error("foreign key was wrong value", a.ID, second.ConnectionMultiAddressID)
+		}
+
+		if first.R.ConnectionMultiAddress != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.ConnectionMultiAddress != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+
+		if a.R.ConnectionMultiAddressConnectionEvents[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.ConnectionMultiAddressConnectionEvents[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
+
+		count, err := a.ConnectionMultiAddressConnectionEvents().Count(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
+		}
+	}
+}
 func testMultiAddressToManyAddOpConnectionEvents(t *testing.T) {
 	var err error
 
@@ -779,18 +938,11 @@ func testMultiAddressToManyAddOpConnectionEvents(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.MultiAddressID {
-			t.Error("foreign key was wrong value", a.ID, first.MultiAddressID)
+		if first.R.MultiAddresses[0] != &a {
+			t.Error("relationship was not added properly to the slice")
 		}
-		if a.ID != second.MultiAddressID {
-			t.Error("foreign key was wrong value", a.ID, second.MultiAddressID)
-		}
-
-		if first.R.MultiAddress != &a {
-			t.Error("relationship was not added properly to the foreign slice")
-		}
-		if second.R.MultiAddress != &a {
-			t.Error("relationship was not added properly to the foreign slice")
+		if second.R.MultiAddresses[0] != &a {
+			t.Error("relationship was not added properly to the slice")
 		}
 
 		if a.R.ConnectionEvents[i*2] != first {
@@ -809,6 +961,166 @@ func testMultiAddressToManyAddOpConnectionEvents(t *testing.T) {
 		}
 	}
 }
+
+func testMultiAddressToManySetOpConnectionEvents(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c, d, e ConnectionEvent
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*ConnectionEvent{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, connectionEventDBTypes, false, strmangle.SetComplement(connectionEventPrimaryKeyColumns, connectionEventColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.SetConnectionEvents(ctx, tx, false, &b, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.ConnectionEvents().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.SetConnectionEvents(ctx, tx, true, &d, &e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.ConnectionEvents().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	// The following checks cannot be implemented since we have no handle
+	// to these when we call Set(). Leaving them here as wishful thinking
+	// and to let people know there's dragons.
+	//
+	// if len(b.R.MultiAddresses) != 0 {
+	// 	t.Error("relationship was not removed properly from the slice")
+	// }
+	// if len(c.R.MultiAddresses) != 0 {
+	// 	t.Error("relationship was not removed properly from the slice")
+	// }
+	if d.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the slice")
+	}
+	if e.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the slice")
+	}
+
+	if a.R.ConnectionEvents[0] != &d {
+		t.Error("relationship struct slice not set to correct value")
+	}
+	if a.R.ConnectionEvents[1] != &e {
+		t.Error("relationship struct slice not set to correct value")
+	}
+}
+
+func testMultiAddressToManyRemoveOpConnectionEvents(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c, d, e ConnectionEvent
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*ConnectionEvent{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, connectionEventDBTypes, false, strmangle.SetComplement(connectionEventPrimaryKeyColumns, connectionEventColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.AddConnectionEvents(ctx, tx, true, foreigners...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.ConnectionEvents().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.RemoveConnectionEvents(ctx, tx, foreigners[:2]...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.ConnectionEvents().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if len(b.R.MultiAddresses) != 0 {
+		t.Error("relationship was not removed properly from the slice")
+	}
+	if len(c.R.MultiAddresses) != 0 {
+		t.Error("relationship was not removed properly from the slice")
+	}
+	if d.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.MultiAddresses[0] != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+
+	if len(a.R.ConnectionEvents) != 2 {
+		t.Error("should have preserved two relationships")
+	}
+
+	// Removal doesn't do a stable deletion for performance so we have to flip the order
+	if a.R.ConnectionEvents[1] != &d {
+		t.Error("relationship to d should have been preserved")
+	}
+	if a.R.ConnectionEvents[0] != &e {
+		t.Error("relationship to e should have been preserved")
+	}
+}
+
 func testMultiAddressToManyAddOpHolePunchResults(t *testing.T) {
 	var err error
 
@@ -1186,7 +1498,7 @@ func testMultiAddressesSelect(t *testing.T) {
 }
 
 var (
-	multiAddressDBTypes = map[string]string{`ID`: `bigint`, `Maddr`: `text`, `Country`: `character varying`, `Continent`: `character varying`, `Asn`: `integer`, `IsPublic`: `boolean`, `IPAddressCount`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	multiAddressDBTypes = map[string]string{`ID`: `bigint`, `Maddr`: `text`, `Country`: `character varying`, `Continent`: `character varying`, `Asn`: `integer`, `IsPublic`: `boolean`, `IsRelay`: `boolean`, `IPAddressCount`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                   = bytes.MinRead
 )
 

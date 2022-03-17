@@ -30,6 +30,7 @@ type MultiAddress struct {
 	Continent      null.String `boil:"continent" json:"continent,omitempty" toml:"continent" yaml:"continent,omitempty"`
 	Asn            null.Int    `boil:"asn" json:"asn,omitempty" toml:"asn" yaml:"asn,omitempty"`
 	IsPublic       bool        `boil:"is_public" json:"is_public" toml:"is_public" yaml:"is_public"`
+	IsRelay        bool        `boil:"is_relay" json:"is_relay" toml:"is_relay" yaml:"is_relay"`
 	IPAddressCount int         `boil:"ip_address_count" json:"ip_address_count" toml:"ip_address_count" yaml:"ip_address_count"`
 	UpdatedAt      time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt      time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
@@ -45,6 +46,7 @@ var MultiAddressColumns = struct {
 	Continent      string
 	Asn            string
 	IsPublic       string
+	IsRelay        string
 	IPAddressCount string
 	UpdatedAt      string
 	CreatedAt      string
@@ -55,6 +57,7 @@ var MultiAddressColumns = struct {
 	Continent:      "continent",
 	Asn:            "asn",
 	IsPublic:       "is_public",
+	IsRelay:        "is_relay",
 	IPAddressCount: "ip_address_count",
 	UpdatedAt:      "updated_at",
 	CreatedAt:      "created_at",
@@ -67,6 +70,7 @@ var MultiAddressTableColumns = struct {
 	Continent      string
 	Asn            string
 	IsPublic       string
+	IsRelay        string
 	IPAddressCount string
 	UpdatedAt      string
 	CreatedAt      string
@@ -77,6 +81,7 @@ var MultiAddressTableColumns = struct {
 	Continent:      "multi_addresses.continent",
 	Asn:            "multi_addresses.asn",
 	IsPublic:       "multi_addresses.is_public",
+	IsRelay:        "multi_addresses.is_relay",
 	IPAddressCount: "multi_addresses.ip_address_count",
 	UpdatedAt:      "multi_addresses.updated_at",
 	CreatedAt:      "multi_addresses.created_at",
@@ -91,6 +96,7 @@ var MultiAddressWhere = struct {
 	Continent      whereHelpernull_String
 	Asn            whereHelpernull_Int
 	IsPublic       whereHelperbool
+	IsRelay        whereHelperbool
 	IPAddressCount whereHelperint
 	UpdatedAt      whereHelpertime_Time
 	CreatedAt      whereHelpertime_Time
@@ -101,6 +107,7 @@ var MultiAddressWhere = struct {
 	Continent:      whereHelpernull_String{field: "\"multi_addresses\".\"continent\""},
 	Asn:            whereHelpernull_Int{field: "\"multi_addresses\".\"asn\""},
 	IsPublic:       whereHelperbool{field: "\"multi_addresses\".\"is_public\""},
+	IsRelay:        whereHelperbool{field: "\"multi_addresses\".\"is_relay\""},
 	IPAddressCount: whereHelperint{field: "\"multi_addresses\".\"ip_address_count\""},
 	UpdatedAt:      whereHelpertime_Time{field: "\"multi_addresses\".\"updated_at\""},
 	CreatedAt:      whereHelpertime_Time{field: "\"multi_addresses\".\"created_at\""},
@@ -108,20 +115,23 @@ var MultiAddressWhere = struct {
 
 // MultiAddressRels is where relationship names are stored.
 var MultiAddressRels = struct {
-	ConnectionEvents string
-	HolePunchResults string
-	IPAddresses      string
+	ConnectionMultiAddressConnectionEvents string
+	ConnectionEvents                       string
+	HolePunchResults                       string
+	IPAddresses                            string
 }{
-	ConnectionEvents: "ConnectionEvents",
-	HolePunchResults: "HolePunchResults",
-	IPAddresses:      "IPAddresses",
+	ConnectionMultiAddressConnectionEvents: "ConnectionMultiAddressConnectionEvents",
+	ConnectionEvents:                       "ConnectionEvents",
+	HolePunchResults:                       "HolePunchResults",
+	IPAddresses:                            "IPAddresses",
 }
 
 // multiAddressR is where relationships are stored.
 type multiAddressR struct {
-	ConnectionEvents ConnectionEventSlice `boil:"ConnectionEvents" json:"ConnectionEvents" toml:"ConnectionEvents" yaml:"ConnectionEvents"`
-	HolePunchResults HolePunchResultSlice `boil:"HolePunchResults" json:"HolePunchResults" toml:"HolePunchResults" yaml:"HolePunchResults"`
-	IPAddresses      IPAddressSlice       `boil:"IPAddresses" json:"IPAddresses" toml:"IPAddresses" yaml:"IPAddresses"`
+	ConnectionMultiAddressConnectionEvents ConnectionEventSlice `boil:"ConnectionMultiAddressConnectionEvents" json:"ConnectionMultiAddressConnectionEvents" toml:"ConnectionMultiAddressConnectionEvents" yaml:"ConnectionMultiAddressConnectionEvents"`
+	ConnectionEvents                       ConnectionEventSlice `boil:"ConnectionEvents" json:"ConnectionEvents" toml:"ConnectionEvents" yaml:"ConnectionEvents"`
+	HolePunchResults                       HolePunchResultSlice `boil:"HolePunchResults" json:"HolePunchResults" toml:"HolePunchResults" yaml:"HolePunchResults"`
+	IPAddresses                            IPAddressSlice       `boil:"IPAddresses" json:"IPAddresses" toml:"IPAddresses" yaml:"IPAddresses"`
 }
 
 // NewStruct creates a new relationship struct
@@ -133,8 +143,8 @@ func (*multiAddressR) NewStruct() *multiAddressR {
 type multiAddressL struct{}
 
 var (
-	multiAddressAllColumns            = []string{"id", "maddr", "country", "continent", "asn", "is_public", "ip_address_count", "updated_at", "created_at"}
-	multiAddressColumnsWithoutDefault = []string{"maddr", "country", "continent", "asn", "is_public", "ip_address_count", "updated_at", "created_at"}
+	multiAddressAllColumns            = []string{"id", "maddr", "country", "continent", "asn", "is_public", "is_relay", "ip_address_count", "updated_at", "created_at"}
+	multiAddressColumnsWithoutDefault = []string{"maddr", "country", "continent", "asn", "is_public", "is_relay", "ip_address_count", "updated_at", "created_at"}
 	multiAddressColumnsWithDefault    = []string{"id"}
 	multiAddressPrimaryKeyColumns     = []string{"id"}
 )
@@ -414,6 +424,27 @@ func (q multiAddressQuery) Exists(ctx context.Context, exec boil.ContextExecutor
 	return count > 0, nil
 }
 
+// ConnectionMultiAddressConnectionEvents retrieves all the connection_event's ConnectionEvents with an executor via connection_multi_address_id column.
+func (o *MultiAddress) ConnectionMultiAddressConnectionEvents(mods ...qm.QueryMod) connectionEventQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"connection_events\".\"connection_multi_address_id\"=?", o.ID),
+	)
+
+	query := ConnectionEvents(queryMods...)
+	queries.SetFrom(query.Query, "\"connection_events\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"connection_events\".*"})
+	}
+
+	return query
+}
+
 // ConnectionEvents retrieves all the connection_event's ConnectionEvents with an executor.
 func (o *MultiAddress) ConnectionEvents(mods ...qm.QueryMod) connectionEventQuery {
 	var queryMods []qm.QueryMod
@@ -422,7 +453,8 @@ func (o *MultiAddress) ConnectionEvents(mods ...qm.QueryMod) connectionEventQuer
 	}
 
 	queryMods = append(queryMods,
-		qm.Where("\"connection_events\".\"multi_address_id\"=?", o.ID),
+		qm.InnerJoin("\"connection_events_x_multi_addresses\" on \"connection_events\".\"id\" = \"connection_events_x_multi_addresses\".\"connection_event_id\""),
+		qm.Where("\"connection_events_x_multi_addresses\".\"multi_address_id\"=?", o.ID),
 	)
 
 	query := ConnectionEvents(queryMods...)
@@ -478,6 +510,104 @@ func (o *MultiAddress) IPAddresses(mods ...qm.QueryMod) ipAddressQuery {
 	return query
 }
 
+// LoadConnectionMultiAddressConnectionEvents allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (multiAddressL) LoadConnectionMultiAddressConnectionEvents(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
+	var slice []*MultiAddress
+	var object *MultiAddress
+
+	if singular {
+		object = maybeMultiAddress.(*MultiAddress)
+	} else {
+		slice = *maybeMultiAddress.(*[]*MultiAddress)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &multiAddressR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &multiAddressR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`connection_events`),
+		qm.WhereIn(`connection_events.connection_multi_address_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load connection_events")
+	}
+
+	var resultSlice []*ConnectionEvent
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice connection_events")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on connection_events")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for connection_events")
+	}
+
+	if len(connectionEventAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.ConnectionMultiAddressConnectionEvents = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &connectionEventR{}
+			}
+			foreign.R.ConnectionMultiAddress = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.ConnectionMultiAddressID {
+				local.R.ConnectionMultiAddressConnectionEvents = append(local.R.ConnectionMultiAddressConnectionEvents, foreign)
+				if foreign.R == nil {
+					foreign.R = &connectionEventR{}
+				}
+				foreign.R.ConnectionMultiAddress = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadConnectionEvents allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
@@ -518,8 +648,10 @@ func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExe
 	}
 
 	query := NewQuery(
-		qm.From(`connection_events`),
-		qm.WhereIn(`connection_events.multi_address_id in ?`, args...),
+		qm.Select("\"connection_events\".id, \"connection_events\".local_id, \"connection_events\".remote_id, \"connection_events\".connection_multi_address_id, \"connection_events\".direction, \"connection_events\".has_relay_multi_address, \"connection_events\".opened_at, \"connection_events\".created_at, \"a\".\"multi_address_id\""),
+		qm.From("\"connection_events\""),
+		qm.InnerJoin("\"connection_events_x_multi_addresses\" as \"a\" on \"connection_events\".\"id\" = \"a\".\"connection_event_id\""),
+		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -531,8 +663,22 @@ func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExe
 	}
 
 	var resultSlice []*ConnectionEvent
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice connection_events")
+
+	var localJoinCols []int64
+	for results.Next() {
+		one := new(ConnectionEvent)
+		var localJoinCol int64
+
+		err = results.Scan(&one.ID, &one.LocalID, &one.RemoteID, &one.ConnectionMultiAddressID, &one.Direction, &one.HasRelayMultiAddress, &one.OpenedAt, &one.CreatedAt, &localJoinCol)
+		if err != nil {
+			return errors.Wrap(err, "failed to scan eager loaded results for connection_events")
+		}
+		if err = results.Err(); err != nil {
+			return errors.Wrap(err, "failed to plebian-bind eager loaded slice connection_events")
+		}
+
+		resultSlice = append(resultSlice, one)
+		localJoinCols = append(localJoinCols, localJoinCol)
 	}
 
 	if err = results.Close(); err != nil {
@@ -555,19 +701,20 @@ func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExe
 			if foreign.R == nil {
 				foreign.R = &connectionEventR{}
 			}
-			foreign.R.MultiAddress = object
+			foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, object)
 		}
 		return nil
 	}
 
-	for _, foreign := range resultSlice {
+	for i, foreign := range resultSlice {
+		localJoinCol := localJoinCols[i]
 		for _, local := range slice {
-			if local.ID == foreign.MultiAddressID {
+			if local.ID == localJoinCol {
 				local.R.ConnectionEvents = append(local.R.ConnectionEvents, foreign)
 				if foreign.R == nil {
 					foreign.R = &connectionEventR{}
 				}
-				foreign.R.MultiAddress = local
+				foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, local)
 				break
 			}
 		}
@@ -789,22 +936,22 @@ func (multiAddressL) LoadIPAddresses(ctx context.Context, e boil.ContextExecutor
 	return nil
 }
 
-// AddConnectionEvents adds the given related objects to the existing relationships
+// AddConnectionMultiAddressConnectionEvents adds the given related objects to the existing relationships
 // of the multi_address, optionally inserting them as new records.
-// Appends related to o.R.ConnectionEvents.
-// Sets related.R.MultiAddress appropriately.
-func (o *MultiAddress) AddConnectionEvents(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ConnectionEvent) error {
+// Appends related to o.R.ConnectionMultiAddressConnectionEvents.
+// Sets related.R.ConnectionMultiAddress appropriately.
+func (o *MultiAddress) AddConnectionMultiAddressConnectionEvents(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ConnectionEvent) error {
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.MultiAddressID = o.ID
+			rel.ConnectionMultiAddressID = o.ID
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
 		} else {
 			updateQuery := fmt.Sprintf(
 				"UPDATE \"connection_events\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
+				strmangle.SetParamNames("\"", "\"", 1, []string{"connection_multi_address_id"}),
 				strmangle.WhereClause("\"", "\"", 2, connectionEventPrimaryKeyColumns),
 			)
 			values := []interface{}{o.ID, rel.ID}
@@ -818,10 +965,58 @@ func (o *MultiAddress) AddConnectionEvents(ctx context.Context, exec boil.Contex
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.MultiAddressID = o.ID
+			rel.ConnectionMultiAddressID = o.ID
 		}
 	}
 
+	if o.R == nil {
+		o.R = &multiAddressR{
+			ConnectionMultiAddressConnectionEvents: related,
+		}
+	} else {
+		o.R.ConnectionMultiAddressConnectionEvents = append(o.R.ConnectionMultiAddressConnectionEvents, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &connectionEventR{
+				ConnectionMultiAddress: o,
+			}
+		} else {
+			rel.R.ConnectionMultiAddress = o
+		}
+	}
+	return nil
+}
+
+// AddConnectionEvents adds the given related objects to the existing relationships
+// of the multi_address, optionally inserting them as new records.
+// Appends related to o.R.ConnectionEvents.
+// Sets related.R.MultiAddresses appropriately.
+func (o *MultiAddress) AddConnectionEvents(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ConnectionEvent) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		}
+	}
+
+	for _, rel := range related {
+		query := "insert into \"connection_events_x_multi_addresses\" (\"multi_address_id\", \"connection_event_id\") values ($1, $2)"
+		values := []interface{}{o.ID, rel.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, query)
+			fmt.Fprintln(writer, values)
+		}
+		_, err = exec.ExecContext(ctx, query, values...)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert into join table")
+		}
+	}
 	if o.R == nil {
 		o.R = &multiAddressR{
 			ConnectionEvents: related,
@@ -833,13 +1028,109 @@ func (o *MultiAddress) AddConnectionEvents(ctx context.Context, exec boil.Contex
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &connectionEventR{
-				MultiAddress: o,
+				MultiAddresses: MultiAddressSlice{o},
 			}
 		} else {
-			rel.R.MultiAddress = o
+			rel.R.MultiAddresses = append(rel.R.MultiAddresses, o)
 		}
 	}
 	return nil
+}
+
+// SetConnectionEvents removes all previously related items of the
+// multi_address replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.MultiAddresses's ConnectionEvents accordingly.
+// Replaces o.R.ConnectionEvents with related.
+// Sets related.R.MultiAddresses's ConnectionEvents accordingly.
+func (o *MultiAddress) SetConnectionEvents(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*ConnectionEvent) error {
+	query := "delete from \"connection_events_x_multi_addresses\" where \"multi_address_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	removeConnectionEventsFromMultiAddressesSlice(o, related)
+	if o.R != nil {
+		o.R.ConnectionEvents = nil
+	}
+	return o.AddConnectionEvents(ctx, exec, insert, related...)
+}
+
+// RemoveConnectionEvents relationships from objects passed in.
+// Removes related items from R.ConnectionEvents (uses pointer comparison, removal does not keep order)
+// Sets related.R.MultiAddresses.
+func (o *MultiAddress) RemoveConnectionEvents(ctx context.Context, exec boil.ContextExecutor, related ...*ConnectionEvent) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	query := fmt.Sprintf(
+		"delete from \"connection_events_x_multi_addresses\" where \"multi_address_id\" = $1 and \"connection_event_id\" in (%s)",
+		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
+	)
+	values := []interface{}{o.ID}
+	for _, rel := range related {
+		values = append(values, rel.ID)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err = exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+	removeConnectionEventsFromMultiAddressesSlice(o, related)
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.ConnectionEvents {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.ConnectionEvents)
+			if ln > 1 && i < ln-1 {
+				o.R.ConnectionEvents[i] = o.R.ConnectionEvents[ln-1]
+			}
+			o.R.ConnectionEvents = o.R.ConnectionEvents[:ln-1]
+			break
+		}
+	}
+
+	return nil
+}
+
+func removeConnectionEventsFromMultiAddressesSlice(o *MultiAddress, related []*ConnectionEvent) {
+	for _, rel := range related {
+		if rel.R == nil {
+			continue
+		}
+		for i, ri := range rel.R.MultiAddresses {
+			if o.ID != ri.ID {
+				continue
+			}
+
+			ln := len(rel.R.MultiAddresses)
+			if ln > 1 && i < ln-1 {
+				rel.R.MultiAddresses[i] = rel.R.MultiAddresses[ln-1]
+			}
+			rel.R.MultiAddresses = rel.R.MultiAddresses[:ln-1]
+			break
+		}
+	}
 }
 
 // AddHolePunchResults adds the given related objects to the existing relationships

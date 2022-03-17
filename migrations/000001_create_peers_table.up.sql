@@ -1,5 +1,3 @@
-BEGIN;
-
 -- The `peers` table keeps track of all peers ever seen
 CREATE TABLE peers
 (
@@ -15,5 +13,3 @@ CREATE TABLE peers
 
     PRIMARY KEY (id)
 );
-
-COMMIT;
