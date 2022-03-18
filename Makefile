@@ -6,27 +6,27 @@ test:
 clean:
 	rm -r dist || true
 
-build-linux: clean build-linux-honeypot build-linux-punchr build-linux-api
+build-linux: clean build-linux-honeypot build-linux-client build-linux-server
 
 build-linux-honeypot:
 	GOOS=linux GOARCH=amd64 go build -o dist/honeypot cmd/honeypot/*
 
-build-linux-punchr:
-	GOOS=linux GOARCH=amd64 go build -o dist/punchr cmd/punchr/*
+build-linux-client:
+	GOOS=linux GOARCH=amd64 go build -o dist/client cmd/client/*
 
-build-linux-api:
-	GOOS=linux GOARCH=amd64 go build -o dist/punchrapi cmd/api/*
+build-linux-server:
+	GOOS=linux GOARCH=amd64 go build -o dist/punchrserver cmd/server/*
 
-build: clean build-honeypot build-punchr build-api
+build: clean build-honeypot build-client build-server
 
 build-honeypot:
 	go build -o dist/honeypot cmd/honeypot/*
 
-build-punchr:
-	go build -o dist/punchr cmd/punchr/*
+build-client:
+	go build -o dist/client cmd/client/*
 
-build-api:
-	go build -o dist/punchrapi cmd/api/*
+build-server:
+	go build -o dist/punchrserver cmd/server/*
 
 format:
 	gofumpt -w -l .
@@ -39,7 +39,7 @@ tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 proto:
-	protoc --proto_path=. --go_out=pkg/pb --go_opt=paths=source_relative --go-grpc_out=pkg/pb --go-grpc_opt=paths=source_relative api.proto
+	protoc --proto_path=. --go_out=pkg/pb --go_opt=paths=source_relative --go-grpc_out=pkg/pb --go-grpc_opt=paths=source_relative punchr.proto
 
 models:
 	sqlboiler psql

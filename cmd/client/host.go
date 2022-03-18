@@ -28,7 +28,7 @@ import (
 type Host struct {
 	host.Host
 
-	APIClient pb.PunchrServiceClient
+	PunchrClient pb.PunchrServiceClient
 
 	hpStatesLk sync.RWMutex
 	hpStates   map[peer.ID]*HolePunchState
@@ -172,14 +172,14 @@ func (h *Host) StartHolePunching(ctx context.Context) error {
 }
 
 func (h *Host) RegisterHost(ctx context.Context) error {
-	log.Infoln("Registering at API server")
+	log.Infoln("Registering at Punchr server")
 
 	bytesLocalPeerID, err := h.ID().Marshal()
 	if err != nil {
 		return errors.Wrap(err, "marshal peer id")
 	}
 
-	_, err = h.APIClient.Register(ctx, &pb.RegisterRequest{
+	_, err = h.PunchrClient.Register(ctx, &pb.RegisterRequest{
 		ClientId: bytesLocalPeerID,
 		// AgentVersion: *h.GetAgentVersion(h.ID()),
 		AgentVersion: "punchr/go-client/0.1.0",
@@ -199,7 +199,7 @@ func (h *Host) RequestAddrInfo(ctx context.Context) (*peer.AddrInfo, error) {
 		return nil, errors.Wrap(err, "marshal peer id")
 	}
 
-	res, err := h.APIClient.GetAddrInfo(ctx, &pb.GetAddrInfoRequest{ClientId: bytesLocalPeerID})
+	res, err := h.PunchrClient.GetAddrInfo(ctx, &pb.GetAddrInfoRequest{ClientId: bytesLocalPeerID})
 	if err != nil {
 		return nil, errors.Wrap(err, "get addr info RPC")
 	}
@@ -232,7 +232,7 @@ func (h *Host) TrackHolePunchResult(ctx context.Context, hps *HolePunchState) er
 		return err
 	}
 
-	_, err = h.APIClient.TrackHolePunch(ctx, req)
+	_, err = h.PunchrClient.TrackHolePunch(ctx, req)
 	if err != nil {
 		return err
 	}

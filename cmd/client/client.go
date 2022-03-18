@@ -19,44 +19,44 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name:      "punchr",
+		Name:      "punchrclient",
 		Usage:     "A libp2p host that is capable of DCUtR.",
-		UsageText: "punchr [global options] command [command options] [arguments...]",
+		UsageText: "punchrclient [global options] command [command options] [arguments...]",
 		Action:    RootAction,
 		Version:   "0.1.0",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "port",
 				Usage:       "On which port should the libp2p host listen",
-				EnvVars:     []string{"PUNCHR_PORT"},
+				EnvVars:     []string{"PUNCHR_CLIENT_PORT"},
 				Value:       "12000",
 				DefaultText: "12000",
 			},
 			&cli.StringFlag{
 				Name:        "telemetry-host",
 				Usage:       "To which network address should the telemetry (prometheus, pprof) server bind",
-				EnvVars:     []string{"PUNCHR_TELEMETRY_HOST"},
+				EnvVars:     []string{"PUNCHR_CLIENT_TELEMETRY_HOST"},
 				Value:       "localhost",
 				DefaultText: "localhost",
 			},
 			&cli.StringFlag{
 				Name:        "telemetry-port",
 				Usage:       "On which port should the telemetry (prometheus, pprof) server listen",
-				EnvVars:     []string{"PUNCHR_TELEMETRY_PORT"},
+				EnvVars:     []string{"PUNCHR_CLIENT_TELEMETRY_PORT"},
 				Value:       "12001",
 				DefaultText: "12001",
 			},
 			&cli.StringFlag{
-				Name:        "api-host",
-				Usage:       "Where does the the punchr API listen",
-				EnvVars:     []string{"PUNCHR_TELEMETRY_HOST"},
+				Name:        "server-host",
+				Usage:       "Where does the the punchr server listen",
+				EnvVars:     []string{"PUNCHR_CLIENT_TELEMETRY_HOST"},
 				Value:       "localhost",
 				DefaultText: "localhost",
 			},
 			&cli.StringFlag{
-				Name:        "api-port",
-				Usage:       "On which port listens the punchr API",
-				EnvVars:     []string{"PUNCHR_TELEMETRY_PORT"},
+				Name:        "server-port",
+				Usage:       "On which port listens the punchr server",
+				EnvVars:     []string{"PUNCHR_CLIENT_TELEMETRY_PORT"},
 				Value:       "10000",
 				DefaultText: "10000",
 			},
@@ -64,7 +64,7 @@ func main() {
 				Name:        "key",
 				Usage:       "Load private key for peer ID from `FILE`",
 				TakesFile:   true,
-				EnvVars:     []string{"PUNCHR_KEY_FILE"},
+				EnvVars:     []string{"PUNCHR_CLIENT_KEY_FILE"},
 				DefaultText: "punchr.key",
 				Value:       "punchr.key",
 			},
@@ -86,7 +86,7 @@ func RootAction(c *cli.Context) error {
 	// Start telemetry endpoints
 	go serveTelemetry(c)
 
-	addr := fmt.Sprintf("%s:%s", c.String("api-host"), c.String("api-port"))
+	addr := fmt.Sprintf("%s:%s", c.String("server-host"), c.String("server-port"))
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
@@ -97,14 +97,14 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "init host")
 	}
 
-	h.APIClient = pb.NewPunchrServiceClient(conn)
+	h.PunchrClient = pb.NewPunchrServiceClient(conn)
 
 	// Connect punchr host to bootstrap nodes
 	if err := h.Bootstrap(c.Context); err != nil {
 		return errors.Wrap(err, "bootstrap host")
 	}
 
-	// Register host at the API server
+	// Register host at the gRPC server
 	if err := h.RegisterHost(c.Context); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func RootAction(c *cli.Context) error {
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
 	if err = conn.Close(); err != nil {
-		log.WithError(err).Warnln("Closing gRPC API connection")
+		log.WithError(err).Warnln("Closing gRPC server connection")
 	}
 
 	log.Info("Done!")
