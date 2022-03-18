@@ -116,6 +116,7 @@ func (h *Host) StartHolePunching(ctx context.Context) error {
 		addrInfo, err := h.RequestAddrInfo(ctx)
 		if err != nil {
 			log.WithError(err).Warnln("Error requesting addr info")
+			// fallthrough as addrInfo will also be nil
 		}
 		if addrInfo == nil {
 			log.Infoln("No peer to hole punch received waiting 10s")
@@ -126,14 +127,13 @@ func (h *Host) StartHolePunching(ctx context.Context) error {
 				continue
 			}
 		}
-		logEntry := log.WithFields(log.Fields{
-			"remoteID": util.FmtPeerID(addrInfo.ID),
-		})
+		logEntry := log.WithField("remoteID", util.FmtPeerID(addrInfo.ID))
 
-		log.Infoln("Connecting to", addrInfo.ID.String())
+		log.Infoln("Connecting to remote peer:", addrInfo.ID.String())
 		for i, maddr := range addrInfo.Addrs {
-			log.Infoln("\t["+strconv.Itoa(i)+"]", maddr.String())
+			log.Infoln("  ["+strconv.Itoa(i)+"]", maddr.String())
 		}
+		h.prunePeer(addrInfo.ID)
 		hpState := h.NewHolePunchState(addrInfo.ID, addrInfo.Addrs)
 		if err = h.Connect(ctx, *addrInfo); err != nil {
 			logEntry.WithError(err).Warnln("Error connecting to remote peer")
@@ -143,8 +143,10 @@ func (h *Host) StartHolePunching(ctx context.Context) error {
 			hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
 		} else {
 			if err = hpState.WaitForHolePunch(ctx); err != nil {
-				logEntry.WithError(err).Warnln("Hole punch (initiation) timeout")
-				// TODO: not nice to set these properties here - guard access
+				logEntry.WithError(err).Warnln("Hole punch (initiation) timeout. Open connections:")
+				for i, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
+					log.Infoln("  ["+strconv.Itoa(i)+"]", conn.RemoteMultiaddr())
+				}
 				hpState.EndReason = pb.HolePunchEndReason_NOT_INITIATED
 				hpState.Error = err.Error()
 				hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
@@ -153,10 +155,7 @@ func (h *Host) StartHolePunching(ctx context.Context) error {
 
 		// Cleanup
 		hpState = h.DeleteHolePunchState(addrInfo.ID)
-		h.Peerstore().RemovePeer(addrInfo.ID)
-		if err = h.Network().ClosePeer(addrInfo.ID); err != nil {
-			logEntry.WithError(err).Warnln("Error closing connection")
-		}
+		h.prunePeer(addrInfo.ID)
 
 		// Persist it
 		logEntry.WithFields(log.Fields{
@@ -169,6 +168,14 @@ func (h *Host) StartHolePunching(ctx context.Context) error {
 			logEntry.WithError(err).Warnln("Error tracking hole punch result")
 		}
 	}
+}
+
+func (h *Host) prunePeer(pid peer.ID) {
+	if err := h.Network().ClosePeer(pid); err != nil {
+		log.WithError(err).WithField("remoteID", util.FmtPeerID(pid)).Warnln("Error closing connection")
+	}
+	h.Peerstore().RemovePeer(pid)
+	h.Peerstore().ClearAddrs(pid)
 }
 
 func (h *Host) RegisterHost(ctx context.Context) error {
@@ -192,7 +199,7 @@ func (h *Host) RegisterHost(ctx context.Context) error {
 }
 
 func (h *Host) RequestAddrInfo(ctx context.Context) (*peer.AddrInfo, error) {
-	log.Infoln("Requesting addr infos from server...")
+	log.Infoln("Requesting peer to hole punch from server...")
 
 	bytesLocalPeerID, err := h.ID().Marshal()
 	if err != nil {
@@ -274,11 +281,15 @@ func (h *Host) Trace(evt *holepunch.Event) {
 		return
 	}
 
+	logEntry := log.WithField("remoteID", util.FmtPeerID(evt.Remote))
+
 	switch event := evt.Evt.(type) {
 	case *holepunch.StartHolePunchEvt:
+		logEntry.Infoln("Hole punch started")
 		hpState.StartRTT = event.RTT
 		close(hpState.holePunchStarted)
 	case *holepunch.EndHolePunchEvt:
+		logEntry.WithField("success", event.Success).Infoln("Hole punch ended")
 		hpState.EndReason = pb.HolePunchEndReason_HOLE_PUNCH
 		hpState.Error = event.Error
 		hpState.Success = event.Success
@@ -286,14 +297,16 @@ func (h *Host) Trace(evt *holepunch.Event) {
 		close(hpState.holePunchFinished)
 	case *holepunch.HolePunchAttemptEvt:
 		hpState.Attempts += 1 // event.Attempt <-- does not count correctly if hole punching with same peer happens shortly after one another. GC is not run in time and can't be triggered.
+		logEntry.Infoln("Hole punch attempt", hpState.Attempts)
 	case *holepunch.ProtocolErrorEvt:
+		logEntry.WithField("err", event.Error).Infoln("Hole punching protocol error :/")
 		hpState.EndReason = pb.HolePunchEndReason_PROTOCOL_ERROR
 		hpState.Error = event.Error
 		hpState.Success = false
 		hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
 		close(hpState.holePunchFinished)
 	case *holepunch.DirectDialEvt:
-		log.Warnln("Unexpected DirectDialEvt")
+		logEntry.WithField("success", event.Success).Warnln("Hole punch direct dial event")
 		if event.Success {
 			hpState.EndReason = pb.HolePunchEndReason_DIRECT_DIAL
 			hpState.Success = event.Success
@@ -354,8 +367,10 @@ func (hps HolePunchState) ToProto(peerID peer.ID) (*pb.TrackHolePunchRequest, er
 }
 
 func (hps HolePunchState) WaitForHolePunch(ctx context.Context) error {
-	logEntry := log.WithFields(log.Fields{"remoteID": util.FmtPeerID(hps.RemoteID)})
-	logEntry.WithField("waitDur", 15*time.Second).Infoln("Waiting for hole punch initiation...")
+	log.WithFields(log.Fields{
+		"remoteID": util.FmtPeerID(hps.RemoteID),
+		"waitDur":  15 * time.Second,
+	}).Infoln("Waiting for hole punch...")
 
 	select {
 	case <-hps.holePunchStarted:
@@ -364,9 +379,6 @@ func (hps HolePunchState) WaitForHolePunch(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
-	logEntry.Infoln("Hole punch initiated!")
-	logEntry.WithField("waitDur", time.Minute).Infoln("Waiting to finish...")
 
 	// Then wait for the hole punch to finish
 	select {

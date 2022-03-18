@@ -98,6 +98,11 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 	return h, nil
 }
 
+func (h *Host) Close() error {
+	h.Network().StopNotify(h)
+	return h.Host.Close()
+}
+
 // GetAgentVersion pulls the agent version from the peer store. Returns nil if no information is available.
 func (h *Host) GetAgentVersion(pid peer.ID) *string {
 	if value, err := h.Peerstore().Get(pid, "AgentVersion"); err == nil {
@@ -137,7 +142,7 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 
 // WalkDHT slowly enumerates the whole DHT to announce ourselves to the network.
 func (h *Host) WalkDHT(ctx context.Context) {
-	c, err := crawler.New(h, crawler.WithParallelism(100), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
+	c, err := crawler.New(h, crawler.WithParallelism(50), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
 	if err != nil {
 		panic(err)
 	}
@@ -163,7 +168,7 @@ func (h *Host) WalkDHT(ctx context.Context) {
 		}
 
 		handleFail := func(p peer.ID, err error) {
-			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return
 			}
 			log.WithError(err).WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")

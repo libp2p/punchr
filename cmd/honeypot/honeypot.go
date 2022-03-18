@@ -167,7 +167,7 @@ func RootAction(c *cli.Context) error {
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
 	log.Info("Shutting down libp2p host")
-	if err = h.Host.Close(); err != nil {
+	if err = h.Close(); err != nil {
 		log.WithError(err).Warnln("closing libp2p host")
 	}
 

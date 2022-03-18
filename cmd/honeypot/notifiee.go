@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/libp2p/go-libp2p-core/event"
@@ -41,7 +42,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	defer log.WithFields(log.Fields{"remoteID": util.FmtPeerID(conn.RemotePeer())}).Infoln("Handled connection")
 
 	// Wait for the "identify" protocol to complete
-	if err := h.IdentifyWait(conn.RemotePeer()); err != nil {
+	if err := h.IdentifyWait(h.ctx, conn.RemotePeer()); err != nil {
 		return errors.Wrap(err, "identify wait")
 	}
 
@@ -116,7 +117,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 }
 
 // IdentifyWait waits for the "identify" protocol to complete.
-func (h *Host) IdentifyWait(pid peer.ID) error {
+func (h *Host) IdentifyWait(ctx context.Context, pid peer.ID) error {
 	eventTypes := []interface{}{
 		new(event.EvtPeerIdentificationCompleted),
 		new(event.EvtPeerIdentificationFailed),
@@ -132,23 +133,26 @@ func (h *Host) IdentifyWait(pid peer.ID) error {
 		}
 	}()
 
-	for e := range sub.Out() {
+	for {
 		var evtPeer peer.ID
 		var err error
-		switch evt := e.(type) {
-		case event.EvtPeerIdentificationCompleted:
-			evtPeer = evt.Peer
-		case event.EvtPeerIdentificationFailed:
-			evtPeer = evt.Peer
-			err = evt.Reason
-		default:
-			panic(fmt.Sprintf("unexpected event type %T", e))
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case e := <-sub.Out():
+			switch evt := e.(type) {
+			case event.EvtPeerIdentificationCompleted:
+				evtPeer = evt.Peer
+			case event.EvtPeerIdentificationFailed:
+				evtPeer = evt.Peer
+				err = evt.Reason
+			default:
+				panic(fmt.Sprintf("unexpected event type %T", e))
+			}
 		}
 		if evtPeer != pid {
 			continue
 		}
 		return err
 	}
-
-	return errors.New("event bus subscription closed before identify terminated")
 }
