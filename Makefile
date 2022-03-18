@@ -12,7 +12,7 @@ build-linux-honeypot:
 	GOOS=linux GOARCH=amd64 go build -o dist/honeypot cmd/honeypot/*
 
 build-linux-client:
-	GOOS=linux GOARCH=amd64 go build -o dist/client cmd/client/*
+	GOOS=linux GOARCH=amd64 go build -o dist/punchrclient cmd/client/*
 
 build-linux-server:
 	GOOS=linux GOARCH=amd64 go build -o dist/punchrserver cmd/server/*
@@ -23,7 +23,7 @@ build-honeypot:
 	go build -o dist/honeypot cmd/honeypot/*
 
 build-client:
-	go build -o dist/client cmd/client/*
+	go build -o dist/punchrclient cmd/client/*
 
 build-server:
 	go build -o dist/punchrserver cmd/server/*
