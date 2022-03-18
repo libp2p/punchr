@@ -169,4 +169,4 @@ Standard Readme follows the [Contributor Covenant](http://contributor-covenant.o
 
 ## License
 
-[MIT](LICENSE)
+[Apache License Version 2.0](LICENSE)
