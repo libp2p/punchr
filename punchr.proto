@@ -37,11 +37,25 @@ message GetAddrInfoResponse {
 
 enum HolePunchEndReason {
   UNKNOWN = 0;
+
+  // Could not connect to remote peer via relay
   NO_CONNECTION = 1;
-  NOT_INITIATED = 2;
-  DIRECT_DIAL = 3;
-  PROTOCOL_ERROR = 4;
-  HOLE_PUNCH = 5;
+
+  // Hole punch was not initiated from the remote peer
+  // because we have a direct connection (connection reversal succeeded?)
+  DIRECT_CONNECTION = 2;
+
+  // We connected to the remote peer via a relay but the remote did not initiate a hole punch
+  NOT_INITIATED = 3;
+
+  // Should never happen on our side. This happens if the connection reversal from our side succeeded.
+  DIRECT_DIAL = 4;
+
+  // Can happen if the stream was reset mid-flight
+  PROTOCOL_ERROR = 5;
+
+  // The hole punch was started, the /libp2p/dcutr stream was opened.
+  HOLE_PUNCH = 6;
 }
 
 message TrackHolePunchRequest {

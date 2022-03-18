@@ -60,10 +60,11 @@ const (
 
 // Enum values for hole_punch_end_reason
 const (
-	HolePunchEndReasonUNKNOWN        = "UNKNOWN"
-	HolePunchEndReasonNO_CONNECTION  = "NO_CONNECTION"
-	HolePunchEndReasonNOT_INITIATED  = "NOT_INITIATED"
-	HolePunchEndReasonDIRECT_DIAL    = "DIRECT_DIAL"
-	HolePunchEndReasonPROTOCOL_ERROR = "PROTOCOL_ERROR"
-	HolePunchEndReasonHOLE_PUNCH     = "HOLE_PUNCH"
+	HolePunchEndReasonUNKNOWN           = "UNKNOWN"
+	HolePunchEndReasonNO_CONNECTION     = "NO_CONNECTION"
+	HolePunchEndReasonDIRECT_CONNECTION = "DIRECT_CONNECTION"
+	HolePunchEndReasonNOT_INITIATED     = "NOT_INITIATED"
+	HolePunchEndReasonDIRECT_DIAL       = "DIRECT_DIAL"
+	HolePunchEndReasonPROTOCOL_ERROR    = "PROTOCOL_ERROR"
+	HolePunchEndReasonHOLE_PUNCH        = "HOLE_PUNCH"
 )

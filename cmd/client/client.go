@@ -97,7 +97,7 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "init host")
 	}
 
-	h.PunchrClient = pb.NewPunchrServiceClient(conn)
+	h.client = pb.NewPunchrServiceClient(conn)
 
 	// Connect punchr host to bootstrap nodes
 	if err := h.Bootstrap(c.Context); err != nil {

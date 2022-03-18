@@ -136,6 +136,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	switch req.EndReason {
 	case pb.HolePunchEndReason_PROTOCOL_ERROR:
 		endReason = models.HolePunchEndReasonPROTOCOL_ERROR
+	case pb.HolePunchEndReason_DIRECT_CONNECTION:
+		endReason = models.HolePunchEndReasonDIRECT_CONNECTION
 	case pb.HolePunchEndReason_DIRECT_DIAL:
 		endReason = models.HolePunchEndReasonDIRECT_DIAL
 	case pb.HolePunchEndReason_HOLE_PUNCH:
