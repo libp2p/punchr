@@ -126,7 +126,7 @@ GLOBAL OPTIONS:
 
 ## Install
 
-Run `make build` and find the executables in the `dist` folder.
+Run `make build` and find the executables in the `dist` folder. When running the honeypot or server the database migrations folder `./migrations` needs to be in the working directory of either process.
 
 The honeypot listens on port `10000`, the server on port `11000` and clients on `12000`. All components expose prometheus and pprof telemetry on `10001`, `11001`, and `12001` respectively.
 
