@@ -57,8 +57,8 @@ func main() {
 				Name:        "port",
 				Usage:       "On which port should the libp2p host listen",
 				EnvVars:     []string{"PUNCHR_HONEYPOT_PORT"},
-				Value:       "10500",
-				DefaultText: "10500",
+				Value:       "11000",
+				DefaultText: "11000",
 			},
 			&cli.StringFlag{
 				Name:        "telemetry-host",
@@ -71,8 +71,8 @@ func main() {
 				Name:        "telemetry-port",
 				Usage:       "On which port should the telemetry (prometheus, pprof) server listen",
 				EnvVars:     []string{"PUNCHR_HONEYPOT_TELEMETRY_PORT"},
-				Value:       "10000",
-				DefaultText: "10000",
+				Value:       "11001",
+				DefaultText: "11001",
 			},
 			&cli.StringFlag{
 				Name:        "db-host",

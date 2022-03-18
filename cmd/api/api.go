@@ -8,7 +8,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -22,7 +26,7 @@ import (
 func main() {
 	app := &cli.App{
 		Name:      "punchrapi",
-		Usage:     "A gRPC API that provides peers to hole punch and tracks the results.",
+		Usage:     "A gRPC API that exposes peers to hole punch and tracks the results.",
 		UsageText: "punchrapi [global options] command [command options] [arguments...]",
 		Action:    RootAction,
 		Version:   "0.1.0",
@@ -31,8 +35,8 @@ func main() {
 				Name:        "port",
 				Usage:       "On which port should the gRPC host listen",
 				EnvVars:     []string{"PUNCHR_API_PORT"},
-				Value:       "12500",
-				DefaultText: "12500",
+				Value:       "10000",
+				DefaultText: "10000",
 			},
 			&cli.StringFlag{
 				Name:        "telemetry-host",
@@ -45,8 +49,8 @@ func main() {
 				Name:        "telemetry-port",
 				Usage:       "On which port should the telemetry (prometheus, pprof) server listen",
 				EnvVars:     []string{"PUNCHR_API_TELEMETRY_PORT"},
-				Value:       "12000",
-				DefaultText: "12000",
+				Value:       "10001",
+				DefaultText: "10001",
 			},
 			&cli.StringFlag{
 				Name:        "db-host",
@@ -115,10 +119,9 @@ func RootAction(c *cli.Context) error {
 	}
 
 	// Initialize gRPC server
-	s := grpc.NewServer()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", c.String("port")))
+	s, lis, err := initGrpcServer(c, err)
 	if err != nil {
-		return errors.Wrap(err, "failed to listen")
+		return err
 	}
 	pb.RegisterPunchrServiceServer(s, &Server{DBClient: dbClient})
 
@@ -154,4 +157,24 @@ func serveTelemetry(c *cli.Context) {
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Warnln("Error serving prometheus")
 	}
+}
+
+func initGrpcServer(c *cli.Context, err error) (*grpc.Server, net.Listener, error) {
+	logEntry := log.NewEntry(&log.Logger{})
+	grpc_logrus.ReplaceGrpcLogger(logEntry)
+	opts := []grpc_logrus.Option{
+		grpc_logrus.WithDurationField(func(duration time.Duration) (key string, value interface{}) {
+			return "grpc.time_ns", duration.Nanoseconds()
+		}),
+	}
+	s := grpc.NewServer(
+		grpc_middleware.WithUnaryServerChain(
+			grpc_ctxtags.UnaryServerInterceptor(),
+			grpc_logrus.UnaryServerInterceptor(logEntry, opts...),
+		))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", c.String("port")))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to listen")
+	}
+	return s, lis, nil
 }

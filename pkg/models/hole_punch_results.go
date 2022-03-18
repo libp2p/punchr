@@ -24,103 +24,85 @@ import (
 
 // HolePunchResult is an object representing the database table.
 type HolePunchResult struct {
-	ID              int         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	ClientID        int64       `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
-	RemoteID        int64       `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
-	StartRTT        string      `boil:"start_rtt" json:"start_rtt" toml:"start_rtt" yaml:"start_rtt"`
-	ElapsedTime     string      `boil:"elapsed_time" json:"elapsed_time" toml:"elapsed_time" yaml:"elapsed_time"`
-	EndReason       string      `boil:"end_reason" json:"end_reason" toml:"end_reason" yaml:"end_reason"`
-	Attempts        int16       `boil:"attempts" json:"attempts" toml:"attempts" yaml:"attempts"`
-	Success         bool        `boil:"success" json:"success" toml:"success" yaml:"success"`
-	Error           null.String `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
-	DirectDialError null.String `boil:"direct_dial_error" json:"direct_dial_error,omitempty" toml:"direct_dial_error" yaml:"direct_dial_error,omitempty"`
-	UpdatedAt       time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt       time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID                  int         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	ClientID            int64       `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
+	RemoteID            int64       `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
+	ConnectionStartedAt time.Time   `boil:"connection_started_at" json:"connection_started_at" toml:"connection_started_at" yaml:"connection_started_at"`
+	StartRTT            null.String `boil:"start_rtt" json:"start_rtt,omitempty" toml:"start_rtt" yaml:"start_rtt,omitempty"`
+	ElapsedTime         string      `boil:"elapsed_time" json:"elapsed_time" toml:"elapsed_time" yaml:"elapsed_time"`
+	EndReason           string      `boil:"end_reason" json:"end_reason" toml:"end_reason" yaml:"end_reason"`
+	Attempts            int16       `boil:"attempts" json:"attempts" toml:"attempts" yaml:"attempts"`
+	Success             bool        `boil:"success" json:"success" toml:"success" yaml:"success"`
+	Error               null.String `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
+	DirectDialError     null.String `boil:"direct_dial_error" json:"direct_dial_error,omitempty" toml:"direct_dial_error" yaml:"direct_dial_error,omitempty"`
+	UpdatedAt           time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt           time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *holePunchResultR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L holePunchResultL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var HolePunchResultColumns = struct {
-	ID              string
-	ClientID        string
-	RemoteID        string
-	StartRTT        string
-	ElapsedTime     string
-	EndReason       string
-	Attempts        string
-	Success         string
-	Error           string
-	DirectDialError string
-	UpdatedAt       string
-	CreatedAt       string
+	ID                  string
+	ClientID            string
+	RemoteID            string
+	ConnectionStartedAt string
+	StartRTT            string
+	ElapsedTime         string
+	EndReason           string
+	Attempts            string
+	Success             string
+	Error               string
+	DirectDialError     string
+	UpdatedAt           string
+	CreatedAt           string
 }{
-	ID:              "id",
-	ClientID:        "client_id",
-	RemoteID:        "remote_id",
-	StartRTT:        "start_rtt",
-	ElapsedTime:     "elapsed_time",
-	EndReason:       "end_reason",
-	Attempts:        "attempts",
-	Success:         "success",
-	Error:           "error",
-	DirectDialError: "direct_dial_error",
-	UpdatedAt:       "updated_at",
-	CreatedAt:       "created_at",
+	ID:                  "id",
+	ClientID:            "client_id",
+	RemoteID:            "remote_id",
+	ConnectionStartedAt: "connection_started_at",
+	StartRTT:            "start_rtt",
+	ElapsedTime:         "elapsed_time",
+	EndReason:           "end_reason",
+	Attempts:            "attempts",
+	Success:             "success",
+	Error:               "error",
+	DirectDialError:     "direct_dial_error",
+	UpdatedAt:           "updated_at",
+	CreatedAt:           "created_at",
 }
 
 var HolePunchResultTableColumns = struct {
-	ID              string
-	ClientID        string
-	RemoteID        string
-	StartRTT        string
-	ElapsedTime     string
-	EndReason       string
-	Attempts        string
-	Success         string
-	Error           string
-	DirectDialError string
-	UpdatedAt       string
-	CreatedAt       string
+	ID                  string
+	ClientID            string
+	RemoteID            string
+	ConnectionStartedAt string
+	StartRTT            string
+	ElapsedTime         string
+	EndReason           string
+	Attempts            string
+	Success             string
+	Error               string
+	DirectDialError     string
+	UpdatedAt           string
+	CreatedAt           string
 }{
-	ID:              "hole_punch_results.id",
-	ClientID:        "hole_punch_results.client_id",
-	RemoteID:        "hole_punch_results.remote_id",
-	StartRTT:        "hole_punch_results.start_rtt",
-	ElapsedTime:     "hole_punch_results.elapsed_time",
-	EndReason:       "hole_punch_results.end_reason",
-	Attempts:        "hole_punch_results.attempts",
-	Success:         "hole_punch_results.success",
-	Error:           "hole_punch_results.error",
-	DirectDialError: "hole_punch_results.direct_dial_error",
-	UpdatedAt:       "hole_punch_results.updated_at",
-	CreatedAt:       "hole_punch_results.created_at",
+	ID:                  "hole_punch_results.id",
+	ClientID:            "hole_punch_results.client_id",
+	RemoteID:            "hole_punch_results.remote_id",
+	ConnectionStartedAt: "hole_punch_results.connection_started_at",
+	StartRTT:            "hole_punch_results.start_rtt",
+	ElapsedTime:         "hole_punch_results.elapsed_time",
+	EndReason:           "hole_punch_results.end_reason",
+	Attempts:            "hole_punch_results.attempts",
+	Success:             "hole_punch_results.success",
+	Error:               "hole_punch_results.error",
+	DirectDialError:     "hole_punch_results.direct_dial_error",
+	UpdatedAt:           "hole_punch_results.updated_at",
+	CreatedAt:           "hole_punch_results.created_at",
 }
 
 // Generated where
-
-type whereHelperint16 struct{ field string }
-
-func (w whereHelperint16) EQ(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint16) NEQ(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint16) LT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint16) LTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint16) GT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint16) GTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperint16) IN(slice []int16) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperint16) NIN(slice []int16) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
 
 type whereHelpernull_String struct{ field string }
 
@@ -145,32 +127,57 @@ func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
+type whereHelperint16 struct{ field string }
+
+func (w whereHelperint16) EQ(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperint16) NEQ(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperint16) LT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperint16) LTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperint16) GT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperint16) GTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperint16) IN(slice []int16) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperint16) NIN(slice []int16) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
+
 var HolePunchResultWhere = struct {
-	ID              whereHelperint
-	ClientID        whereHelperint64
-	RemoteID        whereHelperint64
-	StartRTT        whereHelperstring
-	ElapsedTime     whereHelperstring
-	EndReason       whereHelperstring
-	Attempts        whereHelperint16
-	Success         whereHelperbool
-	Error           whereHelpernull_String
-	DirectDialError whereHelpernull_String
-	UpdatedAt       whereHelpertime_Time
-	CreatedAt       whereHelpertime_Time
+	ID                  whereHelperint
+	ClientID            whereHelperint64
+	RemoteID            whereHelperint64
+	ConnectionStartedAt whereHelpertime_Time
+	StartRTT            whereHelpernull_String
+	ElapsedTime         whereHelperstring
+	EndReason           whereHelperstring
+	Attempts            whereHelperint16
+	Success             whereHelperbool
+	Error               whereHelpernull_String
+	DirectDialError     whereHelpernull_String
+	UpdatedAt           whereHelpertime_Time
+	CreatedAt           whereHelpertime_Time
 }{
-	ID:              whereHelperint{field: "\"hole_punch_results\".\"id\""},
-	ClientID:        whereHelperint64{field: "\"hole_punch_results\".\"client_id\""},
-	RemoteID:        whereHelperint64{field: "\"hole_punch_results\".\"remote_id\""},
-	StartRTT:        whereHelperstring{field: "\"hole_punch_results\".\"start_rtt\""},
-	ElapsedTime:     whereHelperstring{field: "\"hole_punch_results\".\"elapsed_time\""},
-	EndReason:       whereHelperstring{field: "\"hole_punch_results\".\"end_reason\""},
-	Attempts:        whereHelperint16{field: "\"hole_punch_results\".\"attempts\""},
-	Success:         whereHelperbool{field: "\"hole_punch_results\".\"success\""},
-	Error:           whereHelpernull_String{field: "\"hole_punch_results\".\"error\""},
-	DirectDialError: whereHelpernull_String{field: "\"hole_punch_results\".\"direct_dial_error\""},
-	UpdatedAt:       whereHelpertime_Time{field: "\"hole_punch_results\".\"updated_at\""},
-	CreatedAt:       whereHelpertime_Time{field: "\"hole_punch_results\".\"created_at\""},
+	ID:                  whereHelperint{field: "\"hole_punch_results\".\"id\""},
+	ClientID:            whereHelperint64{field: "\"hole_punch_results\".\"client_id\""},
+	RemoteID:            whereHelperint64{field: "\"hole_punch_results\".\"remote_id\""},
+	ConnectionStartedAt: whereHelpertime_Time{field: "\"hole_punch_results\".\"connection_started_at\""},
+	StartRTT:            whereHelpernull_String{field: "\"hole_punch_results\".\"start_rtt\""},
+	ElapsedTime:         whereHelperstring{field: "\"hole_punch_results\".\"elapsed_time\""},
+	EndReason:           whereHelperstring{field: "\"hole_punch_results\".\"end_reason\""},
+	Attempts:            whereHelperint16{field: "\"hole_punch_results\".\"attempts\""},
+	Success:             whereHelperbool{field: "\"hole_punch_results\".\"success\""},
+	Error:               whereHelpernull_String{field: "\"hole_punch_results\".\"error\""},
+	DirectDialError:     whereHelpernull_String{field: "\"hole_punch_results\".\"direct_dial_error\""},
+	UpdatedAt:           whereHelpertime_Time{field: "\"hole_punch_results\".\"updated_at\""},
+	CreatedAt:           whereHelpertime_Time{field: "\"hole_punch_results\".\"created_at\""},
 }
 
 // HolePunchResultRels is where relationship names are stored.
@@ -200,8 +207,8 @@ func (*holePunchResultR) NewStruct() *holePunchResultR {
 type holePunchResultL struct{}
 
 var (
-	holePunchResultAllColumns            = []string{"id", "client_id", "remote_id", "start_rtt", "elapsed_time", "end_reason", "attempts", "success", "error", "direct_dial_error", "updated_at", "created_at"}
-	holePunchResultColumnsWithoutDefault = []string{"client_id", "remote_id", "start_rtt", "elapsed_time", "end_reason", "attempts", "success", "error", "direct_dial_error", "updated_at", "created_at"}
+	holePunchResultAllColumns            = []string{"id", "client_id", "remote_id", "connection_started_at", "start_rtt", "elapsed_time", "end_reason", "attempts", "success", "error", "direct_dial_error", "updated_at", "created_at"}
+	holePunchResultColumnsWithoutDefault = []string{"client_id", "remote_id", "connection_started_at", "start_rtt", "elapsed_time", "end_reason", "attempts", "success", "error", "direct_dial_error", "updated_at", "created_at"}
 	holePunchResultColumnsWithDefault    = []string{"id"}
 	holePunchResultPrimaryKeyColumns     = []string{"id"}
 )

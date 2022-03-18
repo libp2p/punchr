@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -153,15 +154,16 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	defer db.DeferRollback(txn)
 
 	hpr := &models.HolePunchResult{
-		ClientID:        dbClientPeer.ID,
-		RemoteID:        dbRemotePeer.ID,
-		StartRTT:        fmt.Sprintf("%fs", req.StartRtt),
-		ElapsedTime:     fmt.Sprintf("%fs", req.ElapsedTime),
-		EndReason:       endReason,
-		Attempts:        int16(req.Attempts),
-		Success:         req.Success,
-		Error:           null.NewString(req.Error, req.Error != ""),
-		DirectDialError: null.NewString(req.DirectDialError, req.DirectDialError != ""),
+		ClientID:            dbClientPeer.ID,
+		RemoteID:            dbRemotePeer.ID,
+		StartRTT:            null.NewString(fmt.Sprintf("%fs", req.StartRtt), req.StartRtt != 0),
+		ElapsedTime:         fmt.Sprintf("%fs", req.ElapsedTime),
+		ConnectionStartedAt: time.UnixMilli(req.StartedAt),
+		EndReason:           endReason,
+		Attempts:            int16(req.Attempts),
+		Success:             req.Success,
+		Error:               null.NewString(req.Error, req.Error != ""),
+		DirectDialError:     null.NewString(req.DirectDialError, req.DirectDialError != ""),
 	}
 
 	if err = hpr.Insert(ctx, txn, boil.Infer()); err != nil {

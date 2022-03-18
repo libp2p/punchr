@@ -4,7 +4,7 @@ test:
 	go test ./...
 
 clean:
-	rm -r dist
+	rm -r dist || true
 
 build-linux: clean build-linux-honeypot build-linux-punchr build-linux-api
 

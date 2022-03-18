@@ -29,8 +29,8 @@ func main() {
 				Name:        "port",
 				Usage:       "On which port should the libp2p host listen",
 				EnvVars:     []string{"PUNCHR_PORT"},
-				Value:       "13500",
-				DefaultText: "13500",
+				Value:       "12000",
+				DefaultText: "12000",
 			},
 			&cli.StringFlag{
 				Name:        "telemetry-host",
@@ -43,8 +43,8 @@ func main() {
 				Name:        "telemetry-port",
 				Usage:       "On which port should the telemetry (prometheus, pprof) server listen",
 				EnvVars:     []string{"PUNCHR_TELEMETRY_PORT"},
-				Value:       "13000",
-				DefaultText: "13000",
+				Value:       "12001",
+				DefaultText: "12001",
 			},
 			&cli.StringFlag{
 				Name:        "api-host",
@@ -57,8 +57,8 @@ func main() {
 				Name:        "api-port",
 				Usage:       "On which port listens the punchr API",
 				EnvVars:     []string{"PUNCHR_TELEMETRY_PORT"},
-				Value:       "12500",
-				DefaultText: "12500",
+				Value:       "10000",
+				DefaultText: "10000",
 			},
 			&cli.StringFlag{
 				Name:        "key",
@@ -105,12 +105,12 @@ func RootAction(c *cli.Context) error {
 	}
 
 	// Register host at the API server
-	if err := h.RegisterHost(); err != nil {
+	if err := h.RegisterHost(c.Context); err != nil {
 		return err
 	}
 
 	// Finally, start hole punching
-	if err = h.StartHolePunching(); err != nil {
+	if err = h.StartHolePunching(c.Context); err != nil {
 		log.Fatalf("failed to hole punch: %v", err)
 	}
 

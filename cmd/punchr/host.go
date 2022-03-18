@@ -28,7 +28,6 @@ import (
 type Host struct {
 	host.Host
 
-	ctx       context.Context
 	APIClient pb.PunchrServiceClient
 
 	hpStatesLk sync.RWMutex
@@ -39,7 +38,6 @@ func InitHost(c *cli.Context, port string) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
 	h := &Host{
-		ctx:      c.Context,
 		hpStates: map[peer.ID]*HolePunchState{},
 	}
 
@@ -107,23 +105,23 @@ func (h *Host) GetProtocols(pid peer.ID) []string {
 	return protocols
 }
 
-func (h *Host) StartHolePunching() error {
+func (h *Host) StartHolePunching(ctx context.Context) error {
 	for {
 		select {
-		case <-h.ctx.Done():
-			return h.ctx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 		}
 
-		addrInfo, err := h.RequestAddrInfo()
+		addrInfo, err := h.RequestAddrInfo(ctx)
 		if err != nil {
 			log.WithError(err).Warnln("Error requesting addr info")
 		}
 		if addrInfo == nil {
 			log.Infoln("No peer to hole punch received waiting 10s")
 			select {
-			case <-h.ctx.Done():
-				return h.ctx.Err()
+			case <-ctx.Done():
+				return ctx.Err()
 			case <-time.After(10 * time.Second):
 				continue
 			}
@@ -137,20 +135,24 @@ func (h *Host) StartHolePunching() error {
 			log.Infoln("\t["+strconv.Itoa(i)+"]", maddr.String())
 		}
 		hpState := h.NewHolePunchState(addrInfo.ID, addrInfo.Addrs)
-		if err = h.Connect(h.ctx, *addrInfo); err != nil {
+		if err = h.Connect(ctx, *addrInfo); err != nil {
 			logEntry.WithError(err).Warnln("Error connecting to remote peer")
+			// TODO: not nice to set these properties here - guard access
 			hpState.Error = err.Error()
 			hpState.EndReason = pb.HolePunchEndReason_NO_CONNECTION
+			hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
 		} else {
-			if err = hpState.WaitForHolePunch(h.ctx); err != nil {
+			if err = hpState.WaitForHolePunch(ctx); err != nil {
 				logEntry.WithError(err).Warnln("Hole punch (initiation) timeout")
+				// TODO: not nice to set these properties here - guard access
 				hpState.EndReason = pb.HolePunchEndReason_NOT_INITIATED
 				hpState.Error = err.Error()
+				hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
 			}
 		}
 
+		// Cleanup
 		hpState = h.DeleteHolePunchState(addrInfo.ID)
-
 		h.Peerstore().RemovePeer(addrInfo.ID)
 		if err = h.Network().ClosePeer(addrInfo.ID); err != nil {
 			logEntry.WithError(err).Warnln("Error closing connection")
@@ -163,13 +165,13 @@ func (h *Host) StartHolePunching() error {
 			"duration":  hpState.ElapsedTime,
 			"endReason": hpState.EndReason,
 		}).Infoln("Tracking hole punch result")
-		if err = h.TrackHolePunchResult(hpState); err != nil {
+		if err = h.TrackHolePunchResult(ctx, hpState); err != nil {
 			logEntry.WithError(err).Warnln("Error tracking hole punch result")
 		}
 	}
 }
 
-func (h *Host) RegisterHost() error {
+func (h *Host) RegisterHost(ctx context.Context) error {
 	log.Infoln("Registering at API server")
 
 	bytesLocalPeerID, err := h.ID().Marshal()
@@ -177,7 +179,7 @@ func (h *Host) RegisterHost() error {
 		return errors.Wrap(err, "marshal peer id")
 	}
 
-	_, err = h.APIClient.Register(h.ctx, &pb.RegisterRequest{
+	_, err = h.APIClient.Register(ctx, &pb.RegisterRequest{
 		ClientId: bytesLocalPeerID,
 		// AgentVersion: *h.GetAgentVersion(h.ID()),
 		AgentVersion: "punchr/go-client/0.1.0",
@@ -189,7 +191,7 @@ func (h *Host) RegisterHost() error {
 	return nil
 }
 
-func (h *Host) RequestAddrInfo() (*peer.AddrInfo, error) {
+func (h *Host) RequestAddrInfo(ctx context.Context) (*peer.AddrInfo, error) {
 	log.Infoln("Requesting addr infos from server...")
 
 	bytesLocalPeerID, err := h.ID().Marshal()
@@ -197,10 +199,12 @@ func (h *Host) RequestAddrInfo() (*peer.AddrInfo, error) {
 		return nil, errors.Wrap(err, "marshal peer id")
 	}
 
-	res, err := h.APIClient.GetAddrInfo(h.ctx, &pb.GetAddrInfoRequest{ClientId: bytesLocalPeerID})
+	res, err := h.APIClient.GetAddrInfo(ctx, &pb.GetAddrInfoRequest{ClientId: bytesLocalPeerID})
 	if err != nil {
 		return nil, errors.Wrap(err, "get addr info RPC")
 	}
+
+	// If not remote ID is given the server does not have a peer to hole punch
 	if res.GetRemoteId() == nil {
 		return nil, nil
 	}
@@ -222,13 +226,13 @@ func (h *Host) RequestAddrInfo() (*peer.AddrInfo, error) {
 	return &peer.AddrInfo{ID: remoteID, Addrs: maddrs}, nil
 }
 
-func (h *Host) TrackHolePunchResult(hps *HolePunchState) error {
+func (h *Host) TrackHolePunchResult(ctx context.Context, hps *HolePunchState) error {
 	req, err := hps.ToProto(h.ID())
 	if err != nil {
 		return err
 	}
 
-	_, err = h.APIClient.TrackHolePunch(h.ctx, req)
+	_, err = h.APIClient.TrackHolePunch(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -259,6 +263,48 @@ func (h *Host) DeleteHolePunchState(remoteID peer.ID) *HolePunchState {
 	delete(h.hpStates, remoteID)
 
 	return hpState
+}
+
+func (h *Host) Trace(evt *holepunch.Event) {
+	h.hpStatesLk.Lock()
+	defer h.hpStatesLk.Unlock()
+
+	hpState, found := h.hpStates[evt.Remote]
+	if !found {
+		return
+	}
+
+	switch event := evt.Evt.(type) {
+	case *holepunch.StartHolePunchEvt:
+		hpState.StartRTT = event.RTT
+		close(hpState.holePunchStarted)
+	case *holepunch.EndHolePunchEvt:
+		hpState.EndReason = pb.HolePunchEndReason_HOLE_PUNCH
+		hpState.Error = event.Error
+		hpState.Success = event.Success
+		hpState.ElapsedTime = event.EllapsedTime
+		close(hpState.holePunchFinished)
+	case *holepunch.HolePunchAttemptEvt:
+		hpState.Attempts += 1 // event.Attempt <-- does not count correctly if hole punching with same peer happens shortly after one another. GC is not run in time and can't be triggered.
+	case *holepunch.ProtocolErrorEvt:
+		hpState.EndReason = pb.HolePunchEndReason_PROTOCOL_ERROR
+		hpState.Error = event.Error
+		hpState.Success = false
+		hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
+		close(hpState.holePunchFinished)
+	case *holepunch.DirectDialEvt:
+		log.Warnln("Unexpected DirectDialEvt")
+		if event.Success {
+			hpState.EndReason = pb.HolePunchEndReason_DIRECT_DIAL
+			hpState.Success = event.Success
+			hpState.ElapsedTime = event.EllapsedTime
+			close(hpState.holePunchFinished)
+		} else {
+			hpState.DirectDialError = event.Error
+		}
+	default:
+		panic(fmt.Sprintf("unexpected event %T", evt.Evt))
+	}
 }
 
 type HolePunchState struct {
@@ -330,45 +376,5 @@ func (hps HolePunchState) WaitForHolePunch(ctx context.Context) error {
 		return errors.New("hole punch did not finish in time")
 	case <-ctx.Done():
 		return ctx.Err()
-	}
-}
-
-func (h *Host) Trace(evt *holepunch.Event) {
-	h.hpStatesLk.Lock()
-	defer h.hpStatesLk.Unlock()
-
-	hpState, found := h.hpStates[evt.Remote]
-	if !found {
-		return
-	}
-
-	switch event := evt.Evt.(type) {
-	case *holepunch.StartHolePunchEvt:
-		hpState.StartRTT = event.RTT
-		close(hpState.holePunchStarted)
-	case *holepunch.EndHolePunchEvt:
-		hpState.EndReason = pb.HolePunchEndReason_HOLE_PUNCH
-		hpState.Error = event.Error
-		hpState.Success = event.Success
-		hpState.ElapsedTime = event.EllapsedTime
-		close(hpState.holePunchFinished)
-	case *holepunch.HolePunchAttemptEvt:
-		hpState.Attempts += 1 // event.Attempt <-- does not count correctly if hole punching with same peer happens shortly after one another.
-	case *holepunch.ProtocolErrorEvt:
-		hpState.EndReason = pb.HolePunchEndReason_PROTOCOL_ERROR
-		hpState.Error = event.Error
-		hpState.Success = false
-		hpState.ElapsedTime = time.Since(hpState.ConnectionStartedAt)
-		close(hpState.holePunchFinished)
-	case *holepunch.DirectDialEvt:
-		log.Warnln("Unexpected event DirectDialEvt")
-		if event.Success {
-			hpState.EndReason = pb.HolePunchEndReason_DIRECT_DIAL
-			hpState.Success = event.Success
-			hpState.ElapsedTime = event.EllapsedTime
-			close(hpState.holePunchFinished)
-		} else {
-			hpState.DirectDialError = event.Error
-		}
 	}
 }

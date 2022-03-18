@@ -764,7 +764,7 @@ func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExe
 	}
 
 	query := NewQuery(
-		qm.Select("\"hole_punch_results\".id, \"hole_punch_results\".client_id, \"hole_punch_results\".remote_id, \"hole_punch_results\".start_rtt, \"hole_punch_results\".elapsed_time, \"hole_punch_results\".end_reason, \"hole_punch_results\".attempts, \"hole_punch_results\".success, \"hole_punch_results\".error, \"hole_punch_results\".direct_dial_error, \"hole_punch_results\".updated_at, \"hole_punch_results\".created_at, \"a\".\"multi_address_id\""),
+		qm.Select("\"hole_punch_results\".id, \"hole_punch_results\".client_id, \"hole_punch_results\".remote_id, \"hole_punch_results\".connection_started_at, \"hole_punch_results\".start_rtt, \"hole_punch_results\".elapsed_time, \"hole_punch_results\".end_reason, \"hole_punch_results\".attempts, \"hole_punch_results\".success, \"hole_punch_results\".error, \"hole_punch_results\".direct_dial_error, \"hole_punch_results\".updated_at, \"hole_punch_results\".created_at, \"a\".\"multi_address_id\""),
 		qm.From("\"hole_punch_results\""),
 		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" as \"a\" on \"hole_punch_results\".\"id\" = \"a\".\"hole_punch_result_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
@@ -785,7 +785,7 @@ func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExe
 		one := new(HolePunchResult)
 		var localJoinCol int64
 
-		err = results.Scan(&one.ID, &one.ClientID, &one.RemoteID, &one.StartRTT, &one.ElapsedTime, &one.EndReason, &one.Attempts, &one.Success, &one.Error, &one.DirectDialError, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
+		err = results.Scan(&one.ID, &one.ClientID, &one.RemoteID, &one.ConnectionStartedAt, &one.StartRTT, &one.ElapsedTime, &one.EndReason, &one.Attempts, &one.Success, &one.Error, &one.DirectDialError, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for hole_punch_results")
 		}
