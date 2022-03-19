@@ -1,3 +1,4 @@
 honeypot
 *.key
 dist/
+rust-client/target

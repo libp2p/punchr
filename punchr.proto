@@ -65,14 +65,25 @@ message TrackHolePunchRequest {
   bytes remote_id = 2;
   // A boolean flag indicating if the hole punch (or connection reversal) succeeded
   bool success = 3;
+  // TODO: Why an int? Why would this ever go negativ?
+  //
   // Unix timestamp in milliseconds of when the connection to the remote peer was initiated
   int64 started_at = 4;
   // The multi addresses that were used to attempt a hole punch
   repeated bytes remote_multi_addresses = 5;
   // The number of hole punch attempts
   int32 attempts = 6;
+  // TODO: How about making this optional?
+  //
+  // TODO: Also how about making it an enum?
+  //
   // The error that occurred if the hole punch failed
   string error = 7;
+  // TODO mxinden: I am not quite sure I understand this field. Why does the
+  // server pass a public non-relay address to the client in the first place?
+  // Also note that connection reversal is only attempted by the DCUtR listener,
+  // not dialer.
+  //
   // The error that occurred if the connection reversal failed. This is only set of
   // the multi addresses for the remote peer contained a publicly reachable non-relay multi address
   string direct_dial_error = 8;

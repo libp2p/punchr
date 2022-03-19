@@ -1,0 +1,20 @@
+[package]
+name = "rust-client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.9"
+futures = "0.3"
+futures-timer = "2"
+libp2p = { version = "0.43.0", default-features = false, features = ["dcutr", "dns-async-std", "identify", "noise", "relay", "ping", "tcp-async-io", "yamux"] }
+log = "0.4"
+prost = "0.9"
+structopt = "0.3"
+tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
+tonic = "0.6"
+
+[build-dependencies]
+tonic-build = "0.6"
