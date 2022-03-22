@@ -136,10 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         remote_peer_id, remote_addrs
     );
 
-    let start_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
+    let start_time = SystemTime::now();
 
     let result = if remote_addrs
         .iter()
@@ -155,16 +152,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         drive_hole_punch(swarm, remote_peer_id).await
     };
 
-    let finish_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-
+    let finish_time = SystemTime::now();
+    let elapsed_time = (finish_time.duration_since(UNIX_EPOCH).unwrap()
+        - start_time.duration_since(UNIX_EPOCH).unwrap())
+    .as_secs_f32();
     let request = tonic::Request::new(grpc::TrackHolePunchRequest {
         client_id: local_peer_id.to_bytes(),
         remote_id: remote_peer_id.to_bytes(),
         success: result.is_ok(),
-        started_at: start_time.try_into().unwrap(),
+        started_at: start_time
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .try_into()
+            .unwrap(),
         remote_multi_addresses: remote_addrs.into_iter().map(|a| a.to_vec()).collect(),
         // TODO: Set proper attempts
         attempts: 0,
@@ -174,8 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         direct_dial_error: String::new(),
         // TODO
         start_rtt: 0.0,
-        // TODO: This is in ms right now.
-        elapsed_time: ((finish_time - start_time) as u16).try_into().unwrap(),
+        elapsed_time,
         end_reason: grpc::HolePunchEndReason::Unknown.into(),
     });
 
