@@ -6,7 +6,7 @@ use libp2p::core::transport::OrTransport;
 use libp2p::core::upgrade;
 use libp2p::dcutr;
 use libp2p::dns::DnsConfig;
-use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent, IdentifyInfo};
+use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::noise;
 use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::relay::v2::client::{self, Client};
@@ -17,9 +17,9 @@ use libp2p::Transport;
 use libp2p::{identity, NetworkBehaviour, PeerId};
 use log::info;
 use std::convert::TryInto;
-use std::error::Error;
+
 use std::net::Ipv4Addr;
-use std::str::FromStr;
+
 use std::time::{SystemTime, UNIX_EPOCH};
 use structopt::StructOpt;
 
@@ -116,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         protocols: vec![],
     });
 
-    let response = client.register(request).await?;
+    let _response = client.register(request).await?;
 
     let request = tonic::Request::new(grpc::GetAddrInfoRequest {
         client_id: local_peer_id.to_bytes(),
@@ -179,7 +179,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         end_reason: grpc::HolePunchEndReason::Unknown.into(),
     });
 
-    let response = client.track_hole_punch(request).await?;
+    client.track_hole_punch(request).await?;
 
     Ok(())
 }
@@ -198,32 +198,38 @@ async fn drive_hole_punch(
 
                 match event {
                     client::Event::ReservationReqAccepted {
-                        relay_peer_id,
-                        renewal,
-                        limit,
+                        relay_peer_id: _,
+                        renewal: _,
+                        limit: _,
                     } => unreachable!(),
                     client::Event::ReservationReqFailed {
-                        relay_peer_id,
-                        renewal,
-                        error,
+                        relay_peer_id: _,
+                        renewal: _,
+                        error: _,
                     } => unreachable!(),
                     client::Event::OutboundCircuitEstablished {
-                        relay_peer_id,
-                        limit,
+                        relay_peer_id: _,
+                        limit: _,
                     } => {}
                     client::Event::OutboundCircuitReqFailed {
-                        relay_peer_id,
-                        error,
+                        relay_peer_id: _,
+                        error: _,
                     } => break Err(()),
-                    client::Event::InboundCircuitEstablished { src_peer_id, limit } => {
+                    client::Event::InboundCircuitEstablished {
+                        src_peer_id: _,
+                        limit: _,
+                    } => {
                         unreachable!()
                     }
                     client::Event::InboundCircuitReqFailed {
-                        relay_peer_id,
-                        error,
+                        relay_peer_id: _,
+                        error: _,
                     } => unreachable!(),
-                    client::Event::InboundCircuitReqDenied { src_peer_id } => unreachable!(),
-                    client::Event::InboundCircuitReqDenyFailed { src_peer_id, error } => {
+                    client::Event::InboundCircuitReqDenied { src_peer_id: _ } => unreachable!(),
+                    client::Event::InboundCircuitReqDenyFailed {
+                        src_peer_id: _,
+                        error: _,
+                    } => {
                         unreachable!()
                     }
                 };
@@ -233,19 +239,19 @@ async fn drive_hole_punch(
 
                 match event {
                     dcutr::behaviour::Event::InitiatedDirectConnectionUpgrade {
-                        remote_peer_id,
-                        local_relayed_addr,
+                        remote_peer_id: _,
+                        local_relayed_addr: _,
                     } => unreachable!(),
                     dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade {
-                        remote_peer_id,
-                        remote_relayed_addr,
+                        remote_peer_id: _,
+                        remote_relayed_addr: _,
                     } => {}
                     dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded {
-                        remote_peer_id,
+                        remote_peer_id: _,
                     } => break Ok(()),
                     dcutr::behaviour::Event::DirectConnectionUpgradeFailed {
-                        remote_peer_id,
-                        error,
+                        remote_peer_id: _,
+                        error: _,
                     } => todo!(),
                 }
             }
