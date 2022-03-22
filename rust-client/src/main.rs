@@ -11,7 +11,7 @@ use libp2p::noise;
 use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::{SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{Swarm, SwarmBuilder, SwarmEvent};
 use libp2p::tcp::TcpConfig;
 use libp2p::Transport;
 use libp2p::{identity, NetworkBehaviour, PeerId};
@@ -25,6 +25,10 @@ use structopt::StructOpt;
 
 pub mod grpc {
     tonic::include_proto!("_");
+}
+
+fn agent_version() -> String {
+    format!("/rust-libp2p-punchr/{}", env!("CARGO_PKG_VERSION"))
 }
 
 #[derive(StructOpt)]
@@ -50,35 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_key = generate_ed25519(opt.secret_key_seed);
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
-
-    let (relay_transport, relay_client) = Client::new_transport_and_behaviour(local_peer_id);
-
-    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&local_key)
-        .expect("Signing libp2p-noise static DH keypair failed.");
-
-    let transport = OrTransport::new(
-        relay_transport,
-        block_on(DnsConfig::system(TcpConfig::new().port_reuse(true))).unwrap(),
-    )
-    .upgrade(upgrade::Version::V1)
-    .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-    // TODO: Consider supporting mplex.
-    .multiplex(libp2p::yamux::YamuxConfig::default())
-    .boxed();
-
-    let identify_config = IdentifyConfig::new("/TODO/0.0.1".to_string(), local_key.public());
-
-    let behaviour = Behaviour {
-        relay_client,
-        ping: Ping::new(PingConfig::new()),
-        identify: Identify::new(identify_config.clone()),
-        dcutr: dcutr::behaviour::Behaviour::new(),
-    };
-
-    let mut swarm = SwarmBuilder::new(transport, behaviour, local_peer_id)
-        .dial_concurrency_factor(10_u8.try_into().unwrap())
-        .build();
+    let mut swarm = build_swarm(local_key);
 
     swarm
         .listen_on(
@@ -111,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let request = tonic::Request::new(grpc::RegisterRequest {
         client_id: local_peer_id.to_bytes(),
-        agent_version: identify_config.agent_version,
+        agent_version: agent_version(),
         // TODO: Fill.
         protocols: vec![],
     });
@@ -182,6 +158,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.track_hole_punch(request).await?;
 
     Ok(())
+}
+
+fn build_swarm(local_key: identity::Keypair) -> Swarm<Behaviour> {
+    let local_peer_id = PeerId::from(local_key.public());
+    let (relay_transport, relay_client) = Client::new_transport_and_behaviour(local_peer_id);
+
+    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
+        .into_authentic(&local_key)
+        .expect("Signing libp2p-noise static DH keypair failed.");
+
+    let transport = OrTransport::new(
+        relay_transport,
+        block_on(DnsConfig::system(TcpConfig::new().port_reuse(true))).unwrap(),
+    )
+    .upgrade(upgrade::Version::V1)
+    .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+    // TODO: Consider supporting mplex.
+    .multiplex(libp2p::yamux::YamuxConfig::default())
+    .boxed();
+
+    let identify_config = IdentifyConfig::new("/TODO/0.0.1".to_string(), local_key.public())
+        .with_agent_version(agent_version());
+
+    let behaviour = Behaviour {
+        relay_client,
+        ping: Ping::new(PingConfig::new()),
+        identify: Identify::new(identify_config.clone()),
+        dcutr: dcutr::behaviour::Behaviour::new(),
+    };
+
+    SwarmBuilder::new(transport, behaviour, local_peer_id)
+        .dial_concurrency_factor(10_u8.try_into().unwrap())
+        .build()
 }
 
 async fn drive_hole_punch(
