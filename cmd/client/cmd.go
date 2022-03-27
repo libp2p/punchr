@@ -12,9 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc"
-
-	"github.com/dennis-tra/punchr/pkg/pb"
 )
 
 func main() {
@@ -25,13 +22,6 @@ func main() {
 		Action:    RootAction,
 		Version:   "0.1.0",
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "port",
-				Usage:       "On which port should the libp2p host listen",
-				EnvVars:     []string{"PUNCHR_CLIENT_PORT"},
-				Value:       "12000",
-				DefaultText: "12000",
-			},
 			&cli.StringFlag{
 				Name:        "telemetry-host",
 				Usage:       "To which network address should the telemetry (prometheus, pprof) server bind",
@@ -60,13 +50,20 @@ func main() {
 				Value:       "10000",
 				DefaultText: "10000",
 			},
+			&cli.IntFlag{
+				Name:        "host-count",
+				Usage:       "How many libp2p hosts should be used to hole punch",
+				EnvVars:     []string{"PUNCHR_CLIENT_HOST_COUNT"},
+				DefaultText: "10",
+				Value:       10,
+			},
 			&cli.StringFlag{
-				Name:        "key",
-				Usage:       "Load private key for peer ID from `FILE`",
+				Name:        "key-prefix",
+				Usage:       "Each hosts' private key file prefix",
 				TakesFile:   true,
-				EnvVars:     []string{"PUNCHR_CLIENT_KEY_FILE"},
-				DefaultText: "punchr.key",
-				Value:       "punchr.key",
+				EnvVars:     []string{"PUNCHR_CLIENT_KEY_FILE_PREFIX"},
+				DefaultText: "punchrclient",
+				Value:       "punchrclient",
 			},
 		},
 		EnableBashCompletion: true,
@@ -86,31 +83,29 @@ func RootAction(c *cli.Context) error {
 	// Start telemetry endpoints
 	go serveTelemetry(c)
 
-	addr := fmt.Sprintf("%s:%s", c.String("server-host"), c.String("server-port"))
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	// Create new punchr
+	punchr, err := NewPunchr(c)
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		return errors.Wrap(err, "new punchr")
 	}
 
-	h, err := InitHost(c, c.String("port"))
-	if err != nil {
-		return errors.Wrap(err, "init host")
+	// Initialize its hosts
+	if err = punchr.InitHosts(c.Context); err != nil {
+		return errors.Wrap(err, "punchr init hosts")
 	}
 
-	h.client = pb.NewPunchrServiceClient(conn)
-
-	// Connect punchr host to bootstrap nodes
-	if err := h.Bootstrap(c.Context); err != nil {
-		return errors.Wrap(err, "bootstrap host")
+	// Connect punchr hosts to bootstrap nodes
+	if err = punchr.Bootstrap(c.Context); err != nil {
+		return errors.Wrap(err, "bootstrap punchr hosts")
 	}
 
-	// Register host at the gRPC server
-	if err := h.RegisterHost(c.Context); err != nil {
+	// Register hosts at the gRPC server
+	if err = punchr.Register(c.Context); err != nil {
 		return err
 	}
 
 	// Finally, start hole punching
-	if err = h.StartHolePunching(c.Context); err != nil {
+	if err = punchr.StartHolePunching(c.Context); err != nil {
 		log.Fatalf("failed to hole punch: %v", err)
 	}
 
@@ -118,8 +113,8 @@ func RootAction(c *cli.Context) error {
 	<-c.Context.Done()
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
-	if err = conn.Close(); err != nil {
-		log.WithError(err).Warnln("Closing gRPC server connection")
+	if err = punchr.Close(); err != nil {
+		log.WithError(err).Warnln("Closing punchr client")
 	}
 
 	log.Info("Done!")
