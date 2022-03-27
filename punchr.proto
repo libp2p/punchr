@@ -1,4 +1,4 @@
-syntax = "proto3";
+syntax = "proto2";
 
 option go_package = "github.com/dennis-tra/punchr/pkg/pb";
 
@@ -16,73 +16,112 @@ service PunchrService {
 }
 
 message RegisterRequest {
-  bytes client_id = 1;
-  string agent_version = 2;
+  required bytes client_id = 1;
+  required string agent_version = 2;
   repeated string protocols = 3;
 }
 
 message RegisterResponse {
-  int64 db_peer_id = 1;
+  required int64 db_peer_id = 1;
 }
 
 message GetAddrInfoRequest {
   // Peer ID of the requesting punchr client
-  bytes client_id = 1;
+  required bytes client_id = 1;
 }
 
 message GetAddrInfoResponse {
-  bytes remote_id = 1;
+  required bytes remote_id = 1;
   repeated bytes multi_addresses = 2;
 }
 
-enum HolePunchEndReason {
-  UNKNOWN = 0;
+enum HolePunchOutcome {
+  HOLE_PUNCH_OUTCOME_UNKNOWN = 0;
 
   // Could not connect to remote peer via relay
-  NO_CONNECTION = 1;
+  HOLE_PUNCH_OUTCOME_NO_CONNECTION = 1;
 
   // Hole punch was not initiated from the remote peer
-  // because we have a direct connection (connection reversal succeeded?)
-  DIRECT_CONNECTION = 2;
+  // because the /libp2p/dcutr stream was not opened.
+  HOLE_PUNCH_OUTCOME_NO_STREAM = 2;
 
-  // We connected to the remote peer via a relay but the remote did not initiate a hole punch
-  NOT_INITIATED = 3;
+  // Hole punch was cancelled by the user
+  HOLE_PUNCH_OUTCOME_CANCELLED = 3;
 
-  // Should never happen on our side. This happens if the connection reversal from our side succeeded.
-  DIRECT_DIAL = 4;
-
-  // Can happen if the stream was reset mid-flight
-  PROTOCOL_ERROR = 5;
-
-  // The hole punch was started, the /libp2p/dcutr stream was opened.
-  HOLE_PUNCH = 6;
+  // The hole punch was performed and successful
+  HOLE_PUNCH_OUTCOME_SUCCESS = 4;
 }
 
 message TrackHolePunchRequest {
   // Peer ID of the requesting punchr client
-  bytes client_id = 1;
+  required bytes client_id = 1;
+
   // Peer ID of the remote peer that was hole punched
-  bytes remote_id = 2;
-  // A boolean flag indicating if the hole punch (or connection reversal) succeeded
-  bool success = 3;
-  // Unix timestamp in milliseconds of when the connection to the remote peer was initiated
-  int64 started_at = 4;
+  required bytes remote_id = 2;
   // The multi addresses that were used to attempt a hole punch
-  repeated bytes remote_multi_addresses = 5;
-  // The number of hole punch attempts
-  int32 attempts = 6;
-  // The error that occurred if the hole punch failed
-  string error = 7;
-  // The error that occurred if the connection reversal failed. This is only set of
-  // the multi addresses for the remote peer contained a publicly reachable non-relay multi address
-  string direct_dial_error = 8;
-  // Start round trip time in seconds that falls out of the `holepunch.StartHolePunchEvt`
-  float start_rtt = 9;
-  // The elapsed time in seconds from start to finish of the hole punch
-  float elapsed_time = 10;
+  // (the same that got served in the first place via GetAddrInfo)
+  repeated bytes remote_multi_addresses = 3;
+
+  // Unix timestamp in milliseconds of when the connection to the remote peer was initiated
+  required uint64 connect_started_at = 4;
+  // Unix timestamp in milliseconds of when the connection to the remote peer via the relay was established (or has failed)
+  required uint64 connect_ended_at = 5;
+
+  // Information about each hole punch attempt
+  repeated HolePunchAttempt hole_punch_attempts = 6;
+
+  // The multi addresses of the open connections AFTER the hole punch process.
+  // This field can be used to track which transport protocols were more successful for hole punching.
+  repeated bytes open_multi_addresses = 7;
+
+  // Whether the open_multi_addresses contains at least one direct connection
+  // to the remote peer.
+  required bool has_direct_conns = 8;
+
   // The reason why the hole punch ended (direct dial succeeded, protocol error occurred, hole punch procedure finished)
-  HolePunchEndReason end_reason = 11;
+  required HolePunchOutcome outcome = 9;
+  // Unix timestamp in milliseconds of when the overall hole punch process ended
+  required uint64 ended_at = 10;
 }
 
-message TrackHolePunchResponse {
+message TrackHolePunchResponse {}
+
+message HolePunchAttempt {
+  // Unix timestamp in milliseconds of when the /libp2p/dcutr stream was opened
+  required uint64 opened_at = 1;
+  // Unix timestamp in milliseconds of when this hole punching attempt was started
+  required uint64 started_at = 2;
+  // Unix timestamp in milliseconds of when this hole punching attempt terminated
+  required uint64 ended_at = 3;
+  // Start round trip time in seconds that falls out of the `holepunch.StartHolePunchEvt`
+  optional float start_rtt = 4;
+  // The elapsed time in seconds from start to finish of the hole punch
+  required float elapsed_time = 5;
+  // The outcome of the hole punch
+  required HolePunchAttemptOutcome outcome = 6;
+  // The error that occurred if the hole punch failed
+  optional string error = 7;
+  // The error that occurred if the connection reversal failed. This is only set of
+  // the multi addresses for the remote peer contained a publicly reachable non-relay multi address
+  optional string direct_dial_error = 8;
+}
+
+enum HolePunchAttemptOutcome {
+  HOLE_PUNCH_ATTEMPT_OUTCOME_UNKNOWN = 0;
+
+  // Should never happen on our side. This happens if
+  // the connection reversal from our side succeeded.
+  HOLE_PUNCH_ATTEMPT_DIRECT_DIAL = 1;
+
+  // Can happen if, e.g., the stream was reset mid-flight
+  HOLE_PUNCH_ATTEMPT_PROTOCOL_ERROR = 2;
+
+  // The overall hole punch was cancelled by the user
+  HOLE_PUNCH_ATTEMPT_CANCELLED = 3;
+
+  // The hole punch was performed but has failed
+  HOLE_PUNCH_ATTEMPT_FAILED = 4;
+
+  // The hole punch was performed and was successful
+  HOLE_PUNCH_ATTEMPT_SUCCESS = 5;
 }
