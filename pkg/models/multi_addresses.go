@@ -117,21 +117,21 @@ var MultiAddressWhere = struct {
 var MultiAddressRels = struct {
 	ConnectionMultiAddressConnectionEvents string
 	ConnectionEvents                       string
-	HolePunchResults                       string
+	HolePunchResultsXMultiAddresses        string
 	IPAddresses                            string
 }{
 	ConnectionMultiAddressConnectionEvents: "ConnectionMultiAddressConnectionEvents",
 	ConnectionEvents:                       "ConnectionEvents",
-	HolePunchResults:                       "HolePunchResults",
+	HolePunchResultsXMultiAddresses:        "HolePunchResultsXMultiAddresses",
 	IPAddresses:                            "IPAddresses",
 }
 
 // multiAddressR is where relationships are stored.
 type multiAddressR struct {
-	ConnectionMultiAddressConnectionEvents ConnectionEventSlice `boil:"ConnectionMultiAddressConnectionEvents" json:"ConnectionMultiAddressConnectionEvents" toml:"ConnectionMultiAddressConnectionEvents" yaml:"ConnectionMultiAddressConnectionEvents"`
-	ConnectionEvents                       ConnectionEventSlice `boil:"ConnectionEvents" json:"ConnectionEvents" toml:"ConnectionEvents" yaml:"ConnectionEvents"`
-	HolePunchResults                       HolePunchResultSlice `boil:"HolePunchResults" json:"HolePunchResults" toml:"HolePunchResults" yaml:"HolePunchResults"`
-	IPAddresses                            IPAddressSlice       `boil:"IPAddresses" json:"IPAddresses" toml:"IPAddresses" yaml:"IPAddresses"`
+	ConnectionMultiAddressConnectionEvents ConnectionEventSlice               `boil:"ConnectionMultiAddressConnectionEvents" json:"ConnectionMultiAddressConnectionEvents" toml:"ConnectionMultiAddressConnectionEvents" yaml:"ConnectionMultiAddressConnectionEvents"`
+	ConnectionEvents                       ConnectionEventSlice               `boil:"ConnectionEvents" json:"ConnectionEvents" toml:"ConnectionEvents" yaml:"ConnectionEvents"`
+	HolePunchResultsXMultiAddresses        HolePunchResultsXMultiAddressSlice `boil:"HolePunchResultsXMultiAddresses" json:"HolePunchResultsXMultiAddresses" toml:"HolePunchResultsXMultiAddresses" yaml:"HolePunchResultsXMultiAddresses"`
+	IPAddresses                            IPAddressSlice                     `boil:"IPAddresses" json:"IPAddresses" toml:"IPAddresses" yaml:"IPAddresses"`
 }
 
 // NewStruct creates a new relationship struct
@@ -467,23 +467,22 @@ func (o *MultiAddress) ConnectionEvents(mods ...qm.QueryMod) connectionEventQuer
 	return query
 }
 
-// HolePunchResults retrieves all the hole_punch_result's HolePunchResults with an executor.
-func (o *MultiAddress) HolePunchResults(mods ...qm.QueryMod) holePunchResultQuery {
+// HolePunchResultsXMultiAddresses retrieves all the hole_punch_results_x_multi_address's HolePunchResultsXMultiAddresses with an executor.
+func (o *MultiAddress) HolePunchResultsXMultiAddresses(mods ...qm.QueryMod) holePunchResultsXMultiAddressQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
 	}
 
 	queryMods = append(queryMods,
-		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" on \"hole_punch_results\".\"id\" = \"hole_punch_results_x_multi_addresses\".\"hole_punch_result_id\""),
 		qm.Where("\"hole_punch_results_x_multi_addresses\".\"multi_address_id\"=?", o.ID),
 	)
 
-	query := HolePunchResults(queryMods...)
-	queries.SetFrom(query.Query, "\"hole_punch_results\"")
+	query := HolePunchResultsXMultiAddresses(queryMods...)
+	queries.SetFrom(query.Query, "\"hole_punch_results_x_multi_addresses\"")
 
 	if len(queries.GetSelect(query.Query)) == 0 {
-		queries.SetSelect(query.Query, []string{"\"hole_punch_results\".*"})
+		queries.SetSelect(query.Query, []string{"\"hole_punch_results_x_multi_addresses\".*"})
 	}
 
 	return query
@@ -724,9 +723,9 @@ func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExe
 	return nil
 }
 
-// LoadHolePunchResults allows an eager lookup of values, cached into the
+// LoadHolePunchResultsXMultiAddresses allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
+func (multiAddressL) LoadHolePunchResultsXMultiAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
 	var slice []*MultiAddress
 	var object *MultiAddress
 
@@ -764,10 +763,8 @@ func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExe
 	}
 
 	query := NewQuery(
-		qm.Select("\"hole_punch_results\".id, \"hole_punch_results\".client_id, \"hole_punch_results\".remote_id, \"hole_punch_results\".connection_started_at, \"hole_punch_results\".start_rtt, \"hole_punch_results\".elapsed_time, \"hole_punch_results\".end_reason, \"hole_punch_results\".attempts, \"hole_punch_results\".success, \"hole_punch_results\".error, \"hole_punch_results\".direct_dial_error, \"hole_punch_results\".updated_at, \"hole_punch_results\".created_at, \"a\".\"multi_address_id\""),
-		qm.From("\"hole_punch_results\""),
-		qm.InnerJoin("\"hole_punch_results_x_multi_addresses\" as \"a\" on \"hole_punch_results\".\"id\" = \"a\".\"hole_punch_result_id\""),
-		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
+		qm.From(`hole_punch_results_x_multi_addresses`),
+		qm.WhereIn(`hole_punch_results_x_multi_addresses.multi_address_id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -775,36 +772,22 @@ func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExe
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load hole_punch_results")
+		return errors.Wrap(err, "failed to eager load hole_punch_results_x_multi_addresses")
 	}
 
-	var resultSlice []*HolePunchResult
-
-	var localJoinCols []int64
-	for results.Next() {
-		one := new(HolePunchResult)
-		var localJoinCol int64
-
-		err = results.Scan(&one.ID, &one.ClientID, &one.RemoteID, &one.ConnectionStartedAt, &one.StartRTT, &one.ElapsedTime, &one.EndReason, &one.Attempts, &one.Success, &one.Error, &one.DirectDialError, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
-		if err != nil {
-			return errors.Wrap(err, "failed to scan eager loaded results for hole_punch_results")
-		}
-		if err = results.Err(); err != nil {
-			return errors.Wrap(err, "failed to plebian-bind eager loaded slice hole_punch_results")
-		}
-
-		resultSlice = append(resultSlice, one)
-		localJoinCols = append(localJoinCols, localJoinCol)
+	var resultSlice []*HolePunchResultsXMultiAddress
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice hole_punch_results_x_multi_addresses")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on hole_punch_results")
+		return errors.Wrap(err, "failed to close results in eager load on hole_punch_results_x_multi_addresses")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for hole_punch_results")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for hole_punch_results_x_multi_addresses")
 	}
 
-	if len(holePunchResultAfterSelectHooks) != 0 {
+	if len(holePunchResultsXMultiAddressAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
@@ -812,25 +795,24 @@ func (multiAddressL) LoadHolePunchResults(ctx context.Context, e boil.ContextExe
 		}
 	}
 	if singular {
-		object.R.HolePunchResults = resultSlice
+		object.R.HolePunchResultsXMultiAddresses = resultSlice
 		for _, foreign := range resultSlice {
 			if foreign.R == nil {
-				foreign.R = &holePunchResultR{}
+				foreign.R = &holePunchResultsXMultiAddressR{}
 			}
-			foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, object)
+			foreign.R.MultiAddress = object
 		}
 		return nil
 	}
 
-	for i, foreign := range resultSlice {
-		localJoinCol := localJoinCols[i]
+	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == localJoinCol {
-				local.R.HolePunchResults = append(local.R.HolePunchResults, foreign)
+			if local.ID == foreign.MultiAddressID {
+				local.R.HolePunchResultsXMultiAddresses = append(local.R.HolePunchResultsXMultiAddresses, foreign)
 				if foreign.R == nil {
-					foreign.R = &holePunchResultR{}
+					foreign.R = &holePunchResultsXMultiAddressR{}
 				}
-				foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, local)
+				foreign.R.MultiAddress = local
 				break
 			}
 		}
@@ -1151,148 +1133,57 @@ func removeConnectionEventsFromMultiAddressesSlice(o *MultiAddress, related []*C
 	}
 }
 
-// AddHolePunchResults adds the given related objects to the existing relationships
+// AddHolePunchResultsXMultiAddresses adds the given related objects to the existing relationships
 // of the multi_address, optionally inserting them as new records.
-// Appends related to o.R.HolePunchResults.
-// Sets related.R.MultiAddresses appropriately.
-func (o *MultiAddress) AddHolePunchResults(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResult) error {
+// Appends related to o.R.HolePunchResultsXMultiAddresses.
+// Sets related.R.MultiAddress appropriately.
+func (o *MultiAddress) AddHolePunchResultsXMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResultsXMultiAddress) error {
 	var err error
 	for _, rel := range related {
 		if insert {
+			rel.MultiAddressID = o.ID
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"hole_punch_results_x_multi_addresses\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
+				strmangle.WhereClause("\"", "\"", 2, holePunchResultsXMultiAddressPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.MultiAddressID, rel.HolePunchResultID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.MultiAddressID = o.ID
 		}
 	}
 
-	for _, rel := range related {
-		query := "insert into \"hole_punch_results_x_multi_addresses\" (\"multi_address_id\", \"hole_punch_result_id\") values ($1, $2)"
-		values := []interface{}{o.ID, rel.ID}
-
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, query)
-			fmt.Fprintln(writer, values)
-		}
-		_, err = exec.ExecContext(ctx, query, values...)
-		if err != nil {
-			return errors.Wrap(err, "failed to insert into join table")
-		}
-	}
 	if o.R == nil {
 		o.R = &multiAddressR{
-			HolePunchResults: related,
+			HolePunchResultsXMultiAddresses: related,
 		}
 	} else {
-		o.R.HolePunchResults = append(o.R.HolePunchResults, related...)
+		o.R.HolePunchResultsXMultiAddresses = append(o.R.HolePunchResultsXMultiAddresses, related...)
 	}
 
 	for _, rel := range related {
 		if rel.R == nil {
-			rel.R = &holePunchResultR{
-				MultiAddresses: MultiAddressSlice{o},
+			rel.R = &holePunchResultsXMultiAddressR{
+				MultiAddress: o,
 			}
 		} else {
-			rel.R.MultiAddresses = append(rel.R.MultiAddresses, o)
+			rel.R.MultiAddress = o
 		}
 	}
 	return nil
-}
-
-// SetHolePunchResults removes all previously related items of the
-// multi_address replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.MultiAddresses's HolePunchResults accordingly.
-// Replaces o.R.HolePunchResults with related.
-// Sets related.R.MultiAddresses's HolePunchResults accordingly.
-func (o *MultiAddress) SetHolePunchResults(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResult) error {
-	query := "delete from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-
-	removeHolePunchResultsFromMultiAddressesSlice(o, related)
-	if o.R != nil {
-		o.R.HolePunchResults = nil
-	}
-	return o.AddHolePunchResults(ctx, exec, insert, related...)
-}
-
-// RemoveHolePunchResults relationships from objects passed in.
-// Removes related items from R.HolePunchResults (uses pointer comparison, removal does not keep order)
-// Sets related.R.MultiAddresses.
-func (o *MultiAddress) RemoveHolePunchResults(ctx context.Context, exec boil.ContextExecutor, related ...*HolePunchResult) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	query := fmt.Sprintf(
-		"delete from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\" = $1 and \"hole_punch_result_id\" in (%s)",
-		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
-	)
-	values := []interface{}{o.ID}
-	for _, rel := range related {
-		values = append(values, rel.ID)
-	}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err = exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-	removeHolePunchResultsFromMultiAddressesSlice(o, related)
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.HolePunchResults {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.HolePunchResults)
-			if ln > 1 && i < ln-1 {
-				o.R.HolePunchResults[i] = o.R.HolePunchResults[ln-1]
-			}
-			o.R.HolePunchResults = o.R.HolePunchResults[:ln-1]
-			break
-		}
-	}
-
-	return nil
-}
-
-func removeHolePunchResultsFromMultiAddressesSlice(o *MultiAddress, related []*HolePunchResult) {
-	for _, rel := range related {
-		if rel.R == nil {
-			continue
-		}
-		for i, ri := range rel.R.MultiAddresses {
-			if o.ID != ri.ID {
-				continue
-			}
-
-			ln := len(rel.R.MultiAddresses)
-			if ln > 1 && i < ln-1 {
-				rel.R.MultiAddresses[i] = rel.R.MultiAddresses[ln-1]
-			}
-			rel.R.MultiAddresses = rel.R.MultiAddresses[:ln-1]
-			break
-		}
-	}
 }
 
 // AddIPAddresses adds the given related objects to the existing relationships

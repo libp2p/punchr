@@ -58,13 +58,27 @@ const (
 	ConnectionDirectionINBOUND  = "INBOUND"
 )
 
-// Enum values for hole_punch_end_reason
+// Enum values for hole_punch_attempt_outcome
 const (
-	HolePunchEndReasonUNKNOWN           = "UNKNOWN"
-	HolePunchEndReasonNO_CONNECTION     = "NO_CONNECTION"
-	HolePunchEndReasonDIRECT_CONNECTION = "DIRECT_CONNECTION"
-	HolePunchEndReasonNOT_INITIATED     = "NOT_INITIATED"
-	HolePunchEndReasonDIRECT_DIAL       = "DIRECT_DIAL"
-	HolePunchEndReasonPROTOCOL_ERROR    = "PROTOCOL_ERROR"
-	HolePunchEndReasonHOLE_PUNCH        = "HOLE_PUNCH"
+	HolePunchAttemptOutcomeUNKNOWN        = "UNKNOWN"
+	HolePunchAttemptOutcomeDIRECT_DIAL    = "DIRECT_DIAL"
+	HolePunchAttemptOutcomePROTOCOL_ERROR = "PROTOCOL_ERROR"
+	HolePunchAttemptOutcomeCANCELLED      = "CANCELLED"
+	HolePunchAttemptOutcomeFAILED         = "FAILED"
+	HolePunchAttemptOutcomeSUCCESS        = "SUCCESS"
+)
+
+// Enum values for hole_punch_outcome
+const (
+	HolePunchOutcomeUNKNOWN       = "UNKNOWN"
+	HolePunchOutcomeNO_CONNECTION = "NO_CONNECTION"
+	HolePunchOutcomeNO_STREAM     = "NO_STREAM"
+	HolePunchOutcomeCANCELLED     = "CANCELLED"
+	HolePunchOutcomeSUCCESS       = "SUCCESS"
+)
+
+// Enum values for hole_punch_multi_address_relationship
+const (
+	HolePunchMultiAddressRelationshipREMOTE = "REMOTE"
+	HolePunchMultiAddressRelationshipOPEN   = "OPEN"
 )
