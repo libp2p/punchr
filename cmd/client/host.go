@@ -67,6 +67,13 @@ func InitHost(ctx context.Context, privKey crypto.PrivKey) (*Host, error) {
 	return h, nil
 }
 
+func (h *Host) logEntry(remoteID peer.ID) *log.Entry {
+	return log.WithFields(log.Fields{
+		"remoteID": util.FmtPeerID(remoteID),
+		"hostID":   util.FmtPeerID(h.ID()),
+	})
+}
+
 // Bootstrap connects this host to bootstrap peers.
 func (h *Host) Bootstrap(ctx context.Context) error {
 	for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
@@ -104,7 +111,6 @@ func (h *Host) Close() error {
 	return h.Host.Close()
 }
 
-// HolePunch .
 func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunchState {
 	// we received a new peer to hole punch -> log its information
 	h.logAddrInfo(addrInfo)
@@ -119,19 +125,27 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 
 	// initialize a new hole punch state
 	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs)
+	defer func() { hpState.EndedAt = time.Now() }()
+
+	// Track open connections after the hole punch
+	defer func() {
+		for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
+			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
+		}
+		hpState.HasDirectConns = h.hasDirectConnToPeer(addrInfo.ID)
+	}()
 
 	// connect to the remote peer via relay
 	hpState.ConnectStartedAt = time.Now()
 	if err := h.Connect(ctx, addrInfo); err != nil {
-		log.WithField("remoteID", util.FmtPeerID(addrInfo.ID)).WithError(err).Warnln("Error connecting to remote peer")
+		h.logEntry(addrInfo.ID).WithError(err).Warnln("Error connecting to remote peer")
 		hpState.ConnectEndedAt = time.Now()
 		hpState.Error = err.Error()
 		hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION
 		return hpState
 	}
 	hpState.ConnectEndedAt = time.Now()
-	defer func() { hpState.EndedAt = time.Now() }()
-	log.WithField("remoteID", util.FmtPeerID(addrInfo.ID)).Infoln("Connected!")
+	h.logEntry(addrInfo.ID).Infoln("Connected!")
 
 	// we were able to connect to the remote peer.
 	for i := 0; i < 3; i++ {
@@ -150,7 +164,6 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 			return hpState
 		}
 		// stream was opened! Now, wait for the first hole punch event.
-		log.WithField("remoteID", util.FmtPeerID(addrInfo.ID)).Infoln("/libp2p/dcutr stream opened!")
 
 		hpa, err := hpState.WaitForHolePunchAttempt(ctx, addrInfo.ID, evtChan)
 		if err != nil {
@@ -158,8 +171,8 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 			break
 		}
 
-		hpState.HolePunchAttempts = append(hpState.HolePunchAttempts, hpa)
-		if hpa.Success {
+		hpState.HolePunchAttempts = append(hpState.HolePunchAttempts, &hpa)
+		if hpa.Outcome == pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_SUCCESS {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS
 			break
 		}
@@ -168,8 +181,12 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	return hpState
 }
 
-func (hps HolePunchState) WaitForHolePunchAttempt(ctx context.Context, remoteID peer.ID, evtChan <-chan *holepunch.Event) (*HolePunchAttempt, error) {
+var ErrHolePunchTimeout = fmt.Errorf("hole punch events timed out")
+
+func (hps HolePunchState) WaitForHolePunchAttempt(ctx context.Context, remoteID peer.ID, evtChan <-chan *holepunch.Event) (HolePunchAttempt, error) {
+	hps.logEntry(remoteID).Infoln("Waiting for hole punch events...")
 	hpa := &HolePunchAttempt{
+		HostID:   hps.HostID,
 		RemoteID: remoteID,
 		OpenedAt: time.Now(),
 	}
@@ -179,25 +196,27 @@ func (hps HolePunchState) WaitForHolePunchAttempt(ctx context.Context, remoteID 
 		case evt := <-evtChan:
 			switch event := evt.Evt.(type) {
 			case *holepunch.StartHolePunchEvt:
-				hpa.handleStartHolePunchEvt(event)
+				hpa.handleStartHolePunchEvt(evt, event)
 			case *holepunch.EndHolePunchEvt:
-				hpa.handleEndHolePunchEvt(event)
-				return hpa, nil
+				hpa.handleEndHolePunchEvt(evt, event)
+				return *hpa, nil
 			case *holepunch.HolePunchAttemptEvt:
 				hpa.handleHolePunchAttemptEvt(event)
 			case *holepunch.ProtocolErrorEvt:
-				hpa.handleProtocolErrorEvt(event)
-				return hpa, nil
+				hpa.handleProtocolErrorEvt(evt, event)
+				return *hpa, nil
 			case *holepunch.DirectDialEvt:
-				hpa.handleDirectDialEvt(event)
+				hpa.handleDirectDialEvt(evt, event)
 				if event.Success {
-					return hpa, nil
+					return *hpa, nil
 				}
 			default:
 				panic(fmt.Sprintf("unexpected event %T", evt.Evt))
 			}
+		case <-time.After(10 * time.Second):
+			return *hpa, ErrHolePunchTimeout
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return *hpa, ctx.Err()
 		}
 	}
 }
@@ -217,12 +236,12 @@ func (h *Host) WaitForDCUtRStream(pid peer.ID) <-chan struct{} {
 		}
 	}
 
-	log.WithField("remoteID", util.FmtPeerID(pid)).Infoln("Waiting for /libp2p/dcutr stream...")
+	h.logEntry(pid).Infoln("Waiting for /libp2p/dcutr stream...")
 	return evtChan
 }
 
 func (h *Host) RegisterPeerToTrace(pid peer.ID) <-chan *holepunch.Event {
-	evtChan := make(chan *holepunch.Event)
+	evtChan := make(chan *holepunch.Event, 3) // Start, attempt, end -> so that we get the events in this order!
 	h.holePunchEventsPeers.Store(pid, evtChan)
 	return evtChan
 }
@@ -238,10 +257,7 @@ func (h *Host) UnregisterPeerToTrace(pid peer.ID) {
 	for {
 		select {
 		case evt := <-evtChan:
-			log.WithFields(log.Fields{
-				"remoteID": util.FmtPeerID(evt.Peer),
-				"evtType":  evt.Type,
-			}).Infoln("Draining event channel")
+			h.logEntry(pid).WithField("evtType", evt.Type).Infoln("Draining event channel")
 		default:
 			close(evtChan)
 			return
@@ -251,8 +267,7 @@ func (h *Host) UnregisterPeerToTrace(pid peer.ID) {
 
 // logAddrInfo logs address information about the given peer
 func (h *Host) logAddrInfo(addrInfo peer.AddrInfo) {
-	log.WithField("openConns", len(h.Network().ConnsToPeer(addrInfo.ID))).
-		Infoln("Connecting to remote peer:", addrInfo.ID.String())
+	h.logEntry(addrInfo.ID).WithField("openConns", len(h.Network().ConnsToPeer(addrInfo.ID))).Infoln("Connecting to remote peer...")
 	for i, maddr := range addrInfo.Addrs {
 		log.Infoln("  ["+strconv.Itoa(i)+"]", maddr.String())
 	}
@@ -271,7 +286,7 @@ func (h *Host) hasDirectConnToPeer(pid peer.ID) bool {
 // prunePeer closes all connections to the given peer and removes all information about it from the peer store.
 func (h *Host) prunePeer(pid peer.ID) {
 	if err := h.Network().ClosePeer(pid); err != nil {
-		log.WithError(err).WithField("remoteID", util.FmtPeerID(pid)).Warnln("Error closing connection")
+		h.logEntry(pid).WithError(err).Warnln("Error closing connection")
 	}
 	h.Peerstore().RemovePeer(pid)
 	h.Peerstore().ClearAddrs(pid)
@@ -279,28 +294,57 @@ func (h *Host) prunePeer(pid peer.ID) {
 
 // Trace is called during the hole punching process
 func (h *Host) Trace(evt *holepunch.Event) {
-	val, found := h.holePunchEventsPeers.Load(evt.Peer)
+	val, found := h.holePunchEventsPeers.Load(evt.Remote)
 	if !found {
+		h.logEntry(evt.Remote).Infoln("Tracer event for untracked peer")
 		return
 	}
 
 	val.(chan *holepunch.Event) <- evt
 }
 
-func (h *Host) Listen(network network.Network, m multiaddr.Multiaddr)       {}
-func (h *Host) ListenClose(network network.Network, m multiaddr.Multiaddr)  {}
-func (h *Host) Connected(network network.Network, conn network.Conn)        {}
-func (h *Host) Disconnected(network network.Network, conn network.Conn)     {}
-func (h *Host) ClosedStream(network network.Network, stream network.Stream) {}
-
-func (h *Host) OpenedStream(network network.Network, stream network.Stream) {
+func (h *Host) Listen(network network.Network, m multiaddr.Multiaddr)      {}
+func (h *Host) ListenClose(network network.Network, m multiaddr.Multiaddr) {}
+func (h *Host) Connected(network network.Network, conn network.Conn)       {}
+func (h *Host) Disconnected(network network.Network, conn network.Conn)    {}
+func (h *Host) ClosedStream(network network.Network, stream network.Stream) {
 	if stream.Protocol() != holepunch.Protocol {
 		return
 	}
+	h.logEntry(stream.Conn().RemotePeer()).Debugln("/libp2p/dcutr stream closed!")
+}
 
-	val, found := h.holePunchEventsPeers.LoadAndDelete(stream.Conn().RemotePeer())
-	if !found {
-		return
-	}
-	close(val.(chan struct{}))
+func (h *Host) OpenedStream(network network.Network, stream network.Stream) {
+	go func() {
+		timeout := time.After(15 * time.Second)
+		timer := time.NewTimer(0)
+		for {
+
+			select {
+			case <-timeout:
+				return
+			case <-timer.C:
+			}
+
+			if stream.Protocol() == "" {
+				timer.Reset(10 * time.Millisecond)
+				continue
+			}
+
+			if stream.Protocol() != holepunch.Protocol {
+				return
+			}
+
+			break
+
+		}
+
+		val, found := h.streamOpenPeers.LoadAndDelete(stream.Conn().RemotePeer())
+		if !found {
+			return
+		}
+
+		h.logEntry(stream.Conn().RemotePeer()).Debugln("/libp2p/dcutr stream opened!")
+		close(val.(chan struct{}))
+	}()
 }

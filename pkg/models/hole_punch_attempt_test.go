@@ -677,7 +677,7 @@ func testHolePunchAttemptsSelect(t *testing.T) {
 }
 
 var (
-	holePunchAttemptDBTypes = map[string]string{`ID`: `integer`, `HolePunchResultID`: `integer`, `OpenedAt`: `timestamp with time zone`, `StartedAt`: `timestamp with time zone`, `EndedAt`: `timestamp with time zone`, `StartRTT`: `interval`, `ElapsedTime`: `interval`, `Outcome`: `enum.hole_punch_attempt_outcome('UNKNOWN','DIRECT_DIAL','PROTOCOL_ERROR','CANCELLED','FAILED','SUCCESS')`, `Error`: `text`, `DirectDialError`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	holePunchAttemptDBTypes = map[string]string{`ID`: `integer`, `HolePunchResultID`: `integer`, `OpenedAt`: `timestamp with time zone`, `StartedAt`: `timestamp with time zone`, `EndedAt`: `timestamp with time zone`, `StartRTT`: `interval`, `ElapsedTime`: `interval`, `Outcome`: `enum.hole_punch_attempt_outcome('UNKNOWN','DIRECT_DIAL','PROTOCOL_ERROR','CANCELLED','TIMEOUT','FAILED','SUCCESS')`, `Error`: `text`, `DirectDialError`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                       = bytes.MinRead
 )
 

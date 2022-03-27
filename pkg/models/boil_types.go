@@ -64,6 +64,7 @@ const (
 	HolePunchAttemptOutcomeDIRECT_DIAL    = "DIRECT_DIAL"
 	HolePunchAttemptOutcomePROTOCOL_ERROR = "PROTOCOL_ERROR"
 	HolePunchAttemptOutcomeCANCELLED      = "CANCELLED"
+	HolePunchAttemptOutcomeTIMEOUT        = "TIMEOUT"
 	HolePunchAttemptOutcomeFAILED         = "FAILED"
 	HolePunchAttemptOutcomeSUCCESS        = "SUCCESS"
 )
@@ -74,6 +75,7 @@ const (
 	HolePunchOutcomeNO_CONNECTION = "NO_CONNECTION"
 	HolePunchOutcomeNO_STREAM     = "NO_STREAM"
 	HolePunchOutcomeCANCELLED     = "CANCELLED"
+	HolePunchOutcomeFAILED        = "FAILED"
 	HolePunchOutcomeSUCCESS       = "SUCCESS"
 )
 

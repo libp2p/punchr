@@ -140,12 +140,6 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		// Instruct the i-th host to hole punch
 		hpState := h.HolePunch(ctx, *addrInfo)
 
-		// Track open connections after the hole punch
-		for _, conn := range h.Network().ConnsToPeer(hpState.RemoteID) {
-			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
-		}
-		hpState.HasDirectConns = h.hasDirectConnToPeer(addrInfo.ID)
-
 		// Tell the server about the hole punch outcome
 		if err = p.TrackHolePunchResult(ctx, hpState); err != nil {
 			log.WithError(err).Warnln("Error tracking hole punch result")
@@ -202,12 +196,13 @@ func (p Punchr) RequestAddrInfo(ctx context.Context, clientID peer.ID) (*peer.Ad
 func (p Punchr) TrackHolePunchResult(ctx context.Context, hps *HolePunchState) error {
 	// Log hole punch result and report it back to the server
 	log.WithFields(log.Fields{
-		"remoteID":  util.FmtPeerID(hps.HostID),
+		"hostID":    util.FmtPeerID(hps.HostID),
+		"remoteID":  util.FmtPeerID(hps.RemoteID),
 		"attempts":  len(hps.HolePunchAttempts),
 		"endReason": hps.Outcome,
 	}).Infoln("Tracking hole punch result")
 
-	req, err := hps.ToProto(hps.HostID)
+	req, err := hps.ToProto()
 	if err != nil {
 		return err
 	}

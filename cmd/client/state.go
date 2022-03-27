@@ -49,8 +49,15 @@ func NewHolePunchState(hostID peer.ID, remoteID peer.ID, maddrs []multiaddr.Mult
 	}
 }
 
-func (hps HolePunchState) ToProto(peerID peer.ID) (*pb.TrackHolePunchRequest, error) {
-	localID, err := peerID.Marshal()
+func (hps HolePunchState) logEntry(remoteID peer.ID) *log.Entry {
+	return log.WithFields(log.Fields{
+		"remoteID": util.FmtPeerID(remoteID),
+		"hostID":   util.FmtPeerID(hps.HostID),
+	})
+}
+
+func (hps HolePunchState) ToProto() (*pb.TrackHolePunchRequest, error) {
+	localID, err := hps.HostID.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal local peer id")
 	}
@@ -90,34 +97,36 @@ func (hps HolePunchState) ToProto(peerID peer.ID) (*pb.TrackHolePunchRequest, er
 }
 
 type HolePunchAttempt struct {
+	HostID          peer.ID
 	RemoteID        peer.ID
 	OpenedAt        time.Time
 	StartedAt       time.Time
 	EndedAt         time.Time
 	StartRTT        time.Duration
 	ElapsedTime     time.Duration
-	Success         bool
 	Error           string
 	DirectDialError string
 	Outcome         pb.HolePunchAttemptOutcome
 }
 
-func (hpa HolePunchAttempt) handleError(err error) {
+func (hpa *HolePunchAttempt) handleError(err error) {
 	hpa.EndedAt = time.Now()
 	hpa.ElapsedTime = hpa.EndedAt.Sub(hpa.StartedAt)
-	hpa.Success = false
 	hpa.Error = err.Error()
+	if errors.Is(err, ErrHolePunchTimeout) {
+		hpa.Outcome = pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_TIMEOUT
+	}
 }
 
-func (hpa HolePunchAttempt) handleStartHolePunchEvt(evt *holepunch.StartHolePunchEvt) {
+func (hpa *HolePunchAttempt) handleStartHolePunchEvt(event *holepunch.Event, evt *holepunch.StartHolePunchEvt) {
 	hpa.logEntry().Infoln("Hole punch started")
-	hpa.StartedAt = time.Now()
+	hpa.StartedAt = time.Unix(0, event.Timestamp)
 	hpa.StartRTT = evt.RTT
 }
 
-func (hpa HolePunchAttempt) handleEndHolePunchEvt(evt *holepunch.EndHolePunchEvt) {
+func (hpa *HolePunchAttempt) handleEndHolePunchEvt(event *holepunch.Event, evt *holepunch.EndHolePunchEvt) {
 	hpa.logEntry().WithField("success", evt.Success).Infoln("Hole punch ended")
-	hpa.EndedAt = time.Now()
+	hpa.EndedAt = time.Unix(0, event.Timestamp)
 	hpa.Error = evt.Error
 	hpa.ElapsedTime = evt.EllapsedTime
 	if evt.Success {
@@ -127,29 +136,34 @@ func (hpa HolePunchAttempt) handleEndHolePunchEvt(evt *holepunch.EndHolePunchEvt
 	}
 }
 
-func (hpa HolePunchAttempt) handleHolePunchAttemptEvt(evt *holepunch.HolePunchAttemptEvt) {
+func (hpa *HolePunchAttempt) handleHolePunchAttemptEvt(evt *holepunch.HolePunchAttemptEvt) {
 	hpa.logEntry().Infoln("Hole punch attempt")
 }
 
-func (hpa HolePunchAttempt) handleProtocolErrorEvt(evt *holepunch.ProtocolErrorEvt) {
+func (hpa *HolePunchAttempt) handleProtocolErrorEvt(event *holepunch.Event, evt *holepunch.ProtocolErrorEvt) {
 	hpa.logEntry().WithField("err", evt.Error).Infoln("Hole punching protocol error :/")
 	hpa.Outcome = pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_PROTOCOL_ERROR
 	hpa.Error = evt.Error
 	hpa.ElapsedTime = time.Since(hpa.StartedAt)
+	hpa.EndedAt = time.Unix(0, event.Timestamp)
 }
 
-func (hpa HolePunchAttempt) handleDirectDialEvt(evt *holepunch.DirectDialEvt) {
+func (hpa *HolePunchAttempt) handleDirectDialEvt(event *holepunch.Event, evt *holepunch.DirectDialEvt) {
 	hpa.logEntry().WithField("success", evt.Success).Warnln("Hole punch direct dial event")
 	if evt.Success {
 		hpa.Outcome = pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_DIRECT_DIAL
 		hpa.ElapsedTime = evt.EllapsedTime
+		hpa.EndedAt = time.Unix(0, event.Timestamp)
 	} else {
 		hpa.DirectDialError = evt.Error
 	}
 }
 
 func (hpa HolePunchAttempt) logEntry() *log.Entry {
-	return log.WithField("remoteID", util.FmtPeerID(hpa.RemoteID))
+	return log.WithFields(log.Fields{
+		"remoteID": util.FmtPeerID(hpa.RemoteID),
+		"hostID":   util.FmtPeerID(hpa.HostID),
+	})
 }
 
 func (hpa HolePunchAttempt) ToProto() *pb.HolePunchAttempt {

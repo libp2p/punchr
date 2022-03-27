@@ -5,6 +5,7 @@ CREATE TYPE hole_punch_outcome AS ENUM (
     'NO_CONNECTION',
     'NO_STREAM',
     'CANCELLED',
+    'FAILED',
     'SUCCESS'
     );
 
@@ -32,6 +33,7 @@ CREATE TYPE hole_punch_attempt_outcome AS ENUM (
     'DIRECT_DIAL',
     'PROTOCOL_ERROR',
     'CANCELLED',
+    'TIMEOUT',
     'FAILED',
     'SUCCESS'
     );
@@ -72,7 +74,7 @@ CREATE TABLE hole_punch_results_x_multi_addresses
     CONSTRAINT fk_hole_punch_results_x_multi_addresses_maddr_id FOREIGN KEY (multi_address_id) REFERENCES multi_addresses (id) ON DELETE CASCADE,
     CONSTRAINT fk_hole_punch_results_x_multi_addresses_hpr_id FOREIGN KEY (hole_punch_result_id) REFERENCES hole_punch_results (id) ON DELETE CASCADE,
 
-    PRIMARY KEY (multi_address_id, hole_punch_result_id)
+    PRIMARY KEY (multi_address_id, hole_punch_result_id, relationship)
 );
 
 CREATE INDEX idx_hole_punch_results_x_multi_addresses_1 ON hole_punch_results_x_multi_addresses (hole_punch_result_id, multi_address_id);

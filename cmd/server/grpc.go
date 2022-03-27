@@ -148,6 +148,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			hpaOutcome = models.HolePunchAttemptOutcomePROTOCOL_ERROR
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_CANCELLED:
 			hpaOutcome = models.HolePunchAttemptOutcomeCANCELLED
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_TIMEOUT:
+			hpaOutcome = models.HolePunchAttemptOutcomeTIMEOUT
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_FAILED:
 			hpaOutcome = models.HolePunchAttemptOutcomeFAILED
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_SUCCESS:
@@ -182,8 +184,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			StartRTT:        null.NewString(startRtt, startRtt != ""),
 			ElapsedTime:     fmt.Sprintf("%fs", *hpa.ElapsedTime),
 			Outcome:         hpaOutcome,
-			Error:           null.StringFromPtr(hpa.Error),
-			DirectDialError: null.StringFromPtr(hpa.DirectDialError),
+			Error:           null.NewString(hpa.GetError(), hpa.GetError() != ""),
+			DirectDialError: null.NewString(hpa.GetDirectDialError(), hpa.GetDirectDialError() != ""),
 		}
 	}
 
@@ -195,6 +197,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		outcome = models.HolePunchOutcomeNO_STREAM
 	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED:
 		outcome = models.HolePunchOutcomeCANCELLED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED:
+		outcome = models.HolePunchOutcomeFAILED
 	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS:
 		outcome = models.HolePunchOutcomeSUCCESS
 	}
