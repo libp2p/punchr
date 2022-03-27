@@ -26,8 +26,11 @@ message RegisterResponse {
 }
 
 message GetAddrInfoRequest {
-  // Peer ID of the requesting punchr client
-  required bytes client_id = 1;
+  // Host ID for that the client is requesting a peer to hole punch
+  required bytes host_id = 1;
+
+  // All host IDs that the client is managing
+  repeated bytes all_host_ids = 2;
 }
 
 message GetAddrInfoResponse {

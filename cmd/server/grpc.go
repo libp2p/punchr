@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -41,14 +43,23 @@ func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regi
 }
 
 func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*pb.GetAddrInfoResponse, error) {
-	clientID, err := peer.IDFromBytes(req.ClientId)
-	if err != nil {
-		return nil, errors.Wrap(err, "peer ID from client ID")
+	hostIDs := make([]string, len(req.AllHostIds))
+	for i, bytesHostID := range req.AllHostIds {
+		hostID, err := peer.IDFromBytes(bytesHostID)
+		if err != nil {
+			return nil, errors.Wrap(err, "peer ID from client ID")
+		}
+		hostIDs[i] = hostID.String()
 	}
 
-	dbClientPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
+	dbHosts, err := models.Peers(models.PeerWhere.MultiHash.IN(hostIDs)).All(ctx, s.DBClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client peer from db")
+	}
+
+	dbHostIDs := make([]string, len(dbHosts))
+	for i, dbHost := range dbHosts {
+		dbHostIDs[i] = strconv.FormatInt(dbHost.ID, 10)
 	}
 
 	query := `
@@ -66,13 +77,15 @@ WHERE ce.listens_on_relay_multi_address = true
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
         WHERE hpr.remote_id =  ce.remote_id
-          AND hpr.client_id = $1
-          AND hprxma.multi_address_id =ma.id
+          AND hpr.client_id IN (%s)
+          AND hprxma.multi_address_id = ma.id
+          AND hprxma.relationship = 'REMOTE'
           AND hpr.created_at > NOW() - '10min'::INTERVAL
     )
 LIMIT 1
 `
-	rows, err := s.DBClient.QueryContext(ctx, query, dbClientPeer.ID)
+	query = fmt.Sprintf(query, strings.Join(dbHostIDs, ","))
+	rows, err := s.DBClient.QueryContext(ctx, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "query addr infos")
 	}

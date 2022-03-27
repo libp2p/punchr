@@ -156,13 +156,27 @@ func (p Punchr) RequestAddrInfo(ctx context.Context, clientID peer.ID) (*peer.Ad
 	log.Infoln("Requesting peer to hole punch from server...")
 
 	// Marshal client ID
-	bytesClientID, err := clientID.Marshal()
+	hostID, err := clientID.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal client id")
 	}
 
+	allHostIDs := [][]byte{}
+	for _, h := range p.hosts {
+		marshalled, err := h.ID().Marshal()
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal client id")
+		}
+		allHostIDs = append(allHostIDs, marshalled)
+	}
+
 	// Request address information
-	res, err := p.client.GetAddrInfo(ctx, &pb.GetAddrInfoRequest{ClientId: bytesClientID})
+	req := &pb.GetAddrInfoRequest{
+		HostId:     hostID,
+		AllHostIds: allHostIDs,
+	}
+
+	res, err := p.client.GetAddrInfo(ctx, req)
 	if st, ok := status.FromError(err); ok && st != nil {
 		if st.Code() == codes.NotFound {
 			return nil, nil

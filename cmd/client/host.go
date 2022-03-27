@@ -166,17 +166,20 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 		// stream was opened! Now, wait for the first hole punch event.
 
 		hpa, err := hpState.WaitForHolePunchAttempt(ctx, addrInfo.ID, evtChan)
+		hpState.HolePunchAttempts = append(hpState.HolePunchAttempts, &hpa)
 		if err != nil {
 			hpa.handleError(err)
-			break
+			return hpState
 		}
 
-		hpState.HolePunchAttempts = append(hpState.HolePunchAttempts, &hpa)
 		if hpa.Outcome == pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_SUCCESS {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS
-			break
+			return hpState
 		}
 	}
+
+	hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
+	hpState.Error = "no attempt succeeded"
 
 	return hpState
 }
