@@ -1151,7 +1151,7 @@ func (o *MultiAddress) AddHolePunchResultsXMultiAddresses(ctx context.Context, e
 				strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
 				strmangle.WhereClause("\"", "\"", 2, holePunchResultsXMultiAddressPrimaryKeyColumns),
 			)
-			values := []interface{}{o.ID, rel.MultiAddressID, rel.HolePunchResultID}
+			values := []interface{}{o.ID, rel.MultiAddressID, rel.HolePunchResultID, rel.Relationship}
 
 			if boil.IsDebug(ctx) {
 				writer := boil.DebugWriterFrom(ctx)

@@ -44,18 +44,25 @@ enum HolePunchOutcome {
   // Could not connect to remote peer via relay
   HOLE_PUNCH_OUTCOME_NO_CONNECTION = 1;
 
-  // Hole punch was not initiated from the remote peer
+  // Hole punch was not initiated by the remote peer
   // because the /libp2p/dcutr stream was not opened.
   HOLE_PUNCH_OUTCOME_NO_STREAM = 2;
 
+  // Conditions:
+  //   1. /libp2p/dcutr stream was not opened.
+  //   2. We connected to the remote peer via a relay
+  //   3. We have a direct connection to the remote peer after we have waited for the libp2p/dcutr stream.
+  // Should actually never happen on our side.
+  HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED = 3;
+
   // Hole punch was cancelled by the user
-  HOLE_PUNCH_OUTCOME_CANCELLED = 3;
+  HOLE_PUNCH_OUTCOME_CANCELLED = 4;
 
   // The hole punch was attempted several times but failed
-  HOLE_PUNCH_OUTCOME_FAILED = 4;
+  HOLE_PUNCH_OUTCOME_FAILED = 5;
 
   // The hole punch was performed and successful
-  HOLE_PUNCH_OUTCOME_SUCCESS = 5;
+  HOLE_PUNCH_OUTCOME_SUCCESS = 6;
 }
 
 message TrackHolePunchRequest {
@@ -86,11 +93,14 @@ message TrackHolePunchRequest {
   // to the remote peer.
   required bool has_direct_conns = 8;
 
+  // The error that occurred if the hole punch failed
+  optional string error = 9;
+
   // The reason why the hole punch ended (direct dial succeeded, protocol error occurred, hole punch procedure finished)
-  required HolePunchOutcome outcome = 9;
+  required HolePunchOutcome outcome = 10;
 
   // Unix timestamp in milliseconds of when the overall hole punch process ended
-  required uint64 ended_at = 10;
+  required uint64 ended_at = 11;
 }
 
 message TrackHolePunchResponse {}
@@ -100,12 +110,12 @@ message HolePunchAttempt {
   required uint64 opened_at = 1;
 
   // Unix timestamp in milliseconds of when this hole punching attempt was started
-  required uint64 started_at = 2;
+  optional uint64 started_at = 2;
 
   // Unix timestamp in milliseconds of when this hole punching attempt terminated
   required uint64 ended_at = 3;
 
-  // Start round trip time in seconds that falls out of the `holepunch.StartHolePunchEvt`
+  // Start round trip time in seconds that falls out of the `holepunch.StartHolePunchEvt` event
   optional float start_rtt = 4;
 
   // The elapsed time in seconds from start to finish of the hole punch
@@ -127,20 +137,20 @@ enum HolePunchAttemptOutcome {
 
   // Should never happen on our side. This happens if
   // the connection reversal from our side succeeded.
-  HOLE_PUNCH_ATTEMPT_DIRECT_DIAL = 1;
+  HOLE_PUNCH_ATTEMPT_OUTCOME_DIRECT_DIAL = 1;
 
   // Can happen if, e.g., the stream was reset mid-flight
-  HOLE_PUNCH_ATTEMPT_PROTOCOL_ERROR = 2;
+  HOLE_PUNCH_ATTEMPT_OUTCOME_PROTOCOL_ERROR = 2;
 
   // The overall hole punch was cancelled by the user
-  HOLE_PUNCH_ATTEMPT_CANCELLED = 3;
+  HOLE_PUNCH_ATTEMPT_OUTCOME_CANCELLED = 3;
 
   // The /libp2p/dcutr stream was opened but the hole punch was not initiated in time
-  HOLE_PUNCH_ATTEMPT_TIMEOUT = 4;
+  HOLE_PUNCH_ATTEMPT_OUTCOME_TIMEOUT = 4;
 
   // The hole punch was performed but has failed
-  HOLE_PUNCH_ATTEMPT_FAILED = 5;
+  HOLE_PUNCH_ATTEMPT_OUTCOME_FAILED = 5;
 
   // The hole punch was performed and was successful
-  HOLE_PUNCH_ATTEMPT_SUCCESS = 6;
+  HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS = 6;
 }

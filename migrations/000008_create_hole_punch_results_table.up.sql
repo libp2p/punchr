@@ -4,6 +4,7 @@ CREATE TYPE hole_punch_outcome AS ENUM (
     'UNKNOWN',
     'NO_CONNECTION',
     'NO_STREAM',
+    'CONNECTION_REVERSED',
     'CANCELLED',
     'FAILED',
     'SUCCESS'
@@ -17,6 +18,7 @@ CREATE TABLE hole_punch_results
     connect_started_at TIMESTAMPTZ        NOT NULL,
     connect_ended_at   TIMESTAMPTZ        NOT NULL,
     has_direct_conns   BOOLEAN            NOT NULL,
+    error              TEXT,
     outcome            hole_punch_outcome NOT NULL,
     ended_at           TIMESTAMPTZ        NOT NULL,
     updated_at         TIMESTAMPTZ        NOT NULL,
@@ -43,7 +45,7 @@ CREATE TABLE hole_punch_attempt
     id                   INT GENERATED ALWAYS AS IDENTITY,
     hole_punch_result_id INT                        NOT NULL,
     opened_at            TIMESTAMPTZ                NOT NULL,
-    started_at           TIMESTAMPTZ                NOT NULL,
+    started_at           TIMESTAMPTZ,
     ended_at             TIMESTAMPTZ                NOT NULL,
     start_rtt            INTERVAL,
     elapsed_time         INTERVAL                   NOT NULL,
@@ -61,8 +63,16 @@ CREATE TABLE hole_punch_attempt
 
 
 CREATE TYPE hole_punch_multi_address_relationship AS ENUM (
-    'REMOTE',
-    'OPEN'
+    -- INITIAL multi addresses are the multi addresses that correspond
+    -- to the open connections to the remote peer BEFORE the hole punch
+    -- (the ones that were used to connect to the remote peer, usually
+    -- only one relay address)
+    'INITIAL',
+    -- FINAL multi addresses are the multi addresses that correspond
+    -- to the open connections to the remote peer AFTER the hole punch.
+    -- Usually this includes the relay + a direct connection to the
+    -- remote peer.
+    'FINAL'
     );
 
 CREATE TABLE hole_punch_results_x_multi_addresses

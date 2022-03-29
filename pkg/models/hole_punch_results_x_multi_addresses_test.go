@@ -149,7 +149,7 @@ func testHolePunchResultsXMultiAddressesExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := HolePunchResultsXMultiAddressExists(ctx, tx, o.MultiAddressID, o.HolePunchResultID)
+	e, err := HolePunchResultsXMultiAddressExists(ctx, tx, o.MultiAddressID, o.HolePunchResultID, o.Relationship)
 	if err != nil {
 		t.Errorf("Unable to check if HolePunchResultsXMultiAddress exists: %s", err)
 	}
@@ -175,7 +175,7 @@ func testHolePunchResultsXMultiAddressesFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	holePunchResultsXMultiAddressFound, err := FindHolePunchResultsXMultiAddress(ctx, tx, o.MultiAddressID, o.HolePunchResultID)
+	holePunchResultsXMultiAddressFound, err := FindHolePunchResultsXMultiAddress(ctx, tx, o.MultiAddressID, o.HolePunchResultID, o.Relationship)
 	if err != nil {
 		t.Error(err)
 	}
@@ -641,7 +641,7 @@ func testHolePunchResultsXMultiAddressToOneSetOpHolePunchResultUsingHolePunchRes
 			t.Error("foreign key was wrong value", a.HolePunchResultID)
 		}
 
-		if exists, err := HolePunchResultsXMultiAddressExists(ctx, tx, a.MultiAddressID, a.HolePunchResultID); err != nil {
+		if exists, err := HolePunchResultsXMultiAddressExists(ctx, tx, a.MultiAddressID, a.HolePunchResultID, a.Relationship); err != nil {
 			t.Fatal(err)
 		} else if !exists {
 			t.Error("want 'a' to exist")
@@ -694,7 +694,7 @@ func testHolePunchResultsXMultiAddressToOneSetOpMultiAddressUsingMultiAddress(t 
 			t.Error("foreign key was wrong value", a.MultiAddressID)
 		}
 
-		if exists, err := HolePunchResultsXMultiAddressExists(ctx, tx, a.MultiAddressID, a.HolePunchResultID); err != nil {
+		if exists, err := HolePunchResultsXMultiAddressExists(ctx, tx, a.MultiAddressID, a.HolePunchResultID, a.Relationship); err != nil {
 			t.Fatal(err)
 		} else if !exists {
 			t.Error("want 'a' to exist")
@@ -777,7 +777,7 @@ func testHolePunchResultsXMultiAddressesSelect(t *testing.T) {
 }
 
 var (
-	holePunchResultsXMultiAddressDBTypes = map[string]string{`HolePunchResultID`: `integer`, `MultiAddressID`: `bigint`, `Relationship`: `enum.hole_punch_multi_address_relationship('REMOTE','OPEN')`}
+	holePunchResultsXMultiAddressDBTypes = map[string]string{`HolePunchResultID`: `integer`, `MultiAddressID`: `bigint`, `Relationship`: `enum.hole_punch_multi_address_relationship('INITIAL','FINAL')`}
 	_                                    = bytes.MinRead
 )
 

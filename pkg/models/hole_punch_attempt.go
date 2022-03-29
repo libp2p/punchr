@@ -27,7 +27,7 @@ type HolePunchAttempt struct {
 	ID                int         `boil:"id" json:"id" toml:"id" yaml:"id"`
 	HolePunchResultID int         `boil:"hole_punch_result_id" json:"hole_punch_result_id" toml:"hole_punch_result_id" yaml:"hole_punch_result_id"`
 	OpenedAt          time.Time   `boil:"opened_at" json:"opened_at" toml:"opened_at" yaml:"opened_at"`
-	StartedAt         time.Time   `boil:"started_at" json:"started_at" toml:"started_at" yaml:"started_at"`
+	StartedAt         null.Time   `boil:"started_at" json:"started_at,omitempty" toml:"started_at" yaml:"started_at,omitempty"`
 	EndedAt           time.Time   `boil:"ended_at" json:"ended_at" toml:"ended_at" yaml:"ended_at"`
 	StartRTT          null.String `boil:"start_rtt" json:"start_rtt,omitempty" toml:"start_rtt" yaml:"start_rtt,omitempty"`
 	ElapsedTime       string      `boil:"elapsed_time" json:"elapsed_time" toml:"elapsed_time" yaml:"elapsed_time"`
@@ -99,6 +99,29 @@ var HolePunchAttemptTableColumns = struct {
 
 // Generated where
 
+type whereHelpernull_Time struct{ field string }
+
+func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_Time) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 type whereHelpernull_String struct{ field string }
 
 func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
@@ -126,7 +149,7 @@ var HolePunchAttemptWhere = struct {
 	ID                whereHelperint
 	HolePunchResultID whereHelperint
 	OpenedAt          whereHelpertime_Time
-	StartedAt         whereHelpertime_Time
+	StartedAt         whereHelpernull_Time
 	EndedAt           whereHelpertime_Time
 	StartRTT          whereHelpernull_String
 	ElapsedTime       whereHelperstring
@@ -139,7 +162,7 @@ var HolePunchAttemptWhere = struct {
 	ID:                whereHelperint{field: "\"hole_punch_attempt\".\"id\""},
 	HolePunchResultID: whereHelperint{field: "\"hole_punch_attempt\".\"hole_punch_result_id\""},
 	OpenedAt:          whereHelpertime_Time{field: "\"hole_punch_attempt\".\"opened_at\""},
-	StartedAt:         whereHelpertime_Time{field: "\"hole_punch_attempt\".\"started_at\""},
+	StartedAt:         whereHelpernull_Time{field: "\"hole_punch_attempt\".\"started_at\""},
 	EndedAt:           whereHelpertime_Time{field: "\"hole_punch_attempt\".\"ended_at\""},
 	StartRTT:          whereHelpernull_String{field: "\"hole_punch_attempt\".\"start_rtt\""},
 	ElapsedTime:       whereHelperstring{field: "\"hole_punch_attempt\".\"elapsed_time\""},

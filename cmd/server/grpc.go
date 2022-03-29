@@ -79,7 +79,7 @@ WHERE ce.listens_on_relay_multi_address = true
         WHERE hpr.remote_id =  ce.remote_id
           AND hpr.client_id IN (%s)
           AND hprxma.multi_address_id = ma.id
-          AND hprxma.relationship = 'REMOTE'
+          AND hprxma.relationship = 'INITIAL'
           AND hpr.created_at > NOW() - '10min'::INTERVAL
     )
 LIMIT 1
@@ -153,22 +153,6 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 
 	dbAttempts := make([]*models.HolePunchAttempt, len(req.HolePunchAttempts))
 	for i, hpa := range req.HolePunchAttempts {
-		hpaOutcome := models.HolePunchAttemptOutcomeUNKNOWN
-		switch *hpa.Outcome {
-		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_DIRECT_DIAL:
-			hpaOutcome = models.HolePunchAttemptOutcomeDIRECT_DIAL
-		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_PROTOCOL_ERROR:
-			hpaOutcome = models.HolePunchAttemptOutcomePROTOCOL_ERROR
-		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_CANCELLED:
-			hpaOutcome = models.HolePunchAttemptOutcomeCANCELLED
-		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_TIMEOUT:
-			hpaOutcome = models.HolePunchAttemptOutcomeTIMEOUT
-		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_FAILED:
-			hpaOutcome = models.HolePunchAttemptOutcomeFAILED
-		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_SUCCESS:
-			hpaOutcome = models.HolePunchAttemptOutcomeSUCCESS
-		}
-
 		if hpa.OpenedAt == nil {
 			return nil, errors.Wrapf(err, "opened at in attempt %d is nil", i)
 		}
@@ -190,30 +174,22 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			startRtt = fmt.Sprintf("%fs", *hpa.StartRtt)
 		}
 
+		var startedAt *time.Time
+		if hpa.StartedAt != nil {
+			t := time.Unix(0, int64(*hpa.StartedAt))
+			startedAt = &t
+		}
+
 		dbAttempts[i] = &models.HolePunchAttempt{
-			OpenedAt:        time.UnixMilli(int64(*hpa.OpenedAt)),
-			StartedAt:       time.UnixMilli(int64(*hpa.StartedAt)),
-			EndedAt:         time.UnixMilli(int64(*hpa.EndedAt)),
+			OpenedAt:        time.Unix(0, int64(*hpa.OpenedAt)),
+			StartedAt:       null.TimeFromPtr(startedAt),
+			EndedAt:         time.Unix(0, int64(*hpa.EndedAt)),
 			StartRTT:        null.NewString(startRtt, startRtt != ""),
 			ElapsedTime:     fmt.Sprintf("%fs", *hpa.ElapsedTime),
-			Outcome:         hpaOutcome,
+			Outcome:         s.mapHolePunchAttemptOutcome(hpa),
 			Error:           null.NewString(hpa.GetError(), hpa.GetError() != ""),
 			DirectDialError: null.NewString(hpa.GetDirectDialError(), hpa.GetDirectDialError() != ""),
 		}
-	}
-
-	outcome := models.HolePunchOutcomeUNKNOWN
-	switch *req.Outcome {
-	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION:
-		outcome = models.HolePunchOutcomeNO_CONNECTION
-	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM:
-		outcome = models.HolePunchOutcomeNO_STREAM
-	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED:
-		outcome = models.HolePunchOutcomeCANCELLED
-	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED:
-		outcome = models.HolePunchOutcomeFAILED
-	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS:
-		outcome = models.HolePunchOutcomeSUCCESS
 	}
 
 	// Start a database transaction
@@ -239,11 +215,12 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	hpr := &models.HolePunchResult{
 		ClientID:         dbClientPeer.ID,
 		RemoteID:         dbRemotePeer.ID,
-		ConnectStartedAt: time.UnixMilli(int64(*req.ConnectStartedAt)),
-		ConnectEndedAt:   time.UnixMilli(int64(*req.ConnectEndedAt)),
+		ConnectStartedAt: time.Unix(0, int64(*req.ConnectStartedAt)),
+		ConnectEndedAt:   time.Unix(0, int64(*req.ConnectEndedAt)),
 		HasDirectConns:   *req.HasDirectConns,
-		Outcome:          outcome,
-		EndedAt:          time.UnixMilli(int64(*req.EndedAt)),
+		Outcome:          s.mapHolePunchOutcome(req),
+		Error:            null.StringFromPtr(req.Error),
+		EndedAt:          time.Unix(0, int64(*req.EndedAt)),
 	}
 
 	if err = hpr.Insert(ctx, txn, boil.Infer()); err != nil {
@@ -286,7 +263,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		hprxma := models.HolePunchResultsXMultiAddress{
 			HolePunchResultID: hpr.ID,
 			MultiAddressID:    dbRMaddr.ID,
-			Relationship:      models.HolePunchMultiAddressRelationshipREMOTE,
+			Relationship:      models.HolePunchMultiAddressRelationshipINITIAL,
 		}
 		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "insert remote HolePunchResultsXMultiAddress")
@@ -297,7 +274,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		hprxma := models.HolePunchResultsXMultiAddress{
 			HolePunchResultID: hpr.ID,
 			MultiAddressID:    dbOMaddr.ID,
-			Relationship:      models.HolePunchMultiAddressRelationshipOPEN,
+			Relationship:      models.HolePunchMultiAddressRelationshipFINAL,
 		}
 		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "insert remote HolePunchResultsXMultiAddress")
@@ -305,4 +282,42 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
+}
+
+func (s Server) mapHolePunchAttemptOutcome(hpa *pb.HolePunchAttempt) string {
+	switch *hpa.Outcome {
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_DIRECT_DIAL:
+		return models.HolePunchAttemptOutcomeDIRECT_DIAL
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_PROTOCOL_ERROR:
+		return models.HolePunchAttemptOutcomePROTOCOL_ERROR
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_CANCELLED:
+		return models.HolePunchAttemptOutcomeCANCELLED
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_TIMEOUT:
+		return models.HolePunchAttemptOutcomeTIMEOUT
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_FAILED:
+		return models.HolePunchAttemptOutcomeFAILED
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS:
+		return models.HolePunchAttemptOutcomeSUCCESS
+	default:
+		return models.HolePunchAttemptOutcomeUNKNOWN
+	}
+}
+
+func (s Server) mapHolePunchOutcome(req *pb.TrackHolePunchRequest) string {
+	switch *req.Outcome {
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION:
+		return models.HolePunchOutcomeNO_CONNECTION
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM:
+		return models.HolePunchOutcomeNO_STREAM
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED:
+		return models.HolePunchOutcomeCANCELLED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED:
+		return models.HolePunchOutcomeCONNECTION_REVERSED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED:
+		return models.HolePunchOutcomeFAILED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS:
+		return models.HolePunchOutcomeSUCCESS
+	default:
+		return models.HolePunchOutcomeUNKNOWN
+	}
 }

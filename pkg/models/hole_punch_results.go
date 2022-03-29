@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -23,16 +24,17 @@ import (
 
 // HolePunchResult is an object representing the database table.
 type HolePunchResult struct {
-	ID               int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	ClientID         int64     `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
-	RemoteID         int64     `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
-	ConnectStartedAt time.Time `boil:"connect_started_at" json:"connect_started_at" toml:"connect_started_at" yaml:"connect_started_at"`
-	ConnectEndedAt   time.Time `boil:"connect_ended_at" json:"connect_ended_at" toml:"connect_ended_at" yaml:"connect_ended_at"`
-	HasDirectConns   bool      `boil:"has_direct_conns" json:"has_direct_conns" toml:"has_direct_conns" yaml:"has_direct_conns"`
-	Outcome          string    `boil:"outcome" json:"outcome" toml:"outcome" yaml:"outcome"`
-	EndedAt          time.Time `boil:"ended_at" json:"ended_at" toml:"ended_at" yaml:"ended_at"`
-	UpdatedAt        time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt        time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID               int         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	ClientID         int64       `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
+	RemoteID         int64       `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
+	ConnectStartedAt time.Time   `boil:"connect_started_at" json:"connect_started_at" toml:"connect_started_at" yaml:"connect_started_at"`
+	ConnectEndedAt   time.Time   `boil:"connect_ended_at" json:"connect_ended_at" toml:"connect_ended_at" yaml:"connect_ended_at"`
+	HasDirectConns   bool        `boil:"has_direct_conns" json:"has_direct_conns" toml:"has_direct_conns" yaml:"has_direct_conns"`
+	Error            null.String `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
+	Outcome          string      `boil:"outcome" json:"outcome" toml:"outcome" yaml:"outcome"`
+	EndedAt          time.Time   `boil:"ended_at" json:"ended_at" toml:"ended_at" yaml:"ended_at"`
+	UpdatedAt        time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt        time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *holePunchResultR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L holePunchResultL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -45,6 +47,7 @@ var HolePunchResultColumns = struct {
 	ConnectStartedAt string
 	ConnectEndedAt   string
 	HasDirectConns   string
+	Error            string
 	Outcome          string
 	EndedAt          string
 	UpdatedAt        string
@@ -56,6 +59,7 @@ var HolePunchResultColumns = struct {
 	ConnectStartedAt: "connect_started_at",
 	ConnectEndedAt:   "connect_ended_at",
 	HasDirectConns:   "has_direct_conns",
+	Error:            "error",
 	Outcome:          "outcome",
 	EndedAt:          "ended_at",
 	UpdatedAt:        "updated_at",
@@ -69,6 +73,7 @@ var HolePunchResultTableColumns = struct {
 	ConnectStartedAt string
 	ConnectEndedAt   string
 	HasDirectConns   string
+	Error            string
 	Outcome          string
 	EndedAt          string
 	UpdatedAt        string
@@ -80,6 +85,7 @@ var HolePunchResultTableColumns = struct {
 	ConnectStartedAt: "hole_punch_results.connect_started_at",
 	ConnectEndedAt:   "hole_punch_results.connect_ended_at",
 	HasDirectConns:   "hole_punch_results.has_direct_conns",
+	Error:            "hole_punch_results.error",
 	Outcome:          "hole_punch_results.outcome",
 	EndedAt:          "hole_punch_results.ended_at",
 	UpdatedAt:        "hole_punch_results.updated_at",
@@ -95,6 +101,7 @@ var HolePunchResultWhere = struct {
 	ConnectStartedAt whereHelpertime_Time
 	ConnectEndedAt   whereHelpertime_Time
 	HasDirectConns   whereHelperbool
+	Error            whereHelpernull_String
 	Outcome          whereHelperstring
 	EndedAt          whereHelpertime_Time
 	UpdatedAt        whereHelpertime_Time
@@ -106,6 +113,7 @@ var HolePunchResultWhere = struct {
 	ConnectStartedAt: whereHelpertime_Time{field: "\"hole_punch_results\".\"connect_started_at\""},
 	ConnectEndedAt:   whereHelpertime_Time{field: "\"hole_punch_results\".\"connect_ended_at\""},
 	HasDirectConns:   whereHelperbool{field: "\"hole_punch_results\".\"has_direct_conns\""},
+	Error:            whereHelpernull_String{field: "\"hole_punch_results\".\"error\""},
 	Outcome:          whereHelperstring{field: "\"hole_punch_results\".\"outcome\""},
 	EndedAt:          whereHelpertime_Time{field: "\"hole_punch_results\".\"ended_at\""},
 	UpdatedAt:        whereHelpertime_Time{field: "\"hole_punch_results\".\"updated_at\""},
@@ -142,8 +150,8 @@ func (*holePunchResultR) NewStruct() *holePunchResultR {
 type holePunchResultL struct{}
 
 var (
-	holePunchResultAllColumns            = []string{"id", "client_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "outcome", "ended_at", "updated_at", "created_at"}
-	holePunchResultColumnsWithoutDefault = []string{"client_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "outcome", "ended_at", "updated_at", "created_at"}
+	holePunchResultAllColumns            = []string{"id", "client_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "error", "outcome", "ended_at", "updated_at", "created_at"}
+	holePunchResultColumnsWithoutDefault = []string{"client_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "error", "outcome", "ended_at", "updated_at", "created_at"}
 	holePunchResultColumnsWithDefault    = []string{"id"}
 	holePunchResultPrimaryKeyColumns     = []string{"id"}
 )
@@ -1062,7 +1070,7 @@ func (o *HolePunchResult) AddHolePunchResultsXMultiAddresses(ctx context.Context
 				strmangle.SetParamNames("\"", "\"", 1, []string{"hole_punch_result_id"}),
 				strmangle.WhereClause("\"", "\"", 2, holePunchResultsXMultiAddressPrimaryKeyColumns),
 			)
-			values := []interface{}{o.ID, rel.MultiAddressID, rel.HolePunchResultID}
+			values := []interface{}{o.ID, rel.MultiAddressID, rel.HolePunchResultID, rel.Relationship}
 
 			if boil.IsDebug(ctx) {
 				writer := boil.DebugWriterFrom(ctx)

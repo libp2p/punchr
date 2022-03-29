@@ -140,6 +140,14 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		// Instruct the i-th host to hole punch
 		hpState := h.HolePunch(ctx, *addrInfo)
 
+		// Conditions for a connection reversal:
+		//   1. /libp2p/dcutr stream was not opened.
+		//   2. We connected to the remote peer via a relay
+		//   3. We have a direct connection to the remote peer after we have waited for the libp2p/dcutr stream.
+		if hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM && hpState.onlyRelayRemoteAddrs() && hpState.HasDirectConns {
+			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED
+		}
+
 		// Tell the server about the hole punch outcome
 		if err = p.TrackHolePunchResult(ctx, hpState); err != nil {
 			log.WithError(err).Warnln("Error tracking hole punch result")

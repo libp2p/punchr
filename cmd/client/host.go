@@ -27,6 +27,11 @@ import (
 	"github.com/dennis-tra/punchr/pkg/util"
 )
 
+var (
+	CommunicationTimeout = 15 * time.Second
+	RetryCount           = 3
+)
+
 // Host holds information of the honeypot libp2p host.
 type Host struct {
 	host.Host
@@ -148,15 +153,15 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	h.logEntry(addrInfo.ID).Infoln("Connected!")
 
 	// we were able to connect to the remote peer.
-	for i := 0; i < 3; i++ {
+	for i := 0; i < RetryCount; i++ {
 		// wait for the DCUtR stream to be opened
 		select {
 		case <-h.WaitForDCUtRStream(addrInfo.ID):
 			// pass
-		case <-time.After(15 * time.Second):
+		case <-time.After(CommunicationTimeout):
 			// Stream was not opened in time by the remote.
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM
-			hpState.Error = "/libp2p/dcutr stream was not opened in time"
+			hpState.Error = "/libp2p/dcutr stream was not opened after " + CommunicationTimeout.String()
 			return hpState
 		case <-ctx.Done():
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED
@@ -165,28 +170,42 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 		}
 		// stream was opened! Now, wait for the first hole punch event.
 
-		hpa, err := hpState.WaitForHolePunchAttempt(ctx, addrInfo.ID, evtChan)
+		hpa := hpState.TrackHolePunch(ctx, addrInfo.ID, evtChan)
 		hpState.HolePunchAttempts = append(hpState.HolePunchAttempts, &hpa)
-		if err != nil {
-			hpa.handleError(err)
-			return hpState
-		}
 
-		if hpa.Outcome == pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_SUCCESS {
+		switch hpa.Outcome {
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_PROTOCOL_ERROR:
+			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
+			hpState.Error = hpa.Error
+			return hpState
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_DIRECT_DIAL:
+			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS
+			return hpState
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_UNKNOWN:
+			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_UNKNOWN
+			hpState.Error = "unknown hole punch attempt outcome"
+			return hpState
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_CANCELLED:
+			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED
+			hpState.Error = hpa.Error
+			return hpState
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_TIMEOUT:
+			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
+			hpState.Error = hpa.Error
+			return hpState
+		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS
 			return hpState
 		}
 	}
 
 	hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
-	hpState.Error = "no attempt succeeded"
+	hpState.Error = fmt.Sprintf("none of the %d attempts succeeded", RetryCount)
 
 	return hpState
 }
 
-var ErrHolePunchTimeout = fmt.Errorf("hole punch events timed out")
-
-func (hps HolePunchState) WaitForHolePunchAttempt(ctx context.Context, remoteID peer.ID, evtChan <-chan *holepunch.Event) (HolePunchAttempt, error) {
+func (hps HolePunchState) TrackHolePunch(ctx context.Context, remoteID peer.ID, evtChan <-chan *holepunch.Event) HolePunchAttempt {
 	hps.logEntry(remoteID).Infoln("Waiting for hole punch events...")
 	hpa := &HolePunchAttempt{
 		HostID:   hps.HostID,
@@ -202,24 +221,26 @@ func (hps HolePunchState) WaitForHolePunchAttempt(ctx context.Context, remoteID 
 				hpa.handleStartHolePunchEvt(evt, event)
 			case *holepunch.EndHolePunchEvt:
 				hpa.handleEndHolePunchEvt(evt, event)
-				return *hpa, nil
+				return *hpa
 			case *holepunch.HolePunchAttemptEvt:
 				hpa.handleHolePunchAttemptEvt(event)
 			case *holepunch.ProtocolErrorEvt:
 				hpa.handleProtocolErrorEvt(evt, event)
-				return *hpa, nil
+				return *hpa
 			case *holepunch.DirectDialEvt:
 				hpa.handleDirectDialEvt(evt, event)
 				if event.Success {
-					return *hpa, nil
+					return *hpa
 				}
 			default:
 				panic(fmt.Sprintf("unexpected event %T", evt.Evt))
 			}
-		case <-time.After(10 * time.Second):
-			return *hpa, ErrHolePunchTimeout
+		case <-time.After(CommunicationTimeout):
+			hpa.handleHolePunchTimeout()
+			return *hpa
 		case <-ctx.Done():
-			return *hpa, ctx.Err()
+			hpa.handleHolePunchCancelled(ctx.Err())
+			return *hpa
 		}
 	}
 }
@@ -232,8 +253,11 @@ func (h *Host) WaitForDCUtRStream(pid peer.ID) <-chan struct{} {
 	for _, conn := range h.Network().ConnsToPeer(pid) {
 		for _, stream := range conn.GetStreams() {
 			if stream.Protocol() == holepunch.Protocol {
+				// If not found, it was already closed by the open stream handler
+				if _, found := h.streamOpenPeers.LoadAndDelete(pid); !found {
+					return evtChan
+				}
 				close(evtChan)
-				h.streamOpenPeers.Delete(pid)
 				return evtChan
 			}
 		}
@@ -318,8 +342,10 @@ func (h *Host) ClosedStream(network network.Network, stream network.Stream) {
 }
 
 func (h *Host) OpenedStream(network network.Network, stream network.Stream) {
+	// The following is a hack. `stream` does not have the `Protocol` field set yet. So we just check
+	// every 10 ms for a total of 15 s.
 	go func() {
-		timeout := time.After(15 * time.Second)
+		timeout := time.After(CommunicationTimeout)
 		timer := time.NewTimer(0)
 		for {
 
@@ -330,7 +356,7 @@ func (h *Host) OpenedStream(network network.Network, stream network.Stream) {
 			}
 
 			if stream.Protocol() == "" {
-				timer.Reset(10 * time.Millisecond)
+				timer.Reset(5 * time.Millisecond)
 				continue
 			}
 

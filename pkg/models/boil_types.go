@@ -71,16 +71,17 @@ const (
 
 // Enum values for hole_punch_outcome
 const (
-	HolePunchOutcomeUNKNOWN       = "UNKNOWN"
-	HolePunchOutcomeNO_CONNECTION = "NO_CONNECTION"
-	HolePunchOutcomeNO_STREAM     = "NO_STREAM"
-	HolePunchOutcomeCANCELLED     = "CANCELLED"
-	HolePunchOutcomeFAILED        = "FAILED"
-	HolePunchOutcomeSUCCESS       = "SUCCESS"
+	HolePunchOutcomeUNKNOWN             = "UNKNOWN"
+	HolePunchOutcomeNO_CONNECTION       = "NO_CONNECTION"
+	HolePunchOutcomeNO_STREAM           = "NO_STREAM"
+	HolePunchOutcomeCONNECTION_REVERSED = "CONNECTION_REVERSED"
+	HolePunchOutcomeCANCELLED           = "CANCELLED"
+	HolePunchOutcomeFAILED              = "FAILED"
+	HolePunchOutcomeSUCCESS             = "SUCCESS"
 )
 
 // Enum values for hole_punch_multi_address_relationship
 const (
-	HolePunchMultiAddressRelationshipREMOTE = "REMOTE"
-	HolePunchMultiAddressRelationshipOPEN   = "OPEN"
+	HolePunchMultiAddressRelationshipINITIAL = "INITIAL"
+	HolePunchMultiAddressRelationshipFINAL   = "FINAL"
 )

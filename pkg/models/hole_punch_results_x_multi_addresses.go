@@ -90,7 +90,7 @@ var (
 	holePunchResultsXMultiAddressAllColumns            = []string{"hole_punch_result_id", "multi_address_id", "relationship"}
 	holePunchResultsXMultiAddressColumnsWithoutDefault = []string{"hole_punch_result_id", "multi_address_id", "relationship"}
 	holePunchResultsXMultiAddressColumnsWithDefault    = []string{}
-	holePunchResultsXMultiAddressPrimaryKeyColumns     = []string{"multi_address_id", "hole_punch_result_id"}
+	holePunchResultsXMultiAddressPrimaryKeyColumns     = []string{"multi_address_id", "hole_punch_result_id", "relationship"}
 )
 
 type (
@@ -620,7 +620,7 @@ func (o *HolePunchResultsXMultiAddress) SetHolePunchResult(ctx context.Context, 
 		strmangle.SetParamNames("\"", "\"", 1, []string{"hole_punch_result_id"}),
 		strmangle.WhereClause("\"", "\"", 2, holePunchResultsXMultiAddressPrimaryKeyColumns),
 	)
-	values := []interface{}{related.ID, o.MultiAddressID, o.HolePunchResultID}
+	values := []interface{}{related.ID, o.MultiAddressID, o.HolePunchResultID, o.Relationship}
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -667,7 +667,7 @@ func (o *HolePunchResultsXMultiAddress) SetMultiAddress(ctx context.Context, exe
 		strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
 		strmangle.WhereClause("\"", "\"", 2, holePunchResultsXMultiAddressPrimaryKeyColumns),
 	)
-	values := []interface{}{related.ID, o.MultiAddressID, o.HolePunchResultID}
+	values := []interface{}{related.ID, o.MultiAddressID, o.HolePunchResultID, o.Relationship}
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -706,7 +706,7 @@ func HolePunchResultsXMultiAddresses(mods ...qm.QueryMod) holePunchResultsXMulti
 
 // FindHolePunchResultsXMultiAddress retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindHolePunchResultsXMultiAddress(ctx context.Context, exec boil.ContextExecutor, multiAddressID int64, holePunchResultID int, selectCols ...string) (*HolePunchResultsXMultiAddress, error) {
+func FindHolePunchResultsXMultiAddress(ctx context.Context, exec boil.ContextExecutor, multiAddressID int64, holePunchResultID int, relationship string, selectCols ...string) (*HolePunchResultsXMultiAddress, error) {
 	holePunchResultsXMultiAddressObj := &HolePunchResultsXMultiAddress{}
 
 	sel := "*"
@@ -714,10 +714,10 @@ func FindHolePunchResultsXMultiAddress(ctx context.Context, exec boil.ContextExe
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\"=$1 AND \"hole_punch_result_id\"=$2", sel,
+		"select %s from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\"=$1 AND \"hole_punch_result_id\"=$2 AND \"relationship\"=$3", sel,
 	)
 
-	q := queries.Raw(query, multiAddressID, holePunchResultID)
+	q := queries.Raw(query, multiAddressID, holePunchResultID, relationship)
 
 	err := q.Bind(ctx, exec, holePunchResultsXMultiAddressObj)
 	if err != nil {
@@ -1068,7 +1068,7 @@ func (o *HolePunchResultsXMultiAddress) Delete(ctx context.Context, exec boil.Co
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), holePunchResultsXMultiAddressPrimaryKeyMapping)
-	sql := "DELETE FROM \"hole_punch_results_x_multi_addresses\" WHERE \"multi_address_id\"=$1 AND \"hole_punch_result_id\"=$2"
+	sql := "DELETE FROM \"hole_punch_results_x_multi_addresses\" WHERE \"multi_address_id\"=$1 AND \"hole_punch_result_id\"=$2 AND \"relationship\"=$3"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1165,7 +1165,7 @@ func (o HolePunchResultsXMultiAddressSlice) DeleteAll(ctx context.Context, exec 
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *HolePunchResultsXMultiAddress) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindHolePunchResultsXMultiAddress(ctx, exec, o.MultiAddressID, o.HolePunchResultID)
+	ret, err := FindHolePunchResultsXMultiAddress(ctx, exec, o.MultiAddressID, o.HolePunchResultID, o.Relationship)
 	if err != nil {
 		return err
 	}
@@ -1204,16 +1204,16 @@ func (o *HolePunchResultsXMultiAddressSlice) ReloadAll(ctx context.Context, exec
 }
 
 // HolePunchResultsXMultiAddressExists checks if the HolePunchResultsXMultiAddress row exists.
-func HolePunchResultsXMultiAddressExists(ctx context.Context, exec boil.ContextExecutor, multiAddressID int64, holePunchResultID int) (bool, error) {
+func HolePunchResultsXMultiAddressExists(ctx context.Context, exec boil.ContextExecutor, multiAddressID int64, holePunchResultID int, relationship string) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\"=$1 AND \"hole_punch_result_id\"=$2 limit 1)"
+	sql := "select exists(select 1 from \"hole_punch_results_x_multi_addresses\" where \"multi_address_id\"=$1 AND \"hole_punch_result_id\"=$2 AND \"relationship\"=$3 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, multiAddressID, holePunchResultID)
+		fmt.Fprintln(writer, multiAddressID, holePunchResultID, relationship)
 	}
-	row := exec.QueryRowContext(ctx, sql, multiAddressID, holePunchResultID)
+	row := exec.QueryRowContext(ctx, sql, multiAddressID, holePunchResultID, relationship)
 
 	err := row.Scan(&exists)
 	if err != nil {
