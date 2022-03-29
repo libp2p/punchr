@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dennis-tra/punchr/pkg/util"
-	log "github.com/sirupsen/logrus"
-
-	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
-
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/punchr/pkg/pb"
+	"github.com/dennis-tra/punchr/pkg/util"
 )
 
 type HolePunchState struct {
