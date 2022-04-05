@@ -25,6 +25,30 @@ Specifically, this repo contains:
 
 The goal is to measure the hole punching success rate. For that, we are using a **honeypot** to attract inbound connections from DCUtR capable peers behind NATs. These are then saved into a database which get served to hole punching **clients** via a **server** component. The hole punching clients ask the server if it knows about DCUtR capable peers. If it does the clients connect to the remote peer via a relay and waits for the remote to initiate a hole punch. The result is reported back to the server.
 
+# Outcomes
+
+## Hole Punch Outcomes
+
+1. `UNKNOWN` - There was no information why and how the hole punch completed
+2. `NO_CONNECTION` - The client could not connect to the remote peer via any of the provided multi addresses. At the moment this is just a single relay multi address.
+3. `NO_STREAM` - The client could connect to the remote peer via any of the provided multi addresses but no `/libp2p/dcutr` stream was opened within 15s. That stream is necessary to perform the hole punch.
+4. `CONNECTION_REVERSED` - The client only used one or more relay multi addresses to connect to the remote peer, the `/libp2p/dcutr` stream was not opened within 15s, and we still end up with a direct connection. This means the remote peer succesfully reversed it.
+5. `CANCELLED` - The user stopped the client
+6. `FAILED` - The hole punch was attempted multiple times but none succeeded OR the `/libp2p/dcutr` was opened but we have not received the internal start event OR there was a general protocol error.
+7. `SUCCESS` - Any of the three hole punch attempts succeeded.
+
+## Hole Punch Attempt Outcomes
+
+Any connection to a remote peer can consist of multiple attempts to hole punch a direct connection. Each individual attempt could yield the following outcomes:
+
+1. `UNKNWON` - There was no information why and how the hole punch attempt completed
+2. `DIRECT_DIAL` - The connection reversal from our side succeeded (should never happen)
+3. `PROTOCOL_ERROR` - This can happen if e.g., the stream was reset mid-flight
+4. `CANCELLED` - The user stopped the client
+5. `TIMEOUT` - We waited for the internal start event for 15s but timed out
+6. `FAILED` - We exchanged `CONNECT` and `SYNC` messages on the `/libp2p/dcutr` stream but the final direct connection attempt failed -> the hole punch was unsuccessful
+7. `SUCCESS` - We were able to directly connect to the remote peer.
+
 ## Components
 
 ### `honeypot`

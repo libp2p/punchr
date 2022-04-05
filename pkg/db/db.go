@@ -70,6 +70,7 @@ func NewClient(c *cli.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "new maxmind client")
 	}
 
+	// Apply migrations
 	driver, err := postgres.WithInstance(dbh, &postgres.Config{})
 	if err != nil {
 		return nil, err
@@ -80,14 +81,14 @@ func NewClient(c *cli.Context) (*Client, error) {
 		return nil, err
 	}
 
-	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
+	if err = m.Up(); err != nil && err != migrate.ErrNoChange {
 		return nil, err
 	}
 
 	return &Client{DB: dbh, MMClient: mmClient}, nil
 }
 
+// DeferRollback calls rollback on the given transaction and logs the potential error.
 func DeferRollback(txn *sql.Tx) {
 	if err := txn.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 		log.WithError(err).Warnln("An error occurred when rolling back transaction")
@@ -211,6 +212,7 @@ func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecuto
 	return dbIPAddresses, util.UniqueStr(countries), util.UniqueStr(continents), util.UniqueInt(asns), nil
 }
 
+// MapNetDirection maps the connection direction the corresponding database types.
 func MapNetDirection(conn network.Conn) string {
 	switch conn.Stat().Direction {
 	case network.DirInbound:

@@ -13,7 +13,9 @@ import "testing"
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEvents)
+	t.Run("HolePunchAttempts", testHolePunchAttempts)
 	t.Run("HolePunchResults", testHolePunchResults)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddresses)
 	t.Run("IPAddresses", testIPAddresses)
 	t.Run("MultiAddresses", testMultiAddresses)
 	t.Run("PeerLogs", testPeerLogs)
@@ -22,7 +24,9 @@ func TestParent(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsDelete)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsDelete)
 	t.Run("HolePunchResults", testHolePunchResultsDelete)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesDelete)
 	t.Run("IPAddresses", testIPAddressesDelete)
 	t.Run("MultiAddresses", testMultiAddressesDelete)
 	t.Run("PeerLogs", testPeerLogsDelete)
@@ -31,7 +35,9 @@ func TestDelete(t *testing.T) {
 
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsQueryDeleteAll)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsQueryDeleteAll)
 	t.Run("HolePunchResults", testHolePunchResultsQueryDeleteAll)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesQueryDeleteAll)
 	t.Run("IPAddresses", testIPAddressesQueryDeleteAll)
 	t.Run("MultiAddresses", testMultiAddressesQueryDeleteAll)
 	t.Run("PeerLogs", testPeerLogsQueryDeleteAll)
@@ -40,7 +46,9 @@ func TestQueryDeleteAll(t *testing.T) {
 
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsSliceDeleteAll)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsSliceDeleteAll)
 	t.Run("HolePunchResults", testHolePunchResultsSliceDeleteAll)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesSliceDeleteAll)
 	t.Run("IPAddresses", testIPAddressesSliceDeleteAll)
 	t.Run("MultiAddresses", testMultiAddressesSliceDeleteAll)
 	t.Run("PeerLogs", testPeerLogsSliceDeleteAll)
@@ -49,7 +57,9 @@ func TestSliceDeleteAll(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsExists)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsExists)
 	t.Run("HolePunchResults", testHolePunchResultsExists)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesExists)
 	t.Run("IPAddresses", testIPAddressesExists)
 	t.Run("MultiAddresses", testMultiAddressesExists)
 	t.Run("PeerLogs", testPeerLogsExists)
@@ -58,7 +68,9 @@ func TestExists(t *testing.T) {
 
 func TestFind(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsFind)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsFind)
 	t.Run("HolePunchResults", testHolePunchResultsFind)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesFind)
 	t.Run("IPAddresses", testIPAddressesFind)
 	t.Run("MultiAddresses", testMultiAddressesFind)
 	t.Run("PeerLogs", testPeerLogsFind)
@@ -67,7 +79,9 @@ func TestFind(t *testing.T) {
 
 func TestBind(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsBind)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsBind)
 	t.Run("HolePunchResults", testHolePunchResultsBind)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesBind)
 	t.Run("IPAddresses", testIPAddressesBind)
 	t.Run("MultiAddresses", testMultiAddressesBind)
 	t.Run("PeerLogs", testPeerLogsBind)
@@ -76,7 +90,9 @@ func TestBind(t *testing.T) {
 
 func TestOne(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsOne)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsOne)
 	t.Run("HolePunchResults", testHolePunchResultsOne)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesOne)
 	t.Run("IPAddresses", testIPAddressesOne)
 	t.Run("MultiAddresses", testMultiAddressesOne)
 	t.Run("PeerLogs", testPeerLogsOne)
@@ -85,7 +101,9 @@ func TestOne(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsAll)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsAll)
 	t.Run("HolePunchResults", testHolePunchResultsAll)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesAll)
 	t.Run("IPAddresses", testIPAddressesAll)
 	t.Run("MultiAddresses", testMultiAddressesAll)
 	t.Run("PeerLogs", testPeerLogsAll)
@@ -94,7 +112,9 @@ func TestAll(t *testing.T) {
 
 func TestCount(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsCount)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsCount)
 	t.Run("HolePunchResults", testHolePunchResultsCount)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesCount)
 	t.Run("IPAddresses", testIPAddressesCount)
 	t.Run("MultiAddresses", testMultiAddressesCount)
 	t.Run("PeerLogs", testPeerLogsCount)
@@ -103,7 +123,9 @@ func TestCount(t *testing.T) {
 
 func TestHooks(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsHooks)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsHooks)
 	t.Run("HolePunchResults", testHolePunchResultsHooks)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesHooks)
 	t.Run("IPAddresses", testIPAddressesHooks)
 	t.Run("MultiAddresses", testMultiAddressesHooks)
 	t.Run("PeerLogs", testPeerLogsHooks)
@@ -113,8 +135,12 @@ func TestHooks(t *testing.T) {
 func TestInsert(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsInsert)
 	t.Run("ConnectionEvents", testConnectionEventsInsertWhitelist)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsInsert)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsInsertWhitelist)
 	t.Run("HolePunchResults", testHolePunchResultsInsert)
 	t.Run("HolePunchResults", testHolePunchResultsInsertWhitelist)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesInsert)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesInsertWhitelist)
 	t.Run("IPAddresses", testIPAddressesInsert)
 	t.Run("IPAddresses", testIPAddressesInsertWhitelist)
 	t.Run("MultiAddresses", testMultiAddressesInsert)
@@ -131,8 +157,11 @@ func TestToOne(t *testing.T) {
 	t.Run("ConnectionEventToPeerUsingLocal", testConnectionEventToOnePeerUsingLocal)
 	t.Run("ConnectionEventToMultiAddressUsingConnectionMultiAddress", testConnectionEventToOneMultiAddressUsingConnectionMultiAddress)
 	t.Run("ConnectionEventToPeerUsingRemote", testConnectionEventToOnePeerUsingRemote)
+	t.Run("HolePunchAttemptToHolePunchResultUsingHolePunchResult", testHolePunchAttemptToOneHolePunchResultUsingHolePunchResult)
 	t.Run("HolePunchResultToPeerUsingClient", testHolePunchResultToOnePeerUsingClient)
 	t.Run("HolePunchResultToPeerUsingRemote", testHolePunchResultToOnePeerUsingRemote)
+	t.Run("HolePunchResultsXMultiAddressToHolePunchResultUsingHolePunchResult", testHolePunchResultsXMultiAddressToOneHolePunchResultUsingHolePunchResult)
+	t.Run("HolePunchResultsXMultiAddressToMultiAddressUsingMultiAddress", testHolePunchResultsXMultiAddressToOneMultiAddressUsingMultiAddress)
 	t.Run("PeerLogToPeerUsingPeer", testPeerLogToOnePeerUsingPeer)
 }
 
@@ -144,11 +173,12 @@ func TestOneToOne(t *testing.T) {}
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyMultiAddresses)
-	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManyMultiAddresses)
+	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyHolePunchAttempts)
+	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyHolePunchResultsXMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyMultiAddresses)
 	t.Run("MultiAddressToConnectionMultiAddressConnectionEvents", testMultiAddressToManyConnectionMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyConnectionEvents)
-	t.Run("MultiAddressToHolePunchResults", testMultiAddressToManyHolePunchResults)
+	t.Run("MultiAddressToHolePunchResultsXMultiAddresses", testMultiAddressToManyHolePunchResultsXMultiAddresses)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyIPAddresses)
 	t.Run("PeerToLocalConnectionEvents", testPeerToManyLocalConnectionEvents)
 	t.Run("PeerToRemoteConnectionEvents", testPeerToManyRemoteConnectionEvents)
@@ -163,8 +193,11 @@ func TestToOneSet(t *testing.T) {
 	t.Run("ConnectionEventToPeerUsingLocalConnectionEvents", testConnectionEventToOneSetOpPeerUsingLocal)
 	t.Run("ConnectionEventToMultiAddressUsingConnectionMultiAddressConnectionEvents", testConnectionEventToOneSetOpMultiAddressUsingConnectionMultiAddress)
 	t.Run("ConnectionEventToPeerUsingRemoteConnectionEvents", testConnectionEventToOneSetOpPeerUsingRemote)
+	t.Run("HolePunchAttemptToHolePunchResultUsingHolePunchAttempts", testHolePunchAttemptToOneSetOpHolePunchResultUsingHolePunchResult)
 	t.Run("HolePunchResultToPeerUsingClientHolePunchResults", testHolePunchResultToOneSetOpPeerUsingClient)
 	t.Run("HolePunchResultToPeerUsingRemoteHolePunchResults", testHolePunchResultToOneSetOpPeerUsingRemote)
+	t.Run("HolePunchResultsXMultiAddressToHolePunchResultUsingHolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressToOneSetOpHolePunchResultUsingHolePunchResult)
+	t.Run("HolePunchResultsXMultiAddressToMultiAddressUsingHolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressToOneSetOpMultiAddressUsingMultiAddress)
 	t.Run("PeerLogToPeerUsingPeerLogs", testPeerLogToOneSetOpPeerUsingPeer)
 }
 
@@ -184,11 +217,12 @@ func TestOneToOneRemove(t *testing.T) {}
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyAddOpMultiAddresses)
-	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManyAddOpMultiAddresses)
+	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyAddOpHolePunchAttempts)
+	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyAddOpHolePunchResultsXMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyAddOpMultiAddresses)
 	t.Run("MultiAddressToConnectionMultiAddressConnectionEvents", testMultiAddressToManyAddOpConnectionMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyAddOpConnectionEvents)
-	t.Run("MultiAddressToHolePunchResults", testMultiAddressToManyAddOpHolePunchResults)
+	t.Run("MultiAddressToHolePunchResultsXMultiAddresses", testMultiAddressToManyAddOpHolePunchResultsXMultiAddresses)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyAddOpIPAddresses)
 	t.Run("PeerToLocalConnectionEvents", testPeerToManyAddOpLocalConnectionEvents)
 	t.Run("PeerToRemoteConnectionEvents", testPeerToManyAddOpRemoteConnectionEvents)
@@ -201,10 +235,8 @@ func TestToManyAdd(t *testing.T) {
 // or deadlocks can occur.
 func TestToManySet(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManySetOpMultiAddresses)
-	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManySetOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManySetOpMultiAddresses)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManySetOpConnectionEvents)
-	t.Run("MultiAddressToHolePunchResults", testMultiAddressToManySetOpHolePunchResults)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManySetOpIPAddresses)
 }
 
@@ -212,16 +244,16 @@ func TestToManySet(t *testing.T) {
 // or deadlocks can occur.
 func TestToManyRemove(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyRemoveOpMultiAddresses)
-	t.Run("HolePunchResultToMultiAddresses", testHolePunchResultToManyRemoveOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyRemoveOpMultiAddresses)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyRemoveOpConnectionEvents)
-	t.Run("MultiAddressToHolePunchResults", testMultiAddressToManyRemoveOpHolePunchResults)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyRemoveOpIPAddresses)
 }
 
 func TestReload(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsReload)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsReload)
 	t.Run("HolePunchResults", testHolePunchResultsReload)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesReload)
 	t.Run("IPAddresses", testIPAddressesReload)
 	t.Run("MultiAddresses", testMultiAddressesReload)
 	t.Run("PeerLogs", testPeerLogsReload)
@@ -230,7 +262,9 @@ func TestReload(t *testing.T) {
 
 func TestReloadAll(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsReloadAll)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsReloadAll)
 	t.Run("HolePunchResults", testHolePunchResultsReloadAll)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesReloadAll)
 	t.Run("IPAddresses", testIPAddressesReloadAll)
 	t.Run("MultiAddresses", testMultiAddressesReloadAll)
 	t.Run("PeerLogs", testPeerLogsReloadAll)
@@ -239,7 +273,9 @@ func TestReloadAll(t *testing.T) {
 
 func TestSelect(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsSelect)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsSelect)
 	t.Run("HolePunchResults", testHolePunchResultsSelect)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesSelect)
 	t.Run("IPAddresses", testIPAddressesSelect)
 	t.Run("MultiAddresses", testMultiAddressesSelect)
 	t.Run("PeerLogs", testPeerLogsSelect)
@@ -248,7 +284,9 @@ func TestSelect(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsUpdate)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsUpdate)
 	t.Run("HolePunchResults", testHolePunchResultsUpdate)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesUpdate)
 	t.Run("IPAddresses", testIPAddressesUpdate)
 	t.Run("MultiAddresses", testMultiAddressesUpdate)
 	t.Run("PeerLogs", testPeerLogsUpdate)
@@ -257,7 +295,9 @@ func TestUpdate(t *testing.T) {
 
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsSliceUpdateAll)
+	t.Run("HolePunchAttempts", testHolePunchAttemptsSliceUpdateAll)
 	t.Run("HolePunchResults", testHolePunchResultsSliceUpdateAll)
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesSliceUpdateAll)
 	t.Run("IPAddresses", testIPAddressesSliceUpdateAll)
 	t.Run("MultiAddresses", testMultiAddressesSliceUpdateAll)
 	t.Run("PeerLogs", testPeerLogsSliceUpdateAll)

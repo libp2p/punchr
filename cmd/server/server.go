@@ -12,7 +12,6 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -160,16 +159,17 @@ func serveTelemetry(c *cli.Context) {
 }
 
 func initGrpcServer(c *cli.Context, err error) (*grpc.Server, net.Listener, error) {
-	logEntry := log.NewEntry(&log.Logger{})
+	logger := log.StandardLogger()
+	logger.SetLevel(log.DebugLevel)
+	logEntry := log.NewEntry(logger)
 	grpc_logrus.ReplaceGrpcLogger(logEntry)
 	opts := []grpc_logrus.Option{
 		grpc_logrus.WithDurationField(func(duration time.Duration) (key string, value interface{}) {
-			return "grpc.time_ns", duration.Nanoseconds()
+			return "grpc.time_s", duration.Seconds()
 		}),
 	}
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
-			grpc_ctxtags.UnaryServerInterceptor(),
 			grpc_logrus.UnaryServerInterceptor(logEntry, opts...),
 		))
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", c.String("port")))
