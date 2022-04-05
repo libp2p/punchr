@@ -28,7 +28,7 @@ pub mod grpc {
 }
 
 fn agent_version() -> String {
-    format!("/rust-libp2p-punchr/{}", env!("CARGO_PKG_VERSION"))
+    format!("punchr/rust-client/{}", env!("CARGO_PKG_VERSION"))
 }
 
 #[derive(StructOpt)]
