@@ -95,7 +95,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _response = client.register(request).await?;
 
     let request = tonic::Request::new(grpc::GetAddrInfoRequest {
-        client_id: local_peer_id.to_bytes(),
+        host_id: local_peer_id.to_bytes(),
+        // TODO
+        all_host_ids: vec![local_peer_id.to_bytes()],
     });
 
     let response = client.get_addr_info(request).await?.into_inner();
@@ -104,7 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let remote_addrs = response
         .multi_addresses
         .into_iter()
-        .map(|a| Multiaddr::try_from(a))
+        .map(Multiaddr::try_from)
         .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
 
     info!(
@@ -114,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let start_time = SystemTime::now();
 
-    let result = if remote_addrs
+    let _result = if remote_addrs
         .iter()
         .all(|a| a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
     {
@@ -129,30 +131,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let finish_time = SystemTime::now();
-    let elapsed_time = (finish_time.duration_since(UNIX_EPOCH).unwrap()
-        - start_time.duration_since(UNIX_EPOCH).unwrap())
-    .as_secs_f32();
     let request = tonic::Request::new(grpc::TrackHolePunchRequest {
         client_id: local_peer_id.to_bytes(),
         remote_id: remote_peer_id.to_bytes(),
-        success: result.is_ok(),
-        started_at: start_time
+        remote_multi_addresses: remote_addrs.into_iter().map(|a| a.to_vec()).collect(),
+        connect_started_at: start_time
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis()
             .try_into()
             .unwrap(),
-        remote_multi_addresses: remote_addrs.into_iter().map(|a| a.to_vec()).collect(),
-        // TODO: Set proper attempts
-        attempts: 0,
         // TODO
-        error: String::new(),
+        connect_ended_at: 0,
         // TODO
-        direct_dial_error: String::new(),
+        hole_punch_attempts: Vec::new(),
         // TODO
-        start_rtt: 0.0,
-        elapsed_time,
-        end_reason: grpc::HolePunchEndReason::Unknown.into(),
+        open_multi_addresses: Vec::new(),
+        // TODO
+        has_direct_conns: false,
+        // TODO
+        error: None,
+        // TODO
+        outcome: grpc::HolePunchOutcome::Unknown.into(),
+        ended_at: finish_time
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .try_into()
+            .unwrap(),
     });
 
     client.track_hole_punch(request).await?;
@@ -184,7 +190,7 @@ fn build_swarm(local_key: identity::Keypair) -> Swarm<Behaviour> {
     let behaviour = Behaviour {
         relay_client,
         ping: Ping::new(PingConfig::new()),
-        identify: Identify::new(identify_config.clone()),
+        identify: Identify::new(identify_config),
         dcutr: dcutr::behaviour::Behaviour::new(),
     };
 
@@ -303,6 +309,7 @@ struct Behaviour {
     dcutr: dcutr::behaviour::Behaviour,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 enum Event {
     Ping(PingEvent),
