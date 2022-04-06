@@ -21,6 +21,8 @@ use std::net::Ipv4Addr;
 use std::num::NonZeroU32;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const ROUNDS: u8 = 10;
+
 pub mod grpc {
     tonic::include_proto!("_");
 }
@@ -79,49 +81,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let request = tonic::Request::new(grpc::RegisterRequest {
-        client_id: local_peer_id.to_bytes(),
-        agent_version: agent_version(),
-        // TODO: Automatically fill protocol list instead of hard coding it.
-        protocols: vec![
-            "/libp2p/circuit/relay/0.1.0".to_string(),
-            "/ipfs/ping/1.0.0".to_string(),
-            "/libp2p/dcutr".to_string(),
-            "/identify/0.0.1".to_string(),
-        ],
-    });
+    for _ in 0..ROUNDS {
+        let request = tonic::Request::new(grpc::RegisterRequest {
+            client_id: local_peer_id.to_bytes(),
+            agent_version: agent_version(),
+            // TODO: Automatically fill protocol list instead of hard coding it.
+            protocols: vec![
+                "/libp2p/circuit/relay/0.1.0".to_string(),
+                "/ipfs/ping/1.0.0".to_string(),
+                "/libp2p/dcutr".to_string(),
+                "/identify/0.0.1".to_string(),
+            ],
+        });
 
-    client.register(request).await?;
+        client.register(request).await?;
 
-    let request = tonic::Request::new(grpc::GetAddrInfoRequest {
-        host_id: local_peer_id.to_bytes(),
-        // TODO
-        all_host_ids: vec![local_peer_id.to_bytes()],
-    });
+        let request = tonic::Request::new(grpc::GetAddrInfoRequest {
+            host_id: local_peer_id.to_bytes(),
+            // TODO
+            all_host_ids: vec![local_peer_id.to_bytes()],
+        });
 
-    let response = client.get_addr_info(request).await?.into_inner();
+        let response = client.get_addr_info(request).await?.into_inner();
 
-    let remote_peer_id = PeerId::from_bytes(&response.remote_id)?;
-    let remote_addrs = response
-        .multi_addresses
-        .into_iter()
-        .map(Multiaddr::try_from)
-        .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
+        let remote_peer_id = PeerId::from_bytes(&response.remote_id)?;
+        let remote_addrs = response
+            .multi_addresses
+            .into_iter()
+            .map(Multiaddr::try_from)
+            .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
 
-    info!(
-        "Attempting to punch through to {:?} via {:?}.",
-        remote_peer_id, remote_addrs
-    );
+        if remote_addrs
+            .iter()
+            .all(|a| a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
+        {
+            info!(
+            "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported..",
+            remote_peer_id, remote_addrs
+        );
+            continue;
+        }
 
-    swarm.dial(
-        DialOpts::peer_id(remote_peer_id)
-            .addresses(remote_addrs.clone())
-            .build(),
-    )?;
-    let request = drive_hole_punch(local_peer_id, remote_peer_id, remote_addrs, &mut swarm).await;
-    client
-        .track_hole_punch(tonic::Request::new(request))
-        .await?;
+        info!(
+            "Attempting to punch through to {:?} via {:?}.",
+            remote_peer_id, remote_addrs
+        );
+
+        swarm.dial(
+            DialOpts::peer_id(remote_peer_id)
+                .addresses(remote_addrs.clone())
+                .build(),
+        )?;
+        let request =
+            drive_hole_punch(local_peer_id, remote_peer_id, remote_addrs, &mut swarm).await;
+        client
+            .track_hole_punch(tonic::Request::new(request))
+            .await?;
+
+        futures_timer::Delay::new(std::time::Duration::from_secs(1)).await;
+    }
 
     Ok(())
 }
