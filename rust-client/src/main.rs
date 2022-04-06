@@ -2,7 +2,7 @@ use clap::Parser;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
-use libp2p::core::upgrade;
+use libp2p::core::{upgrade, ConnectedPoint};
 use libp2p::dcutr;
 use libp2p::dcutr::behaviour::UpgradeError;
 use libp2p::dns::DnsConfig;
@@ -19,6 +19,7 @@ use log::info;
 use std::convert::TryInto;
 use std::net::Ipv4Addr;
 use std::num::NonZeroU32;
+use std::ops::ControlFlow;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const ROUNDS: u8 = 10;
@@ -132,8 +133,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .addresses(remote_addrs.clone())
                 .build(),
         )?;
-        let request =
-            drive_hole_punch(local_peer_id, remote_peer_id, remote_addrs, &mut swarm).await;
+
+        let request = HolePunchState::new(local_peer_id, remote_peer_id, remote_addrs)
+            .drive_hole_punch(&mut swarm)
+            .await;
+
         client
             .track_hole_punch(tonic::Request::new(request))
             .await?;
@@ -179,170 +183,213 @@ async fn build_swarm(
     Ok(swarm)
 }
 
-async fn drive_hole_punch(
-    client_id: PeerId,
+struct HolePunchState {
+    request: grpc::TrackHolePunchRequest,
+    active_holepunch_attempt: Option<HolePunchAttemptState>,
     remote_id: PeerId,
-    remote_multi_addresses: Vec<Multiaddr>,
-    swarm: &mut libp2p::swarm::Swarm<Behaviour>,
-) -> grpc::TrackHolePunchRequest {
-    let mut track_request = grpc::TrackHolePunchRequest {
-        client_id: client_id.into(),
-        remote_id: remote_id.into(),
-        remote_multi_addresses: remote_multi_addresses
-            .into_iter()
-            .map(|a| a.to_vec())
-            .collect(),
-        open_multi_addresses: Vec::new(),
-        has_direct_conns: false,
-        connect_started_at: unix_time_now(),
-        connect_ended_at: 0,
-        hole_punch_attempts: Vec::new(),
-        error: None,
-        outcome: grpc::HolePunchOutcome::Unknown.into(),
-        ended_at: 0,
-    };
-    let mut active_holepunch_attempt: Option<HolePunchAttemptState> = None;
-    loop {
-        match swarm.select_next_some().await {
-            SwarmEvent::NewListenAddr { address, .. } => info!("Listening on {:?}", address),
-            SwarmEvent::Behaviour(Event::Relay(event)) => info!("{:?}", event),
-            SwarmEvent::Behaviour(Event::Dcutr(event)) => {
-                info!("{:?}", event);
+}
 
-                match event {
-                    dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade { .. } => {
-                        if let Some(attempt) = active_holepunch_attempt.as_mut() {
-                            attempt.started_at = Some(unix_time_now());
-                        }
-                    }
-                    dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded { .. } => {
-                        track_request.outcome = grpc::HolePunchOutcome::Success.into();
-                        if let Some(attempt) = active_holepunch_attempt.take() {
-                            let resolved =
-                                attempt.resolve(grpc::HolePunchAttemptOutcome::Success, None);
-                            track_request.hole_punch_attempts.push(resolved);
-                        }
-                        break;
-                    }
-                    dcutr::behaviour::Event::DirectConnectionUpgradeFailed { error, .. } => {
-                        track_request.error = Some("none of the 3 attempts succeeded".into());
-                        track_request.outcome = grpc::HolePunchOutcome::Failed.into();
-                        if let Some(attempt) = active_holepunch_attempt.take() {
-                            let (outcome, error) = match error {
-                                UpgradeError::Dial => (
-                                    grpc::HolePunchAttemptOutcome::Failed,
-                                    "failed to establish a direct connection",
-                                ),
-                                UpgradeError::Handler(ConnectionHandlerUpgrErr::Timeout) => (
-                                    grpc::HolePunchAttemptOutcome::Timeout,
-                                    "hole-punch timed out",
-                                ),
-                                UpgradeError::Handler(ConnectionHandlerUpgrErr::Timer) => {
-                                    (grpc::HolePunchAttemptOutcome::Timeout, "timer error")
-                                }
-                                UpgradeError::Handler(ConnectionHandlerUpgrErr::Upgrade(_)) => (
-                                    grpc::HolePunchAttemptOutcome::ProtocolError,
-                                    "protocol error",
-                                ),
-                            };
-                            let resolved = attempt.resolve(outcome, Some(error.into()));
-                            track_request.hole_punch_attempts.push(resolved);
-                        }
-                        break;
-                    }
-                    dcutr::behaviour::Event::InitiatedDirectConnectionUpgrade { .. } => {
-                        unreachable!()
-                    }
-                }
-            }
-            SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
-            SwarmEvent::Behaviour(Event::Ping(_)) => {}
-            SwarmEvent::ConnectionEstablished {
-                peer_id,
-                endpoint,
-                num_established,
-                ..
-            } => {
-                info!("Established connection to {:?} via {:?}", peer_id, endpoint);
-
-                if peer_id.to_bytes() != track_request.remote_id {
-                    continue;
-                }
-                if num_established == NonZeroU32::new(1).expect("1 != 0") {
-                    track_request.connect_ended_at = unix_time_now();
-                }
-
-                track_request
-                    .open_multi_addresses
-                    .push(endpoint.get_remote_address().to_vec());
-
-                if !endpoint.is_relayed() {
-                    track_request.has_direct_conns = true;
-                }
-
-                if active_holepunch_attempt.is_none() && !endpoint.is_relayed() {
-                    track_request.outcome = grpc::HolePunchOutcome::ConnectionReversed.into();
-                    break;
-                }
-
-                // New hole-punch attempt will be started by the DCUtR protocol.
-                active_holepunch_attempt = Some(HolePunchAttemptState {
-                    opened_at: unix_time_now(),
-                    started_at: None,
-                });
-            }
-            SwarmEvent::OutgoingConnectionError { peer_id, error }
-                if peer_id == Some(remote_id) =>
-            {
-                info!("Outgoing connection error to {:?}: {:?}", peer_id, error);
-
-                if !swarm.is_connected(&remote_id) {
-                    // Initial connection to the remote failed.
-                    track_request.connect_ended_at = unix_time_now();
-                    track_request.error =
-                        Some("Error connecting to remote peer via relay.".to_string());
-                    track_request.outcome = grpc::HolePunchOutcome::NoConnection.into();
-                    break;
-                }
-
-                if let Some(attempt) = active_holepunch_attempt.take() {
-                    // Hole punch attempt failed. Up to 3 attempts may fail before the whole hole-punch
-                    // is considered as failed.
-                    let outcome = grpc::HolePunchAttemptOutcome::Failed;
-                    let error = "failed to establish a direct connection";
-                    let resolved = attempt.resolve(outcome, Some(error.into()));
-                    track_request.hole_punch_attempts.push(resolved);
-                }
-            }
-            SwarmEvent::ConnectionClosed {
-                peer_id,
-                endpoint,
-                num_established,
-                ..
-            } => {
-                info!("Connection to {:?} via {:?} closed", peer_id, endpoint);
-                if peer_id == remote_id {
-                    let remote_addr = endpoint.get_remote_address().clone().to_vec();
-                    track_request
-                        .open_multi_addresses
-                        .retain(|a| a != &remote_addr);
-                    if num_established == 0 {
-                        track_request.error =
-                            Some("connection closed without a successful hole-punch".into());
-                        track_request.outcome = grpc::HolePunchOutcome::Failed.into();
-                        break;
-                    }
-                }
-            }
-            _ => {}
+impl HolePunchState {
+    fn new(client_id: PeerId, remote_id: PeerId, remote_multi_addresses: Vec<Multiaddr>) -> Self {
+        let request = grpc::TrackHolePunchRequest {
+            client_id: client_id.into(),
+            remote_id: remote_id.into(),
+            remote_multi_addresses: remote_multi_addresses
+                .into_iter()
+                .map(|a| a.to_vec())
+                .collect(),
+            open_multi_addresses: Vec::new(),
+            has_direct_conns: false,
+            connect_started_at: unix_time_now(),
+            connect_ended_at: 0,
+            hole_punch_attempts: Vec::new(),
+            error: None,
+            outcome: grpc::HolePunchOutcome::Unknown.into(),
+            ended_at: 0,
+        };
+        HolePunchState {
+            request,
+            remote_id,
+            active_holepunch_attempt: None,
         }
     }
-    track_request.ended_at = unix_time_now();
-    info!(
-        "Finished whole hole punching process with outcome: {:?}, error: {:?}",
-        track_request.outcome, track_request.error
-    );
-    track_request
+
+    async fn drive_hole_punch(
+        mut self,
+        swarm: &mut libp2p::swarm::Swarm<Behaviour>,
+    ) -> grpc::TrackHolePunchRequest {
+        let (outcome, error) = loop {
+            match swarm.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => info!("Listening on {:?}", address),
+                SwarmEvent::Behaviour(Event::Relay(event)) => info!("{:?}", event),
+                SwarmEvent::Behaviour(Event::Dcutr(event)) => {
+                    info!("{:?}", event);
+                    if let ControlFlow::Break((outcome, error)) = self.handle_dcutr_event(event) {
+                        break (outcome, error);
+                    }
+                }
+                SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
+                SwarmEvent::Behaviour(Event::Ping(_)) => {}
+                SwarmEvent::ConnectionEstablished {
+                    peer_id,
+                    endpoint,
+                    num_established,
+                    ..
+                } => {
+                    info!("Established connection to {:?} via {:?}", peer_id, endpoint);
+                    if peer_id == self.remote_id {
+                        if let ControlFlow::Break((outcome, error)) =
+                            self.handle_established_connection(endpoint, num_established)
+                        {
+                            break (outcome, error);
+                        }
+                    }
+                }
+                SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+                    info!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+                    if peer_id == Some(self.remote_id) {
+                        let is_connected = swarm.is_connected(&self.remote_id);
+                        if let ControlFlow::Break((outcome, error)) =
+                            self.handle_connection_error(is_connected)
+                        {
+                            break (outcome, error);
+                        }
+                    }
+                }
+                SwarmEvent::ConnectionClosed {
+                    peer_id,
+                    endpoint,
+                    num_established,
+                    ..
+                } => {
+                    info!("Connection to {:?} via {:?} closed", peer_id, endpoint);
+                    if peer_id == self.remote_id {
+                        let remote_addr = endpoint.get_remote_address().clone().to_vec();
+                        self.request
+                            .open_multi_addresses
+                            .retain(|a| a != &remote_addr);
+                        if num_established == 0 {
+                            // TODO: The DCUtR protocol should report a `DirectConnectionUpgradeFailed` 
+                            // if this happens, which is currently not the case.
+                            let error =
+                                Some("connection closed without a successful hole-punch".into());
+                            break (grpc::HolePunchOutcome::Failed, error);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        };
+        self.request.outcome = outcome.into();
+        self.request.error = error;
+        self.request.ended_at = unix_time_now();
+        info!(
+            "Finished whole hole punching process with outcome: {:?}, error: {:?}",
+            self.request.outcome, self.request.error
+        );
+        self.request
+    }
+
+    fn handle_dcutr_event(
+        &mut self,
+        event: dcutr::behaviour::Event,
+    ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
+        match event {
+            dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade { .. } => {
+                if let Some(attempt) = self.active_holepunch_attempt.as_mut() {
+                    attempt.started_at = Some(unix_time_now());
+                }
+            }
+            dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded { .. } => {
+                if let Some(attempt) = self.active_holepunch_attempt.take() {
+                    let resolved = attempt.resolve(grpc::HolePunchAttemptOutcome::Success, None);
+                    self.request.hole_punch_attempts.push(resolved);
+                }
+                return ControlFlow::Break((grpc::HolePunchOutcome::Success, None));
+            }
+            dcutr::behaviour::Event::DirectConnectionUpgradeFailed { error, .. } => {
+                if let Some(attempt) = self.active_holepunch_attempt.take() {
+                    let (attempt_outcome, attempt_error) = match error {
+                        UpgradeError::Dial => (
+                            grpc::HolePunchAttemptOutcome::Failed,
+                            "failed to establish a direct connection",
+                        ),
+                        UpgradeError::Handler(ConnectionHandlerUpgrErr::Timeout) => (
+                            grpc::HolePunchAttemptOutcome::Timeout,
+                            "hole-punch timed out",
+                        ),
+                        UpgradeError::Handler(ConnectionHandlerUpgrErr::Timer) => {
+                            (grpc::HolePunchAttemptOutcome::Timeout, "timer error")
+                        }
+                        UpgradeError::Handler(ConnectionHandlerUpgrErr::Upgrade(_)) => (
+                            grpc::HolePunchAttemptOutcome::ProtocolError,
+                            "protocol error",
+                        ),
+                    };
+                    let resolved = attempt.resolve(attempt_outcome, Some(attempt_error.into()));
+                    self.request.hole_punch_attempts.push(resolved);
+                }
+                let error = Some("none of the 3 attempts succeeded".into());
+                return ControlFlow::Break((grpc::HolePunchOutcome::Failed, error));
+            }
+            dcutr::behaviour::Event::InitiatedDirectConnectionUpgrade { .. } => {
+                unreachable!()
+            }
+        }
+        ControlFlow::Continue(())
+    }
+
+    fn handle_established_connection(
+        &mut self,
+        endpoint: ConnectedPoint,
+        num_established: NonZeroU32,
+    ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
+        if num_established == NonZeroU32::new(1).expect("1 != 0") {
+            self.request.connect_ended_at = unix_time_now();
+        }
+
+        self.request
+            .open_multi_addresses
+            .push(endpoint.get_remote_address().to_vec());
+
+        if !endpoint.is_relayed() {
+            self.request.has_direct_conns = true;
+        }
+
+        if self.active_holepunch_attempt.is_none() && !endpoint.is_relayed() {
+            // Reverse-dial succeeded.
+            return ControlFlow::Break((grpc::HolePunchOutcome::ConnectionReversed, None));
+        }
+
+        // New hole-punch attempt will be run by the DCUtR protocol.
+        self.active_holepunch_attempt = Some(HolePunchAttemptState {
+            opened_at: unix_time_now(),
+            started_at: None,
+        });
+        ControlFlow::Continue(())
+    }
+
+    fn handle_connection_error(
+        &mut self,
+        is_connected: bool,
+    ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
+        if !is_connected {
+            // Initial connection to the remote failed.
+            self.request.connect_ended_at = unix_time_now();
+            let error = Some("Error connecting to remote peer via relay.".to_string());
+            return ControlFlow::Break((grpc::HolePunchOutcome::NoConnection, error));
+        }
+
+        if let Some(attempt) = self.active_holepunch_attempt.take() {
+            // Hole punch attempt failed. Up to 3 attempts may fail before the whole hole-punch
+            // is considered as failed.
+            let attempt_outcome = grpc::HolePunchAttemptOutcome::Failed;
+            let attempt_error = "failed to establish a direct connection";
+            let resolved = attempt.resolve(attempt_outcome, Some(attempt_error.into()));
+            self.request.hole_punch_attempts.push(resolved);
+        }
+        ControlFlow::Continue(())
+    }
 }
 
 fn unix_time_now() -> u64 {
@@ -362,13 +409,13 @@ struct HolePunchAttemptState {
 impl HolePunchAttemptState {
     fn resolve(
         self,
-        outcome: grpc::HolePunchAttemptOutcome,
-        error: Option<String>,
+        attempt_outcome: grpc::HolePunchAttemptOutcome,
+        attempt_error: Option<String>,
     ) -> grpc::HolePunchAttempt {
         let ended_at = unix_time_now();
         info!(
             "Finished hole punching attempt with outcome: {:?}, error: {:?}",
-            outcome, error
+            attempt_outcome, attempt_error
         );
         grpc::HolePunchAttempt {
             opened_at: self.opened_at,
@@ -377,8 +424,8 @@ impl HolePunchAttemptState {
             // TODO
             start_rtt: None,
             elapsed_time: (ended_at - self.started_at.unwrap_or(self.opened_at)) as f32,
-            outcome: outcome.into(),
-            error,
+            outcome: attempt_outcome.into(),
+            error: attempt_error,
             direct_dial_error: None,
         }
     }
