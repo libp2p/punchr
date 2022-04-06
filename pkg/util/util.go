@@ -3,6 +3,7 @@ package util
 import (
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -60,6 +61,16 @@ func SupportDCUtR(protocols []string) bool {
 		if p == string(holepunch.Protocol) {
 			return true
 		}
+	}
+	return false
+}
+
+func ContainsPublicAddr(addrs []ma.Multiaddr) bool {
+	for _, addr := range addrs {
+		if IsRelayedMaddr(addr) || !manet.IsPublicAddr(addr) {
+			continue
+		}
+		return true
 	}
 	return false
 }

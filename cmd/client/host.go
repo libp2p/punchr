@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/routing"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
@@ -54,9 +53,6 @@ func InitHost(ctx context.Context, privKey crypto.PrivKey) (*Host, error) {
 		libp2p.ListenAddrStrings("/ip6/::/tcp/0"),
 		libp2p.ListenAddrStrings("/ip6/::/udp/0/quic"),
 		libp2p.EnableHolePunching(holepunch.WithTracer(h)),
-		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			return kaddht.New(ctx, h, kaddht.Mode(kaddht.ModeClient))
-		}),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
@@ -85,6 +81,41 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// WaitForPublicAddr blocks execution until the host has identified its public address.
+// As we currently don't have an event like this, just check our observed addresses
+// regularly (exponential backoff starting at 250 ms, capped at 5s).
+// TODO: There should be an event here that fires when identify discovers a new address
+func (h *Host) WaitForPublicAddr(ctx context.Context) error {
+	logEntry := log.WithField("hostID", util.FmtPeerID(h.ID()))
+	logEntry.Infoln("Waiting for public address...")
+
+	timeout := time.NewTimer(CommunicationTimeout)
+
+	duration := 250 * time.Millisecond
+	const maxDuration = 5 * time.Second
+	t := time.NewTimer(duration)
+	defer t.Stop()
+	for {
+		if util.ContainsPublicAddr(h.Host.Addrs()) {
+			logEntry.Debug("Found >= 1 public addresses!")
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+			duration *= 2
+			if duration > maxDuration {
+				duration = maxDuration
+			}
+			t.Reset(duration)
+		case <-timeout.C:
+			return fmt.Errorf("timeout wait for public addrs")
+		}
+	}
 }
 
 // GetAgentVersion pulls the agent version from the peer store. Returns nil if no information is available.
@@ -327,20 +358,20 @@ func (h *Host) Trace(evt *holepunch.Event) {
 	val.(chan *holepunch.Event) <- evt
 }
 
-func (h *Host) Listen(network network.Network, m multiaddr.Multiaddr)      {}
-func (h *Host) ListenClose(network network.Network, m multiaddr.Multiaddr) {}
-func (h *Host) Connected(network network.Network, conn network.Conn)       {}
-func (h *Host) Disconnected(network network.Network, conn network.Conn)    {}
-func (h *Host) ClosedStream(network network.Network, stream network.Stream) {
+func (h *Host) Listen(network.Network, multiaddr.Multiaddr)      {}
+func (h *Host) ListenClose(network.Network, multiaddr.Multiaddr) {}
+func (h *Host) Connected(network.Network, network.Conn)          {}
+func (h *Host) Disconnected(network.Network, network.Conn)       {}
+func (h *Host) ClosedStream(_ network.Network, stream network.Stream) {
 	if stream.Protocol() != holepunch.Protocol {
 		return
 	}
 	h.logEntry(stream.Conn().RemotePeer()).Debugln("/libp2p/dcutr stream closed!")
 }
 
-func (h *Host) OpenedStream(network network.Network, stream network.Stream) {
+func (h *Host) OpenedStream(_ network.Network, stream network.Stream) {
 	// The following is a hack. `stream` does not have the `Protocol` field set yet. So we just check
-	// every 10 ms for a total of 15 s.
+	// every 5 ms for a total of 15 s.
 	go func() {
 		timeout := time.After(CommunicationTimeout)
 		timer := time.NewTimer(0)

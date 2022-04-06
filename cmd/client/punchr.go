@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -68,15 +69,25 @@ func (p Punchr) InitHosts(ctx context.Context) error {
 	return nil
 }
 
-// Bootstrap loops through all hosts and connects each of them to the canonical bootstrap nodes.
+// Bootstrap loops through all hosts, connects each of them to the canonical bootstrap nodes, and
+// waits until they have identified their public address(es).
 func (p Punchr) Bootstrap(ctx context.Context) error {
-	for i, h := range p.hosts {
-		log.WithField("hostNum", i).Info("Bootstrapping host...")
-		if err := h.Bootstrap(ctx); err != nil {
-			return errors.Wrapf(err, "bootstrapping host %d", i)
-		}
+	errg, ectx := errgroup.WithContext(ctx)
+	for _, h := range p.hosts {
+		h2 := h
+		errg.Go(func() error {
+			log.WithField("hostID", util.FmtPeerID(h2.ID())).Info("Bootstrapping host...")
+			if err := h2.Bootstrap(ectx); err != nil {
+				return errors.Wrapf(err, "bootstrapping host %s", util.FmtPeerID(h2.ID()))
+			}
+
+			if err := h2.WaitForPublicAddr(ectx); err != nil {
+				return errors.Wrapf(err, "waiting for public addr host %s", util.FmtPeerID(h2.ID()))
+			}
+			return nil
+		})
 	}
-	return nil
+	return errg.Wait()
 }
 
 // Register makes all hosts known to the server.
