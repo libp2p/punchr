@@ -1,3 +1,4 @@
+use clap::Parser;
 use futures::executor::block_on;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
@@ -20,7 +21,6 @@ use log::info;
 use std::convert::TryInto;
 use std::net::Ipv4Addr;
 use std::time::{SystemTime, UNIX_EPOCH};
-use structopt::StructOpt;
 
 pub mod grpc {
     tonic::include_proto!("_");
@@ -30,20 +30,20 @@ fn agent_version() -> String {
     format!("punchr/rust-client/{}", env!("CARGO_PKG_VERSION"))
 }
 
-#[derive(StructOpt)]
+#[derive(Parser, Debug)]
 struct Opt {
-    #[structopt(long)]
+    #[clap(long)]
     url: String,
 
     /// Fixed value to generate deterministic peer id.
-    #[structopt(long)]
+    #[clap(long)]
     secret_key_seed: u8,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = env_logger::try_init();
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     let mut client =
         grpc::punchr_service_client::PunchrServiceClient::connect(opt.url.clone()).await?;
