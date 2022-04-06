@@ -1,9 +1,7 @@
 use clap::Parser;
-use futures::executor::block_on;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
-use libp2p::core::transport::OrTransport;
 use libp2p::core::upgrade;
 use libp2p::dcutr;
 use libp2p::dcutr::behaviour::UpgradeError;
@@ -11,7 +9,7 @@ use libp2p::dns::DnsConfig;
 use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::noise;
 use libp2p::ping::{Ping, PingConfig, PingEvent};
-use libp2p::relay::v2::client::{self, Client};
+use libp2p::relay::v1::{new_transport_and_behaviour, Relay, RelayConfig};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{ConnectionHandlerUpgrErr, Swarm, SwarmBuilder, SwarmEvent};
 use libp2p::tcp::TcpConfig;
@@ -53,22 +51,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_key = generate_ed25519(opt.secret_key_seed);
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
-    let mut swarm = build_swarm(local_key);
+    let mut swarm = build_swarm(local_key).await?;
 
-    swarm
-        .listen_on(
-            Multiaddr::empty()
-                .with("0.0.0.0".parse::<Ipv4Addr>().unwrap().into())
-                .with(Protocol::Tcp(0)),
-        )
-        .unwrap();
+    swarm.listen_on(
+        Multiaddr::empty()
+            .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
+            .with(Protocol::Tcp(0)),
+    )?;
 
     // Wait to listen on all interfaces.
     let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
     loop {
         futures::select! {
-            event = swarm.next() => {
-                match event.unwrap() {
+            event = swarm.select_next_some() => {
+                match event {
                     SwarmEvent::NewListenAddr { address, .. } => {
                         info!("Listening on {:?}", address);
                     }
@@ -124,37 +120,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn build_swarm(local_key: identity::Keypair) -> Swarm<Behaviour> {
+async fn build_swarm(
+    local_key: identity::Keypair,
+) -> Result<Swarm<Behaviour>, Box<dyn std::error::Error>> {
     let local_peer_id = PeerId::from(local_key.public());
-    let (relay_transport, relay_client) = Client::new_transport_and_behaviour(local_peer_id);
+    let transport = DnsConfig::system(TcpConfig::new().port_reuse(true)).await?;
+    let (relay_transport, relay_behaviour) =
+        new_transport_and_behaviour(RelayConfig::default(), transport);
 
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&local_key)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let transport = OrTransport::new(
-        relay_transport,
-        block_on(DnsConfig::system(TcpConfig::new().port_reuse(true))).unwrap(),
-    )
-    .upgrade(upgrade::Version::V1)
-    .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-    // TODO: Consider supporting mplex.
-    .multiplex(libp2p::yamux::YamuxConfig::default())
-    .boxed();
+    let transport = relay_transport
+        .upgrade(upgrade::Version::V1)
+        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+        // TODO: Consider supporting mplex.
+        .multiplex(libp2p::yamux::YamuxConfig::default())
+        .boxed();
 
     let identify_config = IdentifyConfig::new("/TODO/0.0.1".to_string(), local_key.public())
         .with_agent_version(agent_version());
 
     let behaviour = Behaviour {
-        relay_client,
+        relay: relay_behaviour,
         ping: Ping::new(PingConfig::new()),
         identify: Identify::new(identify_config),
         dcutr: dcutr::behaviour::Behaviour::new(),
     };
 
-    SwarmBuilder::new(transport, behaviour, local_peer_id)
-        .dial_concurrency_factor(10_u8.try_into().unwrap())
-        .build()
+    let swarm = SwarmBuilder::new(transport, behaviour, local_peer_id)
+        .dial_concurrency_factor(10_u8.try_into()?)
+        .build();
+    Ok(swarm)
 }
 
 async fn drive_hole_punch(
@@ -299,6 +297,10 @@ async fn drive_hole_punch(
         }
     }
     track_request.ended_at = unix_time_now();
+    info!(
+        "Finished whole hole punching process with outcome: {:?}, error: {:?}",
+        track_request.outcome, track_request.error
+    );
     track_request
 }
 
@@ -323,6 +325,10 @@ impl HolePunchAttemptState {
         error: Option<String>,
     ) -> grpc::HolePunchAttempt {
         let ended_at = unix_time_now();
+        info!(
+            "Finished hole punching attempt with outcome: {:?}, error: {:?}",
+            outcome, error
+        );
         grpc::HolePunchAttempt {
             opened_at: self.opened_at,
             started_at: self.started_at,
@@ -349,7 +355,7 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "Event", event_process = false)]
 struct Behaviour {
-    relay_client: Client,
+    relay: Relay,
     ping: Ping,
     identify: Identify,
     dcutr: dcutr::behaviour::Behaviour,
@@ -360,7 +366,7 @@ struct Behaviour {
 enum Event {
     Ping(PingEvent),
     Identify(IdentifyEvent),
-    Relay(client::Event),
+    Relay(()),
     Dcutr(dcutr::behaviour::Event),
 }
 
@@ -376,8 +382,8 @@ impl From<IdentifyEvent> for Event {
     }
 }
 
-impl From<client::Event> for Event {
-    fn from(e: client::Event) -> Self {
+impl From<()> for Event {
+    fn from(e: ()) -> Self {
         Event::Relay(e)
     }
 }
