@@ -18,6 +18,7 @@ use libp2p::{identity, NetworkBehaviour, PeerId};
 use log::info;
 use std::convert::TryInto;
 use std::net::Ipv4Addr;
+use std::num::NonZeroU32;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod grpc {
@@ -81,11 +82,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let request = tonic::Request::new(grpc::RegisterRequest {
         client_id: local_peer_id.to_bytes(),
         agent_version: agent_version(),
-        // TODO: Fill.
-        protocols: vec![],
+        // TODO: Automatically fill protocol list instead of hard coding it.
+        protocols: vec![
+            "/libp2p/circuit/relay/0.1.0".to_string(),
+            "/ipfs/ping/1.0.0".to_string(),
+            "/libp2p/dcutr".to_string(),
+            "/identify/0.0.1".to_string(),
+        ],
     });
 
-    let _response = client.register(request).await?;
+    client.register(request).await?;
 
     let request = tonic::Request::new(grpc::GetAddrInfoRequest {
         host_id: local_peer_id.to_bytes(),
@@ -112,7 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .addresses(remote_addrs.clone())
             .build(),
     )?;
-    let request = drive_hole_punch(local_peer_id, remote_peer_id, remote_addrs, swarm).await;
+    let request = drive_hole_punch(local_peer_id, remote_peer_id, remote_addrs, &mut swarm).await;
     client
         .track_hole_punch(tonic::Request::new(request))
         .await?;
@@ -139,7 +145,7 @@ async fn build_swarm(
         .multiplex(libp2p::yamux::YamuxConfig::default())
         .boxed();
 
-    let identify_config = IdentifyConfig::new("/TODO/0.0.1".to_string(), local_key.public())
+    let identify_config = IdentifyConfig::new("/identify/0.0.1".to_string(), local_key.public())
         .with_agent_version(agent_version());
 
     let behaviour = Behaviour {
@@ -159,7 +165,7 @@ async fn drive_hole_punch(
     client_id: PeerId,
     remote_id: PeerId,
     remote_multi_addresses: Vec<Multiaddr>,
-    mut swarm: libp2p::swarm::Swarm<Behaviour>,
+    swarm: &mut libp2p::swarm::Swarm<Behaviour>,
 ) -> grpc::TrackHolePunchRequest {
     let mut track_request = grpc::TrackHolePunchRequest {
         client_id: client_id.into(),
@@ -170,7 +176,7 @@ async fn drive_hole_punch(
             .collect(),
         open_multi_addresses: Vec::new(),
         has_direct_conns: false,
-        connect_started_at: 0,
+        connect_started_at: unix_time_now(),
         connect_ended_at: 0,
         hole_punch_attempts: Vec::new(),
         error: None,
@@ -234,12 +240,18 @@ async fn drive_hole_punch(
             SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
             SwarmEvent::Behaviour(Event::Ping(_)) => {}
             SwarmEvent::ConnectionEstablished {
-                peer_id, endpoint, ..
+                peer_id,
+                endpoint,
+                num_established,
+                ..
             } => {
                 info!("Established connection to {:?} via {:?}", peer_id, endpoint);
 
                 if peer_id.to_bytes() != track_request.remote_id {
                     continue;
+                }
+                if num_established == NonZeroU32::new(1).expect("1 != 0") {
+                    track_request.connect_ended_at = unix_time_now();
                 }
 
                 track_request
@@ -268,7 +280,6 @@ async fn drive_hole_punch(
 
                 if !swarm.is_connected(&remote_id) {
                     // Initial connection to the remote failed.
-                    track_request.connect_started_at = unix_time_now();
                     track_request.connect_ended_at = unix_time_now();
                     track_request.error =
                         Some("Error connecting to remote peer via relay.".to_string());

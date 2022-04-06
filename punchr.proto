@@ -77,13 +77,9 @@ message TrackHolePunchRequest {
   repeated bytes remote_multi_addresses = 3;
 
   // Unix timestamp in milliseconds of when the connection to the remote peer was initiated
-  //
-  // TODO: Shouldn't this be optional in case that we could not connect to the remote?
   required uint64 connect_started_at = 4;
 
   // Unix timestamp in milliseconds of when the connection to the remote peer via the relay was established (or has failed)
-  //
-  // TODO: Shouldn't this be optional in case that we could not connect to the remote?
   required uint64 connect_ended_at = 5;
 
   // Information about each hole punch attempt
