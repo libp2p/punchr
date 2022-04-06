@@ -286,12 +286,24 @@ async fn drive_hole_punch(
                 }
             }
             SwarmEvent::ConnectionClosed {
-                peer_id, endpoint, ..
-            } if peer_id == remote_id => {
-                let remote_addr = endpoint.get_remote_address().clone().to_vec();
-                track_request
-                    .open_multi_addresses
-                    .retain(|a| a != &remote_addr);
+                peer_id,
+                endpoint,
+                num_established,
+                ..
+            } => {
+                info!("Connection to {:?} via {:?} closed", peer_id, endpoint);
+                if peer_id == remote_id {
+                    let remote_addr = endpoint.get_remote_address().clone().to_vec();
+                    track_request
+                        .open_multi_addresses
+                        .retain(|a| a != &remote_addr);
+                    if num_established == 0 {
+                        track_request.error =
+                            Some("connection closed without a successful hole-punch".into());
+                        track_request.outcome = grpc::HolePunchOutcome::Failed.into();
+                        break;
+                    }
+                }
             }
             _ => {}
         }
