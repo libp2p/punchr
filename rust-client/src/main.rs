@@ -5,21 +5,20 @@ use libp2p::core::multiaddr::{Multiaddr, Protocol};
 use libp2p::core::transport::OrTransport;
 use libp2p::core::upgrade;
 use libp2p::dcutr;
+use libp2p::dcutr::behaviour::UpgradeError;
 use libp2p::dns::DnsConfig;
 use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::noise;
 use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::{Swarm, SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{ConnectionHandlerUpgrErr, Swarm, SwarmBuilder, SwarmEvent};
 use libp2p::tcp::TcpConfig;
 use libp2p::Transport;
 use libp2p::{identity, NetworkBehaviour, PeerId};
 use log::info;
 use std::convert::TryInto;
-
 use std::net::Ipv4Addr;
-
 use std::time::{SystemTime, UNIX_EPOCH};
 use structopt::StructOpt;
 
@@ -65,25 +64,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     // Wait to listen on all interfaces.
-    block_on(async {
-        let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
-        loop {
-            futures::select! {
-                event = swarm.next() => {
-                    match event.unwrap() {
-                        SwarmEvent::NewListenAddr { address, .. } => {
-                            info!("Listening on {:?}", address);
-                        }
-                        event => panic!("{:?}", event),
+    let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
+    loop {
+        futures::select! {
+            event = swarm.next() => {
+                match event.unwrap() {
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        info!("Listening on {:?}", address);
                     }
-                }
-                _ = delay => {
-                    // Likely listening on all interfaces now, thus continuing by breaking the loop.
-                    break;
+                    event => panic!("{:?}", event),
                 }
             }
+            _ = delay => {
+                // Likely listening on all interfaces now, thus continuing by breaking the loop.
+                break;
+            }
         }
-    });
+    }
 
     let request = tonic::Request::new(grpc::RegisterRequest {
         client_id: local_peer_id.to_bytes(),
@@ -114,54 +111,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         remote_peer_id, remote_addrs
     );
 
-    let start_time = SystemTime::now();
-
-    let _result = if remote_addrs
-        .iter()
-        .all(|a| a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
-    {
-        Err(())
-    } else {
-        swarm.dial(
-            DialOpts::peer_id(remote_peer_id)
-                .addresses(remote_addrs.clone())
-                .build(),
-        )?;
-        drive_hole_punch(swarm, remote_peer_id).await
-    };
-
-    let finish_time = SystemTime::now();
-    let request = tonic::Request::new(grpc::TrackHolePunchRequest {
-        client_id: local_peer_id.to_bytes(),
-        remote_id: remote_peer_id.to_bytes(),
-        remote_multi_addresses: remote_addrs.into_iter().map(|a| a.to_vec()).collect(),
-        connect_started_at: start_time
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis()
-            .try_into()
-            .unwrap(),
-        // TODO
-        connect_ended_at: 0,
-        // TODO
-        hole_punch_attempts: Vec::new(),
-        // TODO
-        open_multi_addresses: Vec::new(),
-        // TODO
-        has_direct_conns: false,
-        // TODO
-        error: None,
-        // TODO
-        outcome: grpc::HolePunchOutcome::Unknown.into(),
-        ended_at: finish_time
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis()
-            .try_into()
-            .unwrap(),
-    });
-
-    client.track_hole_punch(request).await?;
+    swarm.dial(
+        DialOpts::peer_id(remote_peer_id)
+            .addresses(remote_addrs.clone())
+            .build(),
+    )?;
+    let request = drive_hole_punch(local_peer_id, remote_peer_id, remote_addrs, swarm).await;
+    client
+        .track_hole_punch(tonic::Request::new(request))
+        .await?;
 
     Ok(())
 }
@@ -200,93 +158,181 @@ fn build_swarm(local_key: identity::Keypair) -> Swarm<Behaviour> {
 }
 
 async fn drive_hole_punch(
+    client_id: PeerId,
+    remote_id: PeerId,
+    remote_multi_addresses: Vec<Multiaddr>,
     mut swarm: libp2p::swarm::Swarm<Behaviour>,
-    remote_peer_id: PeerId,
-) -> Result<(), ()> {
+) -> grpc::TrackHolePunchRequest {
+    let mut track_request = grpc::TrackHolePunchRequest {
+        client_id: client_id.into(),
+        remote_id: remote_id.into(),
+        remote_multi_addresses: remote_multi_addresses
+            .into_iter()
+            .map(|a| a.to_vec())
+            .collect(),
+        open_multi_addresses: Vec::new(),
+        has_direct_conns: false,
+        connect_started_at: 0,
+        connect_ended_at: 0,
+        hole_punch_attempts: Vec::new(),
+        error: None,
+        outcome: grpc::HolePunchOutcome::Unknown.into(),
+        ended_at: 0,
+    };
+    let mut active_holepunch_attempt: Option<HolePunchAttemptState> = None;
     loop {
-        match swarm.next().await.unwrap() {
-            SwarmEvent::NewListenAddr { address, .. } => {
-                info!("Listening on {:?}", address);
-            }
-            SwarmEvent::Behaviour(Event::Relay(event)) => {
-                info!("{:?}", event);
-
-                match event {
-                    client::Event::ReservationReqAccepted {
-                        relay_peer_id: _,
-                        renewal: _,
-                        limit: _,
-                    } => unreachable!(),
-                    client::Event::ReservationReqFailed {
-                        relay_peer_id: _,
-                        renewal: _,
-                        error: _,
-                    } => unreachable!(),
-                    client::Event::OutboundCircuitEstablished {
-                        relay_peer_id: _,
-                        limit: _,
-                    } => {}
-                    client::Event::OutboundCircuitReqFailed {
-                        relay_peer_id: _,
-                        error: _,
-                    } => break Err(()),
-                    client::Event::InboundCircuitEstablished {
-                        src_peer_id: _,
-                        limit: _,
-                    } => {
-                        unreachable!()
-                    }
-                    client::Event::InboundCircuitReqFailed {
-                        relay_peer_id: _,
-                        error: _,
-                    } => unreachable!(),
-                    client::Event::InboundCircuitReqDenied { src_peer_id: _ } => unreachable!(),
-                    client::Event::InboundCircuitReqDenyFailed {
-                        src_peer_id: _,
-                        error: _,
-                    } => {
-                        unreachable!()
-                    }
-                };
-            }
+        match swarm.select_next_some().await {
+            SwarmEvent::NewListenAddr { address, .. } => info!("Listening on {:?}", address),
+            SwarmEvent::Behaviour(Event::Relay(event)) => info!("{:?}", event),
             SwarmEvent::Behaviour(Event::Dcutr(event)) => {
                 info!("{:?}", event);
 
                 match event {
-                    dcutr::behaviour::Event::InitiatedDirectConnectionUpgrade {
-                        remote_peer_id: _,
-                        local_relayed_addr: _,
-                    } => unreachable!(),
-                    dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade {
-                        remote_peer_id: _,
-                        remote_relayed_addr: _,
-                    } => {}
-                    dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded {
-                        remote_peer_id: _,
-                    } => break Ok(()),
-                    dcutr::behaviour::Event::DirectConnectionUpgradeFailed {
-                        remote_peer_id: _,
-                        error: _,
-                    } => todo!(),
+                    dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade { .. } => {
+                        if let Some(attempt) = active_holepunch_attempt.as_mut() {
+                            attempt.started_at = Some(unix_time_now());
+                        }
+                    }
+                    dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded { .. } => {
+                        track_request.outcome = grpc::HolePunchOutcome::Success.into();
+                        if let Some(attempt) = active_holepunch_attempt.take() {
+                            let resolved =
+                                attempt.resolve(grpc::HolePunchAttemptOutcome::Success, None);
+                            track_request.hole_punch_attempts.push(resolved);
+                        }
+                        break;
+                    }
+                    dcutr::behaviour::Event::DirectConnectionUpgradeFailed { error, .. } => {
+                        track_request.error = Some("none of the 3 attempts succeeded".into());
+                        track_request.outcome = grpc::HolePunchOutcome::Failed.into();
+                        if let Some(attempt) = active_holepunch_attempt.take() {
+                            let (outcome, error) = match error {
+                                UpgradeError::Dial => (
+                                    grpc::HolePunchAttemptOutcome::Failed,
+                                    "failed to establish a direct connection",
+                                ),
+                                UpgradeError::Handler(ConnectionHandlerUpgrErr::Timeout) => (
+                                    grpc::HolePunchAttemptOutcome::Timeout,
+                                    "hole-punch timed out",
+                                ),
+                                UpgradeError::Handler(ConnectionHandlerUpgrErr::Timer) => {
+                                    (grpc::HolePunchAttemptOutcome::Timeout, "timer error")
+                                }
+                                UpgradeError::Handler(ConnectionHandlerUpgrErr::Upgrade(_)) => (
+                                    grpc::HolePunchAttemptOutcome::ProtocolError,
+                                    "protocol error",
+                                ),
+                            };
+                            let resolved = attempt.resolve(outcome, Some(error.into()));
+                            track_request.hole_punch_attempts.push(resolved);
+                        }
+                        break;
+                    }
+                    dcutr::behaviour::Event::InitiatedDirectConnectionUpgrade { .. } => {
+                        unreachable!()
+                    }
                 }
             }
-            SwarmEvent::Behaviour(Event::Identify(event)) => {
-                info!("{:?}", event)
-            }
+            SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
             SwarmEvent::Behaviour(Event::Ping(_)) => {}
             SwarmEvent::ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
                 info!("Established connection to {:?} via {:?}", peer_id, endpoint);
 
-                if peer_id == remote_peer_id && !endpoint.is_relayed() {
-                    break Ok(());
+                if peer_id.to_bytes() != track_request.remote_id {
+                    continue;
+                }
+
+                track_request
+                    .open_multi_addresses
+                    .push(endpoint.get_remote_address().to_vec());
+
+                if !endpoint.is_relayed() {
+                    track_request.has_direct_conns = true;
+                }
+
+                if active_holepunch_attempt.is_none() && !endpoint.is_relayed() {
+                    track_request.outcome = grpc::HolePunchOutcome::ConnectionReversed.into();
+                    break;
+                }
+
+                // New hole-punch attempt will be started by the DCUtR protocol.
+                active_holepunch_attempt = Some(HolePunchAttemptState {
+                    opened_at: unix_time_now(),
+                    started_at: None,
+                });
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error }
+                if peer_id == Some(remote_id) =>
+            {
+                info!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+
+                if !swarm.is_connected(&remote_id) {
+                    // Initial connection to the remote failed.
+                    track_request.connect_started_at = unix_time_now();
+                    track_request.connect_ended_at = unix_time_now();
+                    track_request.error =
+                        Some("Error connecting to remote peer via relay.".to_string());
+                    track_request.outcome = grpc::HolePunchOutcome::NoConnection.into();
+                    break;
+                }
+
+                if let Some(attempt) = active_holepunch_attempt.take() {
+                    // Hole punch attempt failed. Up to 3 attempts may fail before the whole hole-punch
+                    // is considered as failed.
+                    let outcome = grpc::HolePunchAttemptOutcome::Failed;
+                    let error = "failed to establish a direct connection";
+                    let resolved = attempt.resolve(outcome, Some(error.into()));
+                    track_request.hole_punch_attempts.push(resolved);
                 }
             }
-            SwarmEvent::OutgoingConnectionError { peer_id, error } => {
-                info!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+            SwarmEvent::ConnectionClosed {
+                peer_id, endpoint, ..
+            } if peer_id == remote_id => {
+                let remote_addr = endpoint.get_remote_address().clone().to_vec();
+                track_request
+                    .open_multi_addresses
+                    .retain(|a| a != &remote_addr);
             }
             _ => {}
+        }
+    }
+    track_request.ended_at = unix_time_now();
+    track_request
+}
+
+fn unix_time_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .try_into()
+        .unwrap()
+}
+
+struct HolePunchAttemptState {
+    opened_at: u64,
+    started_at: Option<u64>,
+}
+
+impl HolePunchAttemptState {
+    fn resolve(
+        self,
+        outcome: grpc::HolePunchAttemptOutcome,
+        error: Option<String>,
+    ) -> grpc::HolePunchAttempt {
+        let ended_at = unix_time_now();
+        grpc::HolePunchAttempt {
+            opened_at: self.opened_at,
+            started_at: self.started_at,
+            ended_at,
+            // TODO
+            start_rtt: None,
+            elapsed_time: (ended_at - self.started_at.unwrap_or(self.opened_at)) as f32,
+            outcome: outcome.into(),
+            error,
+            direct_dial_error: None,
         }
     }
 }
