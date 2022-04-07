@@ -63,34 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
 
-    let mut swarm = build_swarm(local_key, opt.relay_v1).await?;
-
-    swarm.listen_on(
-        Multiaddr::empty()
-            .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
-            .with(Protocol::Tcp(0)),
-    )?;
-
-    // Wait to listen on all interfaces.
-    let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
-    loop {
-        futures::select! {
-            event = swarm.select_next_some() => {
-                match event {
-                    SwarmEvent::NewListenAddr { address, .. } => {
-                        info!("Listening on {:?}", address);
-                    }
-                    event => panic!("{:?}", event),
-                }
-            }
-            _ = delay => {
-                // Likely listening on all interfaces now, thus continuing by breaking the loop.
-                break;
-            }
-        }
-    }
-
     for _ in 0..ROUNDS {
+        let mut swarm = init_swarm(local_key.clone(), opt.relay_v1).await?;
+
         let request = tonic::Request::new(grpc::RegisterRequest {
             client_id: local_peer_id.to_bytes(),
             agent_version: agent_version(),
@@ -156,7 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn build_swarm(
+async fn init_swarm(
     local_key: identity::Keypair,
     use_relay_v1: bool,
 ) -> Result<Swarm<Behaviour>, Box<dyn std::error::Error>> {
@@ -203,9 +178,35 @@ async fn build_swarm(
         dcutr: dcutr::behaviour::Behaviour::new(),
     };
 
-    let swarm = SwarmBuilder::new(transport, behaviour, local_peer_id)
+    let mut swarm = SwarmBuilder::new(transport, behaviour, local_peer_id)
         .dial_concurrency_factor(10_u8.try_into()?)
         .build();
+
+    swarm.listen_on(
+        Multiaddr::empty()
+            .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
+            .with(Protocol::Tcp(0)),
+    )?;
+
+    // Wait to listen on all interfaces.
+    let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
+    loop {
+        futures::select! {
+            event = swarm.select_next_some() => {
+                match event {
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        info!("Listening on {:?}", address);
+                    }
+                    event => panic!("{:?}", event),
+                }
+            }
+            _ = delay => {
+                // Likely listening on all interfaces now, thus continuing by breaking the loop.
+                break;
+            }
+        }
+    }
+
     Ok(swarm)
 }
 
