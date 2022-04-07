@@ -8,7 +8,11 @@ import "testing"
 func TestUpsert(t *testing.T) {
 	t.Run("ConnectionEvents", testConnectionEventsUpsert)
 
+	t.Run("HolePunchAttempts", testHolePunchAttemptsUpsert)
+
 	t.Run("HolePunchResults", testHolePunchResultsUpsert)
+
+	t.Run("HolePunchResultsXMultiAddresses", testHolePunchResultsXMultiAddressesUpsert)
 
 	t.Run("IPAddresses", testIPAddressesUpsert)
 

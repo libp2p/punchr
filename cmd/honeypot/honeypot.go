@@ -124,6 +124,13 @@ func main() {
 				DefaultText: "honeypot.key",
 				Value:       "honeypot.key",
 			},
+			&cli.IntFlag{
+				Name:        "crawler-count",
+				Usage:       "The number of parallel crawlers",
+				EnvVars:     []string{"PUNCHR_HONEYPOT_CRAWLER_COUNT"},
+				DefaultText: "10",
+				Value:       10,
+			},
 		},
 		EnableBashCompletion: true,
 	}

@@ -2,3 +2,4 @@ honeypot
 *.key
 dist/
 rust-client/target
+rust-client/Cargo.lock

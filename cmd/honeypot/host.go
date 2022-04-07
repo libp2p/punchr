@@ -34,6 +34,7 @@ type Host struct {
 	DBClient *db.Client
 	DHT      *kaddht.IpfsDHT
 	pm       *pb.ProtocolMessenger
+	crawlers int
 }
 
 func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
@@ -85,6 +86,7 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 		DBClient: dbClient,
 		DHT:      dht,
 		pm:       pm,
+		crawlers: c.Int("crawler-count"),
 	}
 
 	h.DBPeer, err = h.DBClient.UpsertPeer(c.Context, h.DBClient, h.ID(), &agentVersion, h.GetProtocols(h.ID()))
@@ -142,7 +144,7 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 
 // WalkDHT slowly enumerates the whole DHT to announce ourselves to the network.
 func (h *Host) WalkDHT(ctx context.Context) {
-	c, err := crawler.New(h, crawler.WithParallelism(50), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
+	c, err := crawler.New(h, crawler.WithParallelism(h.crawlers), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
 	if err != nil {
 		panic(err)
 	}

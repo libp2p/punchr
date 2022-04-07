@@ -3,15 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/dennis-tra/punchr/pkg/db"
 	"github.com/dennis-tra/punchr/pkg/models"
@@ -29,23 +32,32 @@ func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regi
 		return nil, errors.Wrap(err, "peer ID from client ID")
 	}
 
-	_, err = s.DBClient.UpsertPeer(ctx, s.DBClient, clientID, &req.AgentVersion, req.Protocols)
+	dbPeer, err := s.DBClient.UpsertPeer(ctx, s.DBClient, clientID, req.AgentVersion, req.Protocols)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.RegisterResponse{}, nil
+	return &pb.RegisterResponse{DbPeerId: &dbPeer.ID}, nil
 }
 
 func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*pb.GetAddrInfoResponse, error) {
-	clientID, err := peer.IDFromBytes(req.ClientId)
-	if err != nil {
-		return nil, errors.Wrap(err, "peer ID from client ID")
+	hostIDs := make([]string, len(req.AllHostIds))
+	for i, bytesHostID := range req.AllHostIds {
+		hostID, err := peer.IDFromBytes(bytesHostID)
+		if err != nil {
+			return nil, errors.Wrap(err, "peer ID from client ID")
+		}
+		hostIDs[i] = hostID.String()
 	}
 
-	dbClientPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
+	dbHosts, err := models.Peers(models.PeerWhere.MultiHash.IN(hostIDs)).All(ctx, s.DBClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client peer from db")
+	}
+
+	dbHostIDs := make([]string, len(dbHosts))
+	for i, dbHost := range dbHosts {
+		dbHostIDs[i] = strconv.FormatInt(dbHost.ID, 10)
 	}
 
 	query := `
@@ -63,13 +75,15 @@ WHERE ce.listens_on_relay_multi_address = true
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
         WHERE hpr.remote_id =  ce.remote_id
-          AND hpr.client_id = $1
-          AND hprxma.multi_address_id =ma.id
+          AND hpr.client_id IN (%s)
+          AND hprxma.multi_address_id = ma.id
+          AND hprxma.relationship = 'INITIAL'
           AND hpr.created_at > NOW() - '10min'::INTERVAL
     )
 LIMIT 1
 `
-	rows, err := s.DBClient.QueryContext(ctx, query, dbClientPeer.ID)
+	query = fmt.Sprintf(query, strings.Join(dbHostIDs, ","))
+	rows, err := s.DBClient.QueryContext(ctx, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "query addr infos")
 	}
@@ -80,7 +94,7 @@ LIMIT 1
 	}()
 
 	if !rows.Next() {
-		return &pb.GetAddrInfoResponse{}, nil
+		return nil, status.Error(codes.NotFound, "no peers to hole punch")
 	}
 
 	var remoteMultiHash string
@@ -112,6 +126,9 @@ LIMIT 1
 }
 
 func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchRequest) (*pb.TrackHolePunchResponse, error) {
+	start := time.Now()
+	defer func() { log.WithField("dur", time.Since(start).String()).Infoln("Tracked result") }()
+
 	clientID, err := peer.IDFromBytes(req.ClientId)
 	if err != nil {
 		return nil, errors.Wrap(err, "peer ID from client ID")
@@ -132,20 +149,45 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "get remote peer from db")
 	}
 
-	endReason := models.HolePunchEndReasonUNKNOWN
-	switch req.EndReason {
-	case pb.HolePunchEndReason_PROTOCOL_ERROR:
-		endReason = models.HolePunchEndReasonPROTOCOL_ERROR
-	case pb.HolePunchEndReason_DIRECT_CONNECTION:
-		endReason = models.HolePunchEndReasonDIRECT_CONNECTION
-	case pb.HolePunchEndReason_DIRECT_DIAL:
-		endReason = models.HolePunchEndReasonDIRECT_DIAL
-	case pb.HolePunchEndReason_HOLE_PUNCH:
-		endReason = models.HolePunchEndReasonHOLE_PUNCH
-	case pb.HolePunchEndReason_NO_CONNECTION:
-		endReason = models.HolePunchEndReasonNO_CONNECTION
-	case pb.HolePunchEndReason_NOT_INITIATED:
-		endReason = models.HolePunchEndReasonNOT_INITIATED
+	dbAttempts := make([]*models.HolePunchAttempt, len(req.HolePunchAttempts))
+	for i, hpa := range req.HolePunchAttempts {
+		if hpa.OpenedAt == nil {
+			return nil, errors.Wrapf(err, "opened at in attempt %d is nil", i)
+		}
+
+		if hpa.StartedAt == nil {
+			return nil, errors.Wrapf(err, "started at in attempt %d is nil", i)
+		}
+
+		if hpa.EndedAt == nil {
+			return nil, errors.Wrapf(err, "ended at in attempt %d is nil", i)
+		}
+
+		if hpa.ElapsedTime == nil {
+			return nil, errors.Wrapf(err, "elapsed time in attempt %d is nil", i)
+		}
+
+		startRtt := ""
+		if hpa.StartRtt != nil {
+			startRtt = fmt.Sprintf("%fs", *hpa.StartRtt)
+		}
+
+		var startedAt *time.Time
+		if hpa.StartedAt != nil {
+			t := time.Unix(0, int64(*hpa.StartedAt))
+			startedAt = &t
+		}
+
+		dbAttempts[i] = &models.HolePunchAttempt{
+			OpenedAt:        time.Unix(0, int64(*hpa.OpenedAt)),
+			StartedAt:       null.TimeFromPtr(startedAt),
+			EndedAt:         time.Unix(0, int64(*hpa.EndedAt)),
+			StartRTT:        null.NewString(startRtt, startRtt != ""),
+			ElapsedTime:     fmt.Sprintf("%fs", *hpa.ElapsedTime),
+			Outcome:         s.mapHolePunchAttemptOutcome(hpa),
+			Error:           null.NewString(hpa.GetError(), hpa.GetError() != ""),
+			DirectDialError: null.NewString(hpa.GetDirectDialError(), hpa.GetDirectDialError() != ""),
+		}
 	}
 
 	// Start a database transaction
@@ -155,40 +197,125 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 	defer db.DeferRollback(txn)
 
+	if req.ConnectStartedAt == nil {
+		return nil, errors.Wrap(err, "connect started at is nil")
+	}
+	if req.ConnectEndedAt == nil {
+		return nil, errors.Wrap(err, "connect ended at is nil")
+	}
+	if req.EndedAt == nil {
+		return nil, errors.Wrap(err, "ended at is nil")
+	}
+	if req.HasDirectConns == nil {
+		return nil, errors.Wrap(err, "has direct conns is nil")
+	}
+
 	hpr := &models.HolePunchResult{
-		ClientID:            dbClientPeer.ID,
-		RemoteID:            dbRemotePeer.ID,
-		StartRTT:            null.NewString(fmt.Sprintf("%fs", req.StartRtt), req.StartRtt != 0),
-		ElapsedTime:         fmt.Sprintf("%fs", req.ElapsedTime),
-		ConnectionStartedAt: time.UnixMilli(req.StartedAt),
-		EndReason:           endReason,
-		Attempts:            int16(req.Attempts),
-		Success:             req.Success,
-		Error:               null.NewString(req.Error, req.Error != ""),
-		DirectDialError:     null.NewString(req.DirectDialError, req.DirectDialError != ""),
+		ClientID:         dbClientPeer.ID,
+		RemoteID:         dbRemotePeer.ID,
+		ConnectStartedAt: time.Unix(0, int64(*req.ConnectStartedAt)),
+		ConnectEndedAt:   time.Unix(0, int64(*req.ConnectEndedAt)),
+		HasDirectConns:   *req.HasDirectConns,
+		Outcome:          s.mapHolePunchOutcome(req),
+		Error:            null.StringFromPtr(req.Error),
+		EndedAt:          time.Unix(0, int64(*req.EndedAt)),
 	}
 
 	if err = hpr.Insert(ctx, txn, boil.Infer()); err != nil {
 		return nil, errors.Wrap(err, "insert hole punch result")
 	}
 
-	maddrs := make([]multiaddr.Multiaddr, len(req.RemoteMultiAddresses))
+	if err = hpr.AddHolePunchAttempts(ctx, txn, true, dbAttempts...); err != nil {
+		return nil, errors.Wrap(err, "add attempts to hole punch result")
+	}
+
+	rmaddrs := make([]multiaddr.Multiaddr, len(req.RemoteMultiAddresses))
 	for i, maddrBytes := range req.RemoteMultiAddresses {
 		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "multi addr from bytes")
 		}
-		maddrs[i] = maddr
+		rmaddrs[i] = maddr
 	}
 
-	dbMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, maddrs)
+	dbRMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, rmaddrs)
 	if err != nil {
 		return nil, errors.Wrap(err, "upsert multi addresses")
 	}
 
-	if err = hpr.SetMultiAddresses(ctx, txn, false, dbMaddrs...); err != nil {
-		return nil, errors.Wrap(err, "set multi addresses to hole punch result")
+	omaddrs := make([]multiaddr.Multiaddr, len(req.OpenMultiAddresses))
+	for i, maddrBytes := range req.OpenMultiAddresses {
+		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "multi addr from bytes")
+		}
+		omaddrs[i] = maddr
+	}
+
+	dbOMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, omaddrs)
+	if err != nil {
+		return nil, errors.Wrap(err, "upsert multi addresses")
+	}
+
+	for _, dbRMaddr := range dbRMaddrs {
+		hprxma := models.HolePunchResultsXMultiAddress{
+			HolePunchResultID: hpr.ID,
+			MultiAddressID:    dbRMaddr.ID,
+			Relationship:      models.HolePunchMultiAddressRelationshipINITIAL,
+		}
+		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert remote HolePunchResultsXMultiAddress")
+		}
+	}
+
+	for _, dbOMaddr := range dbOMaddrs {
+		hprxma := models.HolePunchResultsXMultiAddress{
+			HolePunchResultID: hpr.ID,
+			MultiAddressID:    dbOMaddr.ID,
+			Relationship:      models.HolePunchMultiAddressRelationshipFINAL,
+		}
+		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert remote HolePunchResultsXMultiAddress")
+		}
 	}
 
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
+}
+
+func (s Server) mapHolePunchAttemptOutcome(hpa *pb.HolePunchAttempt) string {
+	switch *hpa.Outcome {
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_DIRECT_DIAL:
+		return models.HolePunchAttemptOutcomeDIRECT_DIAL
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_PROTOCOL_ERROR:
+		return models.HolePunchAttemptOutcomePROTOCOL_ERROR
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_CANCELLED:
+		return models.HolePunchAttemptOutcomeCANCELLED
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_TIMEOUT:
+		return models.HolePunchAttemptOutcomeTIMEOUT
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_FAILED:
+		return models.HolePunchAttemptOutcomeFAILED
+	case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS:
+		return models.HolePunchAttemptOutcomeSUCCESS
+	default:
+		return models.HolePunchAttemptOutcomeUNKNOWN
+	}
+}
+
+func (s Server) mapHolePunchOutcome(req *pb.TrackHolePunchRequest) string {
+	switch *req.Outcome {
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION:
+		return models.HolePunchOutcomeNO_CONNECTION
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM:
+		return models.HolePunchOutcomeNO_STREAM
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED:
+		return models.HolePunchOutcomeCANCELLED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED:
+		return models.HolePunchOutcomeCONNECTION_REVERSED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED:
+		return models.HolePunchOutcomeFAILED
+	case pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS:
+		return models.HolePunchOutcomeSUCCESS
+	default:
+		return models.HolePunchOutcomeUNKNOWN
+	}
 }
