@@ -117,9 +117,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .all(|a| a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
         {
             info!(
-            "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported..",
-            remote_peer_id, remote_addrs
-        );
+                "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported..",
+                remote_peer_id, remote_addrs
+            );
             continue;
         }
 
@@ -269,8 +269,6 @@ impl HolePunchState {
                             .open_multi_addresses
                             .retain(|a| a != &remote_addr);
                         if num_established == 0 {
-                            // TODO: The DCUtR protocol should report a `DirectConnectionUpgradeFailed` 
-                            // if this happens, which is currently not the case.
                             let error =
                                 Some("connection closed without a successful hole-punch".into());
                             break (grpc::HolePunchOutcome::Failed, error);
@@ -296,9 +294,10 @@ impl HolePunchState {
     ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
         match event {
             dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade { .. } => {
-                if let Some(attempt) = self.active_holepunch_attempt.as_mut() {
-                    attempt.started_at = Some(unix_time_now());
-                }
+                self.active_holepunch_attempt = Some(HolePunchAttemptState {
+                    opened_at: self.request.connect_ended_at,
+                    started_at: unix_time_now(),
+                });
             }
             dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded { .. } => {
                 if let Some(attempt) = self.active_holepunch_attempt.take() {
@@ -361,11 +360,6 @@ impl HolePunchState {
             return ControlFlow::Break((grpc::HolePunchOutcome::ConnectionReversed, None));
         }
 
-        // New hole-punch attempt will be run by the DCUtR protocol.
-        self.active_holepunch_attempt = Some(HolePunchAttemptState {
-            opened_at: unix_time_now(),
-            started_at: None,
-        });
         ControlFlow::Continue(())
     }
 
@@ -403,7 +397,7 @@ fn unix_time_now() -> u64 {
 
 struct HolePunchAttemptState {
     opened_at: u64,
-    started_at: Option<u64>,
+    started_at: u64,
 }
 
 impl HolePunchAttemptState {
@@ -421,9 +415,8 @@ impl HolePunchAttemptState {
             opened_at: self.opened_at,
             started_at: self.started_at,
             ended_at,
-            // TODO
             start_rtt: None,
-            elapsed_time: (ended_at - self.started_at.unwrap_or(self.opened_at)) as f32,
+            elapsed_time: (ended_at - self.started_at) as f32 / 1000f32,
             outcome: attempt_outcome.into(),
             error: attempt_error,
             direct_dial_error: None,
