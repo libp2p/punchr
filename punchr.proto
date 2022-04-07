@@ -76,10 +76,10 @@ message TrackHolePunchRequest {
   // (the same that got served in the first place via GetAddrInfo)
   repeated bytes remote_multi_addresses = 3;
 
-  // Unix timestamp in milliseconds of when the connection to the remote peer was initiated
+  // Unix timestamp in nanoseconds of when the connection to the remote peer was initiated
   required uint64 connect_started_at = 4;
 
-  // Unix timestamp in milliseconds of when the connection to the remote peer via the relay was established (or has failed)
+  // Unix timestamp in nanoseconds of when the connection to the remote peer via the relay was established (or has failed)
   required uint64 connect_ended_at = 5;
 
   // Information about each hole punch attempt
@@ -99,20 +99,20 @@ message TrackHolePunchRequest {
   // The reason why the hole punch ended (direct dial succeeded, protocol error occurred, hole punch procedure finished)
   required HolePunchOutcome outcome = 10;
 
-  // Unix timestamp in milliseconds of when the overall hole punch process ended
+  // Unix timestamp in nanoseconds of when the overall hole punch process ended
   required uint64 ended_at = 11;
 }
 
 message TrackHolePunchResponse {}
 
 message HolePunchAttempt {
-  // Unix timestamp in milliseconds of when the /libp2p/dcutr stream was opened
+  // Unix timestamp in nanoseconds of when the /libp2p/dcutr stream was opened
   required uint64 opened_at = 1;
 
-  // Unix timestamp in milliseconds of when this hole punching attempt was started
+  // Unix timestamp in nanoseconds of when this hole punching attempt was started
   required uint64 started_at = 2;
 
-  // Unix timestamp in milliseconds of when this hole punching attempt terminated
+  // Unix timestamp in nanoseconds of when this hole punching attempt terminated
   required uint64 ended_at = 3;
 
   // Start round trip time in seconds that falls out of the `holepunch.StartHolePunchEvt` event

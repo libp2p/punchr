@@ -414,9 +414,9 @@ type TrackHolePunchRequest struct {
 	// The multi addresses that were used to attempt a hole punch
 	// (the same that got served in the first place via GetAddrInfo)
 	RemoteMultiAddresses [][]byte `protobuf:"bytes,3,rep,name=remote_multi_addresses,json=remoteMultiAddresses" json:"remote_multi_addresses,omitempty"`
-	// Unix timestamp in milliseconds of when the connection to the remote peer was initiated
+	// Unix timestamp in nanoseconds of when the connection to the remote peer was initiated
 	ConnectStartedAt *uint64 `protobuf:"varint,4,req,name=connect_started_at,json=connectStartedAt" json:"connect_started_at,omitempty"`
-	// Unix timestamp in milliseconds of when the connection to the remote peer via the relay was established (or has failed)
+	// Unix timestamp in nanoseconds of when the connection to the remote peer via the relay was established (or has failed)
 	ConnectEndedAt *uint64 `protobuf:"varint,5,req,name=connect_ended_at,json=connectEndedAt" json:"connect_ended_at,omitempty"`
 	// Information about each hole punch attempt
 	HolePunchAttempts []*HolePunchAttempt `protobuf:"bytes,6,rep,name=hole_punch_attempts,json=holePunchAttempts" json:"hole_punch_attempts,omitempty"`
@@ -430,7 +430,7 @@ type TrackHolePunchRequest struct {
 	Error *string `protobuf:"bytes,9,opt,name=error" json:"error,omitempty"`
 	// The reason why the hole punch ended (direct dial succeeded, protocol error occurred, hole punch procedure finished)
 	Outcome *HolePunchOutcome `protobuf:"varint,10,req,name=outcome,enum=HolePunchOutcome" json:"outcome,omitempty"`
-	// Unix timestamp in milliseconds of when the overall hole punch process ended
+	// Unix timestamp in nanoseconds of when the overall hole punch process ended
 	EndedAt *uint64 `protobuf:"varint,11,req,name=ended_at,json=endedAt" json:"ended_at,omitempty"`
 }
 
@@ -586,11 +586,11 @@ type HolePunchAttempt struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Unix timestamp in milliseconds of when the /libp2p/dcutr stream was opened
+	// Unix timestamp in nanoseconds of when the /libp2p/dcutr stream was opened
 	OpenedAt *uint64 `protobuf:"varint,1,req,name=opened_at,json=openedAt" json:"opened_at,omitempty"`
-	// Unix timestamp in milliseconds of when this hole punching attempt was started
+	// Unix timestamp in nanoseconds of when this hole punching attempt was started
 	StartedAt *uint64 `protobuf:"varint,2,req,name=started_at,json=startedAt" json:"started_at,omitempty"`
-	// Unix timestamp in milliseconds of when this hole punching attempt terminated
+	// Unix timestamp in nanoseconds of when this hole punching attempt terminated
 	EndedAt *uint64 `protobuf:"varint,3,req,name=ended_at,json=endedAt" json:"ended_at,omitempty"`
 	// Start round trip time in seconds that falls out of the `holepunch.StartHolePunchEvt` event
 	StartRtt *float32 `protobuf:"fixed32,4,opt,name=start_rtt,json=startRtt" json:"start_rtt,omitempty"`
