@@ -114,18 +114,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported.",
                 remote_peer_id, remote_addrs
             );
+            let unix_time_now = unix_time_now();
             let request = grpc::TrackHolePunchRequest {
                 client_id: local_peer_id.into(),
                 remote_id: response.remote_id,
                 remote_multi_addresses: remote_addrs.into_iter().map(|a| a.to_vec()).collect(),
                 open_multi_addresses: Vec::new(),
                 has_direct_conns: false,
-                connect_started_at: unix_time_now(),
-                connect_ended_at: unix_time_now(),
+                connect_started_at: unix_time_now,
+                connect_ended_at: unix_time_now,
                 hole_punch_attempts: Vec::new(),
                 error: Some("rust-lib2p doesn't support quic transport yet.".into()),
                 outcome: grpc::HolePunchOutcome::Cancelled.into(),
-                ended_at: unix_time_now(),
+                ended_at: unix_time_now
             };
 
             client
