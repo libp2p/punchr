@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.9"
+either = "1.6.1"
 futures = "0.3"
 futures-timer = "2"
 libp2p = { version = "0.43.0", default-features = false, features = ["dcutr", "dns-async-std", "identify", "noise", "relay", "ping", "tcp-async-io", "yamux"] }
