@@ -47,7 +47,6 @@ struct Opt {
     #[clap(long)]
     secret_key_seed: u8,
 
-    /// Fixed value to generate deterministic peer id.
     #[clap(long)]
     relay_v1: bool,
 }
@@ -92,7 +91,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let request = tonic::Request::new(grpc::GetAddrInfoRequest {
             host_id: local_peer_id.to_bytes(),
-            // TODO
             all_host_ids: vec![local_peer_id.to_bytes()],
         });
 
