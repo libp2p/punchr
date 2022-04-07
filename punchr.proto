@@ -124,8 +124,6 @@ message HolePunchAttempt {
   // The outcome of the hole punch
   required HolePunchAttemptOutcome outcome = 6;
 
-  // TODO: How about making it an enum?
-  //
   // The error that occurred if the hole punch failed
   optional string error = 7;
 
