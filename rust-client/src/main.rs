@@ -4,7 +4,7 @@ use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
 use libp2p::core::transport::OrTransport;
-use libp2p::core::{upgrade, ConnectedPoint};
+use libp2p::core::{upgrade, ConnectedPoint, ProtocolName, UpgradeInfo};
 use libp2p::dcutr;
 use libp2p::dcutr::behaviour::UpgradeError;
 use libp2p::dns::DnsConfig;
@@ -14,10 +14,13 @@ use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::relay::v1::{new_transport_and_behaviour, Relay, RelayConfig};
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::{ConnectionHandlerUpgrErr, Swarm, SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{
+    ConnectionHandlerUpgrErr, IntoConnectionHandler, NetworkBehaviour, Swarm, SwarmBuilder,
+    SwarmEvent,
+};
 use libp2p::tcp::TcpConfig;
 use libp2p::Transport;
-use libp2p::{identity, NetworkBehaviour, PeerId};
+use libp2p::{identity, PeerId};
 use log::info;
 use std::convert::TryInto;
 use std::net::Ipv4Addr;
@@ -63,19 +66,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
 
+    let mut protocols = None;
+
     for _ in 0..ROUNDS {
         let mut swarm = init_swarm(local_key.clone(), opt.relay_v1).await?;
+        if protocols.is_none() {
+            let supported_protocols = swarm
+                .behaviour_mut()
+                .new_handler()
+                .inbound_protocol()
+                .protocol_info()
+                .into_iter()
+                .map(|info| String::from_utf8(info.protocol_name().to_vec()))
+                .collect::<Result<Vec<String>, _>>()?;
+            let _ = protocols.insert(supported_protocols);
+        }
 
         let request = tonic::Request::new(grpc::RegisterRequest {
             client_id: local_peer_id.to_bytes(),
             agent_version: agent_version(),
-            // TODO: Automatically fill protocol list instead of hard coding it.
-            protocols: vec![
-                "/libp2p/circuit/relay/0.1.0".to_string(),
-                "/ipfs/ping/1.0.0".to_string(),
-                "/libp2p/dcutr".to_string(),
-                "/identify/0.0.1".to_string(),
-            ],
+            protocols: protocols.clone().unwrap(),
         });
 
         client.register(request).await?;
@@ -186,7 +196,7 @@ async fn init_swarm(
         .boxed()
     };
 
-    let identify_config = IdentifyConfig::new("/identify/0.0.1".to_string(), local_key.public())
+    let identify_config = IdentifyConfig::new("/ipfs/0.1.0".to_string(), local_key.public())
         .with_agent_version(agent_version());
 
     let behaviour = Behaviour {
@@ -478,7 +488,7 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
     identity::Keypair::Ed25519(secret_key.into())
 }
 
-#[derive(NetworkBehaviour)]
+#[derive(libp2p::NetworkBehaviour)]
 #[behaviour(out_event = "Event", event_process = false)]
 struct Behaviour {
     relay: Either<Relay, Client>,
