@@ -127,11 +127,6 @@ message HolePunchAttempt {
   // The error that occurred if the hole punch failed
   optional string error = 7;
 
-  // TODO mxinden: I am not quite sure I understand this field. Why does the
-  // server pass a public non-relay address to the client in the first place?
-  // Also note that connection reversal is only attempted by the DCUtR listener,
-  // not dialer.
-  //
   // The error that occurred if the connection reversal failed. This is only set of
   // the multi addresses for the remote peer contained a publicly reachable non-relay multi address
   optional string direct_dial_error = 8;

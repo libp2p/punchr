@@ -177,7 +177,6 @@ async fn init_swarm(
         relay_transport
             .upgrade(upgrade::Version::V1)
             .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-            // TODO: Consider supporting mplex.
             .multiplex(libp2p::yamux::YamuxConfig::default())
             .boxed()
     } else {
@@ -190,7 +189,6 @@ async fn init_swarm(
         )
         .upgrade(upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-        // TODO: Consider supporting mplex.
         .multiplex(libp2p::yamux::YamuxConfig::default())
         .boxed()
     };
