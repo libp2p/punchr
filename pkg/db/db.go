@@ -119,6 +119,10 @@ func (c *Client) UpsertPeer(ctx context.Context, exec boil.ContextExecutor, pid 
 	return dbPeer, err
 }
 
+func (c *Client) GetAuthorization(ctx context.Context, exec boil.ContextExecutor, apiKey string) (*models.Authorization, error) {
+	return models.Authorizations(models.AuthorizationWhere.APIKey.EQ(apiKey)).One(ctx, exec)
+}
+
 func (c *Client) UpsertMultiAddresses(ctx context.Context, exec boil.ContextExecutor, maddrs []ma.Multiaddr) (models.MultiAddressSlice, error) {
 	// Sort maddrs to avoid dead-locks when inserting
 	sort.SliceStable(maddrs, func(i, j int) bool {

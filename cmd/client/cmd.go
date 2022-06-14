@@ -59,6 +59,12 @@ func main() {
 				Value:       10,
 			},
 			&cli.StringFlag{
+				Name:     "api-key",
+				Usage:    "The key to authenticate against the API",
+				EnvVars:  []string{"PUNCHR_CLIENT_API_KEY"},
+				Required: true,
+			},
+			&cli.StringFlag{
 				Name:        "key-prefix",
 				Usage:       "Each hosts' private key file prefix",
 				TakesFile:   true,

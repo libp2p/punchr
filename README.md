@@ -195,6 +195,45 @@ migrate create -ext sql -dir migrations -seq create_some_table
 make migrate-up
 ```
 
+## Deployment
+
+### RaspberryPi
+
+If you want to run the punchr client on a RaspberryPi run:
+
+```shell
+make build-raspi-client
+```
+
+and then
+
+```shell
+scp dist/punchrclient pi@x.x.x.x:~/punchrclient 
+```
+
+to copy it to your device. Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
+
+```text
+[Unit]
+Description=Punchr Client
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi
+ExecStart=/home/pi/punchrclient --server-host w.x.y.z --api-key ABCD
+Restart=on-failure
+
+[Install]
+WantedBy=multiuser.target
+```
+
+To start the service run:
+
+```shell
+sudo service punchr-client start
+```
+
 ## Maintainers
 
 [@dennis-tra](https://github.com/dennis-tra).

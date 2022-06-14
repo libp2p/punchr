@@ -19,6 +19,7 @@ message RegisterRequest {
   required bytes client_id = 1;
   required string agent_version = 2;
   repeated string protocols = 3;
+  required string api_key = 4;
 }
 
 message RegisterResponse {

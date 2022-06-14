@@ -12,6 +12,8 @@ import "testing"
 // It does NOT run each operation group in parallel.
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
+	t.Run("Authorizations", testAuthorizations)
+	t.Run("Clients", testClients)
 	t.Run("ConnectionEvents", testConnectionEvents)
 	t.Run("HolePunchAttempts", testHolePunchAttempts)
 	t.Run("HolePunchResults", testHolePunchResults)
@@ -23,6 +25,8 @@ func TestParent(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsDelete)
+	t.Run("Clients", testClientsDelete)
 	t.Run("ConnectionEvents", testConnectionEventsDelete)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsDelete)
 	t.Run("HolePunchResults", testHolePunchResultsDelete)
@@ -34,6 +38,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestQueryDeleteAll(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsQueryDeleteAll)
+	t.Run("Clients", testClientsQueryDeleteAll)
 	t.Run("ConnectionEvents", testConnectionEventsQueryDeleteAll)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsQueryDeleteAll)
 	t.Run("HolePunchResults", testHolePunchResultsQueryDeleteAll)
@@ -45,6 +51,8 @@ func TestQueryDeleteAll(t *testing.T) {
 }
 
 func TestSliceDeleteAll(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsSliceDeleteAll)
+	t.Run("Clients", testClientsSliceDeleteAll)
 	t.Run("ConnectionEvents", testConnectionEventsSliceDeleteAll)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsSliceDeleteAll)
 	t.Run("HolePunchResults", testHolePunchResultsSliceDeleteAll)
@@ -56,6 +64,8 @@ func TestSliceDeleteAll(t *testing.T) {
 }
 
 func TestExists(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsExists)
+	t.Run("Clients", testClientsExists)
 	t.Run("ConnectionEvents", testConnectionEventsExists)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsExists)
 	t.Run("HolePunchResults", testHolePunchResultsExists)
@@ -67,6 +77,8 @@ func TestExists(t *testing.T) {
 }
 
 func TestFind(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsFind)
+	t.Run("Clients", testClientsFind)
 	t.Run("ConnectionEvents", testConnectionEventsFind)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsFind)
 	t.Run("HolePunchResults", testHolePunchResultsFind)
@@ -78,6 +90,8 @@ func TestFind(t *testing.T) {
 }
 
 func TestBind(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsBind)
+	t.Run("Clients", testClientsBind)
 	t.Run("ConnectionEvents", testConnectionEventsBind)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsBind)
 	t.Run("HolePunchResults", testHolePunchResultsBind)
@@ -89,6 +103,8 @@ func TestBind(t *testing.T) {
 }
 
 func TestOne(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsOne)
+	t.Run("Clients", testClientsOne)
 	t.Run("ConnectionEvents", testConnectionEventsOne)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsOne)
 	t.Run("HolePunchResults", testHolePunchResultsOne)
@@ -100,6 +116,8 @@ func TestOne(t *testing.T) {
 }
 
 func TestAll(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsAll)
+	t.Run("Clients", testClientsAll)
 	t.Run("ConnectionEvents", testConnectionEventsAll)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsAll)
 	t.Run("HolePunchResults", testHolePunchResultsAll)
@@ -111,6 +129,8 @@ func TestAll(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsCount)
+	t.Run("Clients", testClientsCount)
 	t.Run("ConnectionEvents", testConnectionEventsCount)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsCount)
 	t.Run("HolePunchResults", testHolePunchResultsCount)
@@ -122,6 +142,8 @@ func TestCount(t *testing.T) {
 }
 
 func TestHooks(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsHooks)
+	t.Run("Clients", testClientsHooks)
 	t.Run("ConnectionEvents", testConnectionEventsHooks)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsHooks)
 	t.Run("HolePunchResults", testHolePunchResultsHooks)
@@ -133,6 +155,10 @@ func TestHooks(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsInsert)
+	t.Run("Authorizations", testAuthorizationsInsertWhitelist)
+	t.Run("Clients", testClientsInsert)
+	t.Run("Clients", testClientsInsertWhitelist)
 	t.Run("ConnectionEvents", testConnectionEventsInsert)
 	t.Run("ConnectionEvents", testConnectionEventsInsertWhitelist)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsInsert)
@@ -154,6 +180,8 @@ func TestInsert(t *testing.T) {
 // TestToOne tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOne(t *testing.T) {
+	t.Run("ClientToAuthorizationUsingAuthorization", testClientToOneAuthorizationUsingAuthorization)
+	t.Run("ClientToPeerUsingPeer", testClientToOnePeerUsingPeer)
 	t.Run("ConnectionEventToPeerUsingLocal", testConnectionEventToOnePeerUsingLocal)
 	t.Run("ConnectionEventToMultiAddressUsingConnectionMultiAddress", testConnectionEventToOneMultiAddressUsingConnectionMultiAddress)
 	t.Run("ConnectionEventToPeerUsingRemote", testConnectionEventToOnePeerUsingRemote)
@@ -172,6 +200,7 @@ func TestOneToOne(t *testing.T) {}
 // TestToMany tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
+	t.Run("AuthorizationToClients", testAuthorizationToManyClients)
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyMultiAddresses)
 	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyHolePunchAttempts)
 	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyHolePunchResultsXMultiAddresses)
@@ -180,6 +209,7 @@ func TestToMany(t *testing.T) {
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyConnectionEvents)
 	t.Run("MultiAddressToHolePunchResultsXMultiAddresses", testMultiAddressToManyHolePunchResultsXMultiAddresses)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyIPAddresses)
+	t.Run("PeerToClients", testPeerToManyClients)
 	t.Run("PeerToLocalConnectionEvents", testPeerToManyLocalConnectionEvents)
 	t.Run("PeerToRemoteConnectionEvents", testPeerToManyRemoteConnectionEvents)
 	t.Run("PeerToClientHolePunchResults", testPeerToManyClientHolePunchResults)
@@ -190,6 +220,8 @@ func TestToMany(t *testing.T) {
 // TestToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOneSet(t *testing.T) {
+	t.Run("ClientToAuthorizationUsingClients", testClientToOneSetOpAuthorizationUsingAuthorization)
+	t.Run("ClientToPeerUsingClients", testClientToOneSetOpPeerUsingPeer)
 	t.Run("ConnectionEventToPeerUsingLocalConnectionEvents", testConnectionEventToOneSetOpPeerUsingLocal)
 	t.Run("ConnectionEventToMultiAddressUsingConnectionMultiAddressConnectionEvents", testConnectionEventToOneSetOpMultiAddressUsingConnectionMultiAddress)
 	t.Run("ConnectionEventToPeerUsingRemoteConnectionEvents", testConnectionEventToOneSetOpPeerUsingRemote)
@@ -216,6 +248,7 @@ func TestOneToOneRemove(t *testing.T) {}
 // TestToManyAdd tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
+	t.Run("AuthorizationToClients", testAuthorizationToManyAddOpClients)
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyAddOpMultiAddresses)
 	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyAddOpHolePunchAttempts)
 	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyAddOpHolePunchResultsXMultiAddresses)
@@ -224,6 +257,7 @@ func TestToManyAdd(t *testing.T) {
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyAddOpConnectionEvents)
 	t.Run("MultiAddressToHolePunchResultsXMultiAddresses", testMultiAddressToManyAddOpHolePunchResultsXMultiAddresses)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyAddOpIPAddresses)
+	t.Run("PeerToClients", testPeerToManyAddOpClients)
 	t.Run("PeerToLocalConnectionEvents", testPeerToManyAddOpLocalConnectionEvents)
 	t.Run("PeerToRemoteConnectionEvents", testPeerToManyAddOpRemoteConnectionEvents)
 	t.Run("PeerToClientHolePunchResults", testPeerToManyAddOpClientHolePunchResults)
@@ -250,6 +284,8 @@ func TestToManyRemove(t *testing.T) {
 }
 
 func TestReload(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsReload)
+	t.Run("Clients", testClientsReload)
 	t.Run("ConnectionEvents", testConnectionEventsReload)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsReload)
 	t.Run("HolePunchResults", testHolePunchResultsReload)
@@ -261,6 +297,8 @@ func TestReload(t *testing.T) {
 }
 
 func TestReloadAll(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsReloadAll)
+	t.Run("Clients", testClientsReloadAll)
 	t.Run("ConnectionEvents", testConnectionEventsReloadAll)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsReloadAll)
 	t.Run("HolePunchResults", testHolePunchResultsReloadAll)
@@ -272,6 +310,8 @@ func TestReloadAll(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsSelect)
+	t.Run("Clients", testClientsSelect)
 	t.Run("ConnectionEvents", testConnectionEventsSelect)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsSelect)
 	t.Run("HolePunchResults", testHolePunchResultsSelect)
@@ -283,6 +323,8 @@ func TestSelect(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsUpdate)
+	t.Run("Clients", testClientsUpdate)
 	t.Run("ConnectionEvents", testConnectionEventsUpdate)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsUpdate)
 	t.Run("HolePunchResults", testHolePunchResultsUpdate)
@@ -294,6 +336,8 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestSliceUpdateAll(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsSliceUpdateAll)
+	t.Run("Clients", testClientsSliceUpdateAll)
 	t.Run("ConnectionEvents", testConnectionEventsSliceUpdateAll)
 	t.Run("HolePunchAttempts", testHolePunchAttemptsSliceUpdateAll)
 	t.Run("HolePunchResults", testHolePunchResultsSliceUpdateAll)

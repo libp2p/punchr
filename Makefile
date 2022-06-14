@@ -14,6 +14,9 @@ build-linux-honeypot:
 build-linux-client:
 	GOOS=linux GOARCH=amd64 go build -o dist/punchrclient cmd/client/*
 
+build-raspi-client:
+	GOOS=linux GOARCH=arm GOARM=7 go build -o dist/punchrclient cmd/client/*
+
 build-linux-server:
 	GOOS=linux GOARCH=amd64 go build -o dist/punchrserver cmd/server/*
 

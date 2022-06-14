@@ -6,6 +6,10 @@ package models
 import "testing"
 
 func TestUpsert(t *testing.T) {
+	t.Run("Authorizations", testAuthorizationsUpsert)
+
+	t.Run("Clients", testClientsUpsert)
+
 	t.Run("ConnectionEvents", testConnectionEventsUpsert)
 
 	t.Run("HolePunchAttempts", testHolePunchAttemptsUpsert)

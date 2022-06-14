@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -29,20 +30,75 @@ type Server struct {
 }
 
 func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	if req.ApiKey == nil || *req.ApiKey == "" {
+		return nil, fmt.Errorf("API key is missing")
+	}
+
+	dbAuthorization, err := s.DBClient.GetAuthorization(ctx, s.DBClient, *req.ApiKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("unauthorized")
+	} else if err != nil {
+		return nil, errors.Wrap(err, "checking authorization for api key")
+	}
+
 	clientID, err := peer.IDFromBytes(req.ClientId)
 	if err != nil {
 		return nil, errors.Wrap(err, "peer ID from client ID")
 	}
 
-	dbPeer, err := s.DBClient.UpsertPeer(ctx, s.DBClient, clientID, req.AgentVersion, req.Protocols)
+	// Start a database transaction
+	txn, err := s.DBClient.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "begin txn")
+	}
+	defer db.DeferRollback(txn)
+
+	dbPeer, err := s.DBClient.UpsertPeer(ctx, txn, clientID, req.AgentVersion, req.Protocols)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.RegisterResponse{DbPeerId: &dbPeer.ID}, nil
+	clientExists, err := models.Clients(
+		models.ClientWhere.PeerID.EQ(dbPeer.ID),
+		models.ClientWhere.AuthorizationID.EQ(dbAuthorization.ID),
+	).Exists(ctx, txn)
+	if err != nil {
+		return nil, errors.Wrap(err, "checking authorization for api key")
+	}
+
+	if clientExists {
+		return &pb.RegisterResponse{DbPeerId: &dbPeer.ID}, txn.Commit()
+	}
+
+	client := models.Client{
+		PeerID:          dbPeer.ID,
+		AuthorizationID: dbAuthorization.ID,
+	}
+
+	err = client.Insert(ctx, txn, boil.Infer())
+	if err != nil {
+		return nil, errors.Wrap(err, "inserting client")
+	}
+
+	return &pb.RegisterResponse{DbPeerId: &dbPeer.ID}, txn.Commit()
 }
 
 func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*pb.GetAddrInfoResponse, error) {
+	hostID, err := peer.IDFromBytes(req.HostId)
+	if err != nil {
+		return nil, errors.Wrap(err, "peer ID from client ID")
+	}
+
+	dbHostPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(hostID.String())).One(ctx, s.DBClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "get client peer from db")
+	}
+
+	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbHostPeer.ID)).Exists(ctx, s.DBClient)
+	if !clientExists {
+		return nil, fmt.Errorf("unauthorized")
+	}
+
 	hostIDs := make([]string, len(req.AllHostIds))
 	for i, bytesHostID := range req.AllHostIds {
 		hostID, err := peer.IDFromBytes(bytesHostID)
@@ -256,14 +312,19 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "peer ID from client ID")
 	}
 
-	remoteID, err := peer.IDFromBytes(req.RemoteId)
-	if err != nil {
-		return nil, errors.Wrap(err, "peer ID from remote ID")
-	}
-
 	dbClientPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client peer from db")
+	}
+
+	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbClientPeer.ID)).Exists(ctx, s.DBClient)
+	if !clientExists {
+		return nil, fmt.Errorf("unauthorized")
+	}
+
+	remoteID, err := peer.IDFromBytes(req.RemoteId)
+	if err != nil {
+		return nil, errors.Wrap(err, "peer ID from remote ID")
 	}
 
 	dbRemotePeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(remoteID.String())).One(ctx, s.DBClient)

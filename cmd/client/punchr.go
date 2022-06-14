@@ -25,6 +25,7 @@ import (
 // the results back.
 type Punchr struct {
 	hosts         []*Host
+	apiKey        string
 	privKeyPrefix string
 	client        pb.PunchrServiceClient
 	clientConn    *grpc.ClientConn
@@ -41,6 +42,7 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 
 	return &Punchr{
 		hosts:         make([]*Host, c.Int("host-count")),
+		apiKey:        c.String("api-key"),
 		privKeyPrefix: c.String("key-prefix"),
 		client:        pb.NewPunchrServiceClient(conn),
 		clientConn:    conn,
@@ -101,11 +103,12 @@ func (p Punchr) Register(c *cli.Context) error {
 		}
 
 		av := "punchr/go-client/" + c.App.Version
+		apiKey := c.String("api-key")
 		req := &pb.RegisterRequest{
 			ClientId:     bytesLocalPeerID,
 			AgentVersion: &av,
-			// AgentVersion: *h.GetAgentVersion(h.ID()),
-			Protocols: h.GetProtocols(h.ID()),
+			ApiKey:       &apiKey,
+			Protocols:    h.GetProtocols(h.ID()),
 		}
 		if _, err = p.client.Register(c.Context, req); err != nil {
 			return errors.Wrapf(err, "registering host %d", i)

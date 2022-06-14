@@ -4,6 +4,8 @@
 package models
 
 var TableNames = struct {
+	Authorizations                  string
+	Clients                         string
 	ConnectionEvents                string
 	ConnectionEventsXMultiAddresses string
 	HolePunchAttempt                string
@@ -15,6 +17,8 @@ var TableNames = struct {
 	PeerLogs                        string
 	Peers                           string
 }{
+	Authorizations:                  "authorizations",
+	Clients:                         "clients",
 	ConnectionEvents:                "connection_events",
 	ConnectionEventsXMultiAddresses: "connection_events_x_multi_addresses",
 	HolePunchAttempt:                "hole_punch_attempt",
