@@ -12,6 +12,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -171,10 +172,12 @@ func initGrpcServer(c *cli.Context, err error) (*grpc.Server, net.Listener, erro
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			grpc_logrus.UnaryServerInterceptor(logEntry, opts...),
+			grpc_prometheus.UnaryServerInterceptor,
 		))
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", c.String("port")))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to listen")
 	}
+
 	return s, lis, nil
 }

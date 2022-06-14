@@ -10,6 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -20,6 +21,11 @@ import (
 	"github.com/dennis-tra/punchr/pkg/models"
 	"github.com/dennis-tra/punchr/pkg/pb"
 )
+
+var allocationQueryDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Name: "db_allocation_query_duration_seconds",
+	Help: "Histogram of database query times for client allocations",
+}, []string{"success"})
 
 type Server struct {
 	pb.UnimplementedPunchrServiceServer
@@ -82,11 +88,15 @@ WHERE ce.listens_on_relay_multi_address = true
     )
 LIMIT 1
 `
+	start := time.Now()
 	query = fmt.Sprintf(query, strings.Join(dbHostIDs, ","))
 	rows, err := s.DBClient.QueryContext(ctx, query)
 	if err != nil {
+		allocationQueryDurationHistogram.WithLabelValues("false").Observe(time.Since(start).Seconds())
 		return nil, errors.Wrap(err, "query addr infos")
 	}
+	allocationQueryDurationHistogram.WithLabelValues("true").Observe(time.Since(start).Seconds())
+
 	defer func() {
 		if err := rows.Close(); err != nil {
 			log.WithError(err).Warnln("Could not close database query")
