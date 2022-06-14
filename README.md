@@ -10,6 +10,11 @@ Specifically, this repo contains:
 2. A gRPC server that exposes found peers and tracks hole punching results.
 3. A hole punching client that fetches DCUtR capable peers from the API server, performs a hole punch to them and reports the result back.
 
+**Dashboards:**
+
+- [`Health Dashboard`](http://49.12.205.145:3000/d/43l1QaC7z/punchr-health)
+- [`Performance Dashboard`](http://49.12.205.145:3000/d/F8qg0DP7k/punchr-performance)
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
