@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -24,7 +26,6 @@ import (
 )
 
 var (
-	Version              = "0.2.0"
 	CommunicationTimeout = 15 * time.Second
 	RetryCount           = 3
 )
@@ -36,7 +37,7 @@ type Host struct {
 	holePunchEventsPeers sync.Map
 }
 
-func InitHost(ctx context.Context, privKey crypto.PrivKey) (*Host, error) {
+func InitHost(ctx *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
 	h := &Host{
@@ -46,7 +47,7 @@ func InitHost(ctx context.Context, privKey crypto.PrivKey) (*Host, error) {
 	// Configure new libp2p host
 	libp2pHost, err := libp2p.New(
 		libp2p.Identity(privKey),
-		libp2p.UserAgent("punchr/go-client/"+Version),
+		libp2p.UserAgent("punchr/go-client/"+ctx.App.Version),
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic"),
 		libp2p.ListenAddrStrings("/ip6/::/tcp/0"),

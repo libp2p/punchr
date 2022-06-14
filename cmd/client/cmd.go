@@ -21,7 +21,7 @@ func main() {
 		Usage:     "A libp2p host that is capable of DCUtR.",
 		UsageText: "punchrclient [global options] command [command options] [arguments...]",
 		Action:    RootAction,
-		Version:   "0.1.0",
+		Version:   "0.2.0",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "telemetry-host",
@@ -91,7 +91,7 @@ func RootAction(c *cli.Context) error {
 	}
 
 	// Initialize its hosts
-	if err = punchr.InitHosts(c.Context); err != nil {
+	if err = punchr.InitHosts(c); err != nil {
 		return errors.Wrap(err, "punchr init hosts")
 	}
 
@@ -101,7 +101,7 @@ func RootAction(c *cli.Context) error {
 	}
 
 	// Register hosts at the gRPC server
-	if err = punchr.Register(c.Context); err != nil {
+	if err = punchr.Register(c); err != nil {
 		return err
 	}
 

@@ -47,7 +47,7 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	}, nil
 }
 
-func (p Punchr) InitHosts(ctx context.Context) error {
+func (p Punchr) InitHosts(ctx *cli.Context) error {
 	for i := range p.hosts {
 		// Load private key data from file or create a new identity
 		privKeyFile := fmt.Sprintf("%s-%d.key", p.privKeyPrefix, i)
@@ -91,7 +91,7 @@ func (p Punchr) Bootstrap(ctx context.Context) error {
 }
 
 // Register makes all hosts known to the server.
-func (p Punchr) Register(ctx context.Context) error {
+func (p Punchr) Register(c *cli.Context) error {
 	for i, h := range p.hosts {
 		log.WithField("hostID", util.FmtPeerID(h.ID())).WithField("hostNum", i).Infoln("Registering host at Punchr server")
 
@@ -100,14 +100,14 @@ func (p Punchr) Register(ctx context.Context) error {
 			return errors.Wrap(err, "marshal peer id")
 		}
 
-		av := "punchr/go-client/0.1.0"
+		av := "punchr/go-client/" + c.App.Version
 		req := &pb.RegisterRequest{
 			ClientId:     bytesLocalPeerID,
 			AgentVersion: &av,
 			// AgentVersion: *h.GetAgentVersion(h.ID()),
 			Protocols: h.GetProtocols(h.ID()),
 		}
-		if _, err = p.client.Register(ctx, req); err != nil {
+		if _, err = p.client.Register(c.Context, req); err != nil {
 			return errors.Wrapf(err, "registering host %d", i)
 		}
 	}
