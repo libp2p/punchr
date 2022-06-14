@@ -67,7 +67,7 @@ USAGE:
    honeypot [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.0
+   0.2.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
@@ -100,7 +100,7 @@ USAGE:
    punchrserver [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.0
+   0.2.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
@@ -119,7 +119,7 @@ GLOBAL OPTIONS:
    --version, -v           print the version (default: false)
 ```
 
-### `client`
+### `go-client`
 
 The client announces itself to the server and then periodically queries the server for peers to hole punch. If the server returns address information the client connects to the remote peer via the relay and waits for the remote to initiate a hole punch. Finally, the outcome gets reported back to the server.
 
@@ -132,7 +132,7 @@ USAGE:
    punchrclient [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1.0
+   0.2.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
@@ -147,6 +147,15 @@ GLOBAL OPTIONS:
    --help, -h              show help (default: false)
    --version, -v           print the version (default: false)
 ```
+
+Resource requirements:
+
+- `mem` - `~100MB`
+- `CPU` - `~2.5%`
+
+### `rust-client`
+
+**TODO**
 
 ## Install
 
