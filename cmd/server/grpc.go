@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -60,6 +62,23 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 		dbHostIDs[i] = strconv.FormatInt(dbHost.ID, 10)
 	}
 
+	var resp *pb.GetAddrInfoResponse
+	if rand.Float32() > 0.5 {
+		resp, err = s.querySingleMaddr(ctx, dbHostIDs)
+	} else {
+		resp, err = s.queryAllMaddrs(ctx, dbHostIDs)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// querySingleMaddr queries a single peer with a single multi address to hole punch as opposed to
+// queryAllMaddrs that queries a single peer with all its multi addresses.
+// TODO: Remove redundancy between querySingleMaddr and queryAllMaddrs
+func (s Server) querySingleMaddr(ctx context.Context, dbHostIDs []string) (*pb.GetAddrInfoResponse, error) {
 	query := `
 -- select all peers that connected to the honeypot within the last 10 mins, listen on a relay address,
 -- and support dcutr. Then also select all of their relay multi addresses. But only if:
@@ -98,10 +117,10 @@ LIMIT 1
 	query = fmt.Sprintf(query, strings.Join(dbHostIDs, ","))
 	rows, err := s.DBClient.QueryContext(ctx, query)
 	if err != nil {
-		allocationQueryDurationHistogram.WithLabelValues("false").Observe(time.Since(start).Seconds())
+		allocationQueryDurationHistogram.WithLabelValues("single", "false").Observe(time.Since(start).Seconds())
 		return nil, errors.Wrap(err, "query addr infos")
 	}
-	allocationQueryDurationHistogram.WithLabelValues("true").Observe(time.Since(start).Seconds())
+	allocationQueryDurationHistogram.WithLabelValues("single", "true").Observe(time.Since(start).Seconds())
 
 	defer func() {
 		if err := rows.Close(); err != nil {
@@ -133,12 +152,99 @@ LIMIT 1
 		return nil, errors.Wrapf(err, "parse multi address %s", remoteMaddrStr)
 	}
 
-	resp := &pb.GetAddrInfoResponse{
+	return &pb.GetAddrInfoResponse{
 		RemoteId:       remoteIDBytes,
 		MultiAddresses: [][]byte{maddr.Bytes()},
+	}, nil
+}
+
+// queryAllMaddrs queries a single peer from the database and all its multi addresses to hole punch
+// as opposed to querySingleMaddr that quries a single peer with a single multi address.
+// TODO: Remove redundancy between querySingleMaddr and queryAllMaddrs
+func (s Server) queryAllMaddrs(ctx context.Context, dbHostIDs []string) (*pb.GetAddrInfoResponse, error) {
+	query := `
+-- select all peers that connected to the honeypot within the last 10 mins, listen on a relay address,
+-- and support dcutr. Then also select all of their relay multi addresses. But only if:
+--   1. the peer has not been hole punched more than 10 times in the last minute AND
+--   2. the peer/maddr combination was not hole-punched by the same client in the last 30 mins.
+-- then only return ONE random peer/maddr combination!
+SELECT p.multi_hash, array_agg(DISTINCT ma.maddr)
+FROM connection_events ce
+         INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
+         INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
+         INNER JOIN peers p ON ce.remote_id = p.id
+WHERE ce.listens_on_relay_multi_address = true
+  AND ce.supports_dcutr = true
+  AND ma.is_relay = true
+  AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
+  AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
+          SELECT count(*)
+          FROM hole_punch_results hpr
+          WHERE hpr.remote_id = ce.remote_id
+            AND hpr.created_at > NOW() - '1min'::INTERVAL
+      ) < 10
+  AND NOT EXISTS(
+        SELECT
+        FROM hole_punch_results hpr
+                 INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
+        WHERE hpr.remote_id = ce.remote_id
+          AND hpr.client_id IN (%s)
+          AND hprxma.multi_address_id = ma.id
+          AND hprxma.relationship = 'INITIAL'
+          AND hpr.created_at > NOW() - '10min'::INTERVAL
+    )
+GROUP BY p.id
+ORDER BY random() -- get random peer/maddr combination
+LIMIT 1
+`
+	start := time.Now()
+	query = fmt.Sprintf(query, strings.Join(dbHostIDs, ","))
+	rows, err := s.DBClient.QueryContext(ctx, query)
+	if err != nil {
+		allocationQueryDurationHistogram.WithLabelValues("all", "false").Observe(time.Since(start).Seconds())
+		return nil, errors.Wrap(err, "query addr infos")
+	}
+	allocationQueryDurationHistogram.WithLabelValues("all", "true").Observe(time.Since(start).Seconds())
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.WithError(err).Warnln("Could not close database query")
+		}
+	}()
+
+	if !rows.Next() {
+		return nil, status.Error(codes.NotFound, "no peers to hole punch")
 	}
 
-	return resp, nil
+	var remoteMultiHash string
+	var remoteMaddrStrs []string
+	if err = rows.Scan(&remoteMultiHash, pq.Array(&remoteMaddrStrs)); err != nil {
+		return nil, errors.Wrap(err, "map query results")
+	}
+
+	remoteID, err := peer.Decode(remoteMultiHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "query addr infos")
+	}
+
+	remoteIDBytes, err := remoteID.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal remote ID to bytes")
+	}
+
+	maddrBytes := make([][]byte, len(remoteMaddrStrs))
+	for i, remoteMaddrStr := range remoteMaddrStrs {
+		maddr, err := multiaddr.NewMultiaddr(remoteMaddrStr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse multi address %s", remoteMaddrStr)
+		}
+		maddrBytes[i] = maddr.Bytes()
+	}
+
+	return &pb.GetAddrInfoResponse{
+		RemoteId:       remoteIDBytes,
+		MultiAddresses: maddrBytes,
+	}, nil
 }
 
 func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchRequest) (*pb.TrackHolePunchResponse, error) {
@@ -169,10 +275,6 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	for i, hpa := range req.HolePunchAttempts {
 		if hpa.OpenedAt == nil {
 			return nil, errors.Wrapf(err, "opened at in attempt %d is nil", i)
-		}
-
-		if hpa.StartedAt == nil {
-			return nil, errors.Wrapf(err, "started at in attempt %d is nil", i)
 		}
 
 		if hpa.EndedAt == nil {
@@ -245,20 +347,6 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "add attempts to hole punch result")
 	}
 
-	rmaddrs := make([]multiaddr.Multiaddr, len(req.RemoteMultiAddresses))
-	for i, maddrBytes := range req.RemoteMultiAddresses {
-		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
-		if err != nil {
-			return nil, errors.Wrap(err, "multi addr from bytes")
-		}
-		rmaddrs[i] = maddr
-	}
-
-	dbRMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, rmaddrs)
-	if err != nil {
-		return nil, errors.Wrap(err, "upsert multi addresses")
-	}
-
 	omaddrs := make([]multiaddr.Multiaddr, len(req.OpenMultiAddresses))
 	for i, maddrBytes := range req.OpenMultiAddresses {
 		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
@@ -270,18 +358,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 
 	dbOMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, omaddrs)
 	if err != nil {
-		return nil, errors.Wrap(err, "upsert multi addresses")
-	}
-
-	for _, dbRMaddr := range dbRMaddrs {
-		hprxma := models.HolePunchResultsXMultiAddress{
-			HolePunchResultID: hpr.ID,
-			MultiAddressID:    dbRMaddr.ID,
-			Relationship:      models.HolePunchMultiAddressRelationshipINITIAL,
-		}
-		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
-			return nil, errors.Wrap(err, "insert remote HolePunchResultsXMultiAddress")
-		}
+		return nil, errors.Wrap(err, "upsert open multi addresses")
 	}
 
 	for _, dbOMaddr := range dbOMaddrs {
@@ -289,6 +366,31 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			HolePunchResultID: hpr.ID,
 			MultiAddressID:    dbOMaddr.ID,
 			Relationship:      models.HolePunchMultiAddressRelationshipFINAL,
+		}
+		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert open HolePunchResultsXMultiAddress")
+		}
+	}
+
+	rmaddrs := make([]multiaddr.Multiaddr, len(req.RemoteMultiAddresses))
+	for i, maddrBytes := range req.RemoteMultiAddresses {
+		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "multi addr from bytes")
+		}
+		rmaddrs[i] = maddr
+	}
+
+	dbRMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, rmaddrs)
+	if err != nil {
+		return nil, errors.Wrap(err, "upsert remote multi addresses")
+	}
+
+	for _, dbRMaddr := range dbRMaddrs {
+		hprxma := models.HolePunchResultsXMultiAddress{
+			HolePunchResultID: hpr.ID,
+			MultiAddressID:    dbRMaddr.ID,
+			Relationship:      models.HolePunchMultiAddressRelationshipINITIAL,
 		}
 		if err = hprxma.Insert(ctx, txn, boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "insert remote HolePunchResultsXMultiAddress")

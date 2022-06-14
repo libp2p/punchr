@@ -151,8 +151,12 @@ func (hpa *HolePunchAttempt) handleProtocolErrorEvt(event *holepunch.Event, evt 
 	hpa.logEntry().WithField("err", evt.Error).Infoln("Hole punching protocol error :/")
 	hpa.Outcome = pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_PROTOCOL_ERROR
 	hpa.Error = evt.Error
-	hpa.ElapsedTime = time.Since(hpa.StartedAt)
 	hpa.EndedAt = time.Unix(0, event.Timestamp)
+	if hpa.StartedAt.IsZero() {
+		hpa.ElapsedTime = hpa.EndedAt.Sub(hpa.OpenedAt)
+	} else {
+		hpa.ElapsedTime = time.Since(hpa.StartedAt)
+	}
 }
 
 func (hpa *HolePunchAttempt) handleDirectDialEvt(event *holepunch.Event, evt *holepunch.DirectDialEvt) {

@@ -171,7 +171,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	// connect to the remote peer via relay
 	hpState.ConnectStartedAt = time.Now()
 	if err := h.Connect(ctx, addrInfo); err != nil {
-		h.logEntry(addrInfo.ID).WithError(err).Warnln("Error connecting to remote peer")
+		h.logEntry(addrInfo.ID).WithError(err).Infoln("Error connecting to remote peer")
 		hpState.ConnectEndedAt = time.Now()
 		hpState.Error = err.Error()
 		hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION
@@ -285,6 +285,7 @@ func (h *Host) WaitForDCUtRStream(pid peer.ID) <-chan struct{} {
 		for {
 			select {
 			case <-timeout:
+				h.logEntry(pid).Infoln("/libp2p/dcutr stream was not opened after " + CommunicationTimeout.String())
 				close(dcutrOpenedChan)
 				return
 			case <-timer.C:
@@ -295,7 +296,7 @@ func (h *Host) WaitForDCUtRStream(pid peer.ID) <-chan struct{} {
 					if stream.Protocol() != holepunch.Protocol {
 						continue
 					}
-					h.logEntry(pid).Debugln("/libp2p/dcutr stream opened!")
+					h.logEntry(pid).Infoln("/libp2p/dcutr stream opened!")
 					dcutrOpenedChan <- struct{}{}
 					close(dcutrOpenedChan)
 					return

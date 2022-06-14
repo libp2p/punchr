@@ -115,7 +115,8 @@ message HolePunchAttempt {
   required uint64 opened_at = 1;
 
   // Unix timestamp in nanoseconds of when this hole punching attempt was started
-  required uint64 started_at = 2;
+  // Can be null if hole punch wasn't started, hence `optional`
+  optional uint64 started_at = 2;
 
   // Unix timestamp in nanoseconds of when this hole punching attempt terminated
   required uint64 ended_at = 3;
