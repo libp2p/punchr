@@ -67,6 +67,11 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 	}
 
 	query := `
+-- select all peers that connected to the honeypot within the last 10 mins, listen on a relay address,
+-- and support dcutr. Then also select all of their relay multi addresses. But only if:
+--   1. the peer has not been hole punched more than 10 times in the last minute AND
+--   2. the peer/maddr combination was not hole-punched by the same client in the last 30 mins.
+-- then only return ONE random peer/maddr combination!
 SELECT p.multi_hash, ma.maddr
 FROM connection_events ce
          INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
@@ -74,18 +79,25 @@ FROM connection_events ce
          INNER JOIN peers p ON ce.remote_id = p.id
 WHERE ce.listens_on_relay_multi_address = true
   AND ce.supports_dcutr = true
-  AND ce.opened_at > NOW() - '10min'::INTERVAL
   AND ma.is_relay = true
-  AND NOT EXISTS(
+  AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
+  AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
+          SELECT count(*)
+          FROM hole_punch_results hpr
+          WHERE hpr.remote_id = ce.remote_id
+            AND hpr.created_at > NOW() - '1min'::INTERVAL
+      ) < 10
+  AND NOT EXISTS( -- Exclude peer/maddr combinations that were hole-punched from the same client within the last 30 min
         SELECT
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
-        WHERE hpr.remote_id =  ce.remote_id
+        WHERE hpr.remote_id = ce.remote_id
           AND hpr.client_id IN (%s)
           AND hprxma.multi_address_id = ma.id
           AND hprxma.relationship = 'INITIAL'
-          AND hpr.created_at > NOW() - '10min'::INTERVAL
+          AND hpr.created_at > NOW() - '30min'::INTERVAL
     )
+ORDER BY random() -- get random peer/maddr combination
 LIMIT 1
 `
 	start := time.Now()

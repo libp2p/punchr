@@ -25,6 +25,11 @@ message RegisterResponse {
   required int64 db_peer_id = 1;
 }
 
+// There is a challenge when a single punchr client is hole punching a single remote peer via different multi addresses.
+// Sometimes the NAT mapping stays intact and no new hole punch is attempted. We circumvent this by spawning multiple
+// libp2p hosts in a single punchr client, each listening on different ports. Hence, when we request a new peer to
+// hole punch we transmit the host_id for which we request the hole punch + all other libp2p host ids so that we
+// don't get a peer that is handled by another host already.
 message GetAddrInfoRequest {
   // Host ID for that the client is requesting a peer to hole punch
   required bytes host_id = 1;
