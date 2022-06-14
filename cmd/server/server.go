@@ -174,6 +174,9 @@ func initGrpcServer(c *cli.Context, err error) (*grpc.Server, net.Listener, erro
 			grpc_logrus.UnaryServerInterceptor(logEntry, opts...),
 			grpc_prometheus.UnaryServerInterceptor,
 		))
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpc_prometheus.Register(s)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", c.String("port")))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to listen")
