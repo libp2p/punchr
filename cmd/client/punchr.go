@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -35,7 +37,7 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	// Dial gRPC server
 	addr := fmt.Sprintf("%s:%s", c.String("server-host"), c.String("server-port"))
 	log.WithField("addr", addr).Infoln("Dial server")
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")
 	}

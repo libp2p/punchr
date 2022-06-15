@@ -41,8 +41,8 @@ func main() {
 				Name:        "server-host",
 				Usage:       "Where does the the punchr server listen",
 				EnvVars:     []string{"PUNCHR_CLIENT_TELEMETRY_HOST"},
-				Value:       "localhost",
-				DefaultText: "localhost",
+				Value:       "punchr.dtrautwein.eu",
+				DefaultText: "punchr.dtrautwein.eu",
 			},
 			&cli.StringFlag{
 				Name:        "server-port",
