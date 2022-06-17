@@ -51,7 +51,7 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	}, nil
 }
 
-func (p Punchr) InitHosts(ctx *cli.Context) error {
+func (p Punchr) InitHosts(c *cli.Context) error {
 	for i := range p.hosts {
 		// Load private key data from file or create a new identity
 		privKeyFile := fmt.Sprintf("%s-%d.key", p.privKeyPrefix, i)
@@ -63,7 +63,7 @@ func (p Punchr) InitHosts(ctx *cli.Context) error {
 			}
 		}
 
-		h, err := InitHost(ctx, privKey)
+		h, err := InitHost(c, privKey)
 		if err != nil {
 			return errors.Wrap(err, "init host")
 		}

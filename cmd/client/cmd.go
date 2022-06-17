@@ -72,6 +72,11 @@ func main() {
 				DefaultText: "punchrclient",
 				Value:       "punchrclient",
 			},
+			&cli.StringSliceFlag{
+				Name:    "bootstrap-peers",
+				Usage:   "Comma separated list of multi addresses of bootstrap peers",
+				EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
+			},
 		},
 		EnableBashCompletion: true,
 	}

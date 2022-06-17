@@ -35,19 +35,30 @@ type Host struct {
 	host.Host
 
 	holePunchEventsPeers sync.Map
+	bpAddrInfos          []peer.AddrInfo
 }
 
-func InitHost(ctx *cli.Context, privKey crypto.PrivKey) (*Host, error) {
+func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
+
+	bpAddrInfos := kaddht.GetDefaultBootstrapPeerAddrInfos()
+	if c.IsSet("bootstrap-peers") {
+		addrInfos, err := parseBootstrapPeers(c.StringSlice("bootstrap-peers"))
+		if err != nil {
+			return nil, err
+		}
+		bpAddrInfos = addrInfos
+	}
 
 	h := &Host{
 		holePunchEventsPeers: sync.Map{},
+		bpAddrInfos:          bpAddrInfos,
 	}
 
 	// Configure new libp2p host
 	libp2pHost, err := libp2p.New(
 		libp2p.Identity(privKey),
-		libp2p.UserAgent("punchr/go-client/"+ctx.App.Version),
+		libp2p.UserAgent("punchr/go-client/"+c.App.Version),
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic"),
 		libp2p.ListenAddrStrings("/ip6/::/tcp/0"),
@@ -65,6 +76,25 @@ func InitHost(ctx *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	return h, nil
 }
 
+func parseBootstrapPeers(maddrStrs []string) ([]peer.AddrInfo, error) {
+	addrInfos := make([]peer.AddrInfo, len(maddrStrs))
+	for i, maddrStr := range maddrStrs {
+		maddr, err := multiaddr.NewMultiaddr(maddrStr)
+		if err != nil {
+			return nil, err
+		}
+
+		pi, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			return nil, err
+		}
+
+		addrInfos[i] = *pi
+	}
+
+	return addrInfos, nil
+}
+
 func (h *Host) logEntry(remoteID peer.ID) *log.Entry {
 	return log.WithFields(log.Fields{
 		"remoteID": util.FmtPeerID(remoteID),
@@ -74,12 +104,13 @@ func (h *Host) logEntry(remoteID peer.ID) *log.Entry {
 
 // Bootstrap connects this host to bootstrap peers.
 func (h *Host) Bootstrap(ctx context.Context) error {
-	for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
+	for _, bp := range h.bpAddrInfos {
 		log.WithField("remoteID", util.FmtPeerID(bp.ID)).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
 			return errors.Wrap(err, "connecting to bootstrap peer")
 		}
 	}
+
 	return nil
 }
 
