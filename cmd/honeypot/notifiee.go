@@ -143,6 +143,7 @@ func (h *Host) IdentifyWait(ctx context.Context, pid peer.ID) error {
 			switch evt := e.(type) {
 			case event.EvtPeerIdentificationCompleted:
 				evtPeer = evt.Peer
+				err = nil
 			case event.EvtPeerIdentificationFailed:
 				evtPeer = evt.Peer
 				err = evt.Reason
