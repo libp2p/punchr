@@ -12,7 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/routing"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/crawler"
-	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,7 +32,6 @@ type Host struct {
 	DBPeer   *models.Peer
 	DBClient *db.Client
 	DHT      *kaddht.IpfsDHT
-	pm       *pb.ProtocolMessenger
 	crawlers int
 }
 
@@ -70,22 +68,11 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
 
-	// Create new protocol messenger to have access to low level DHT RPC calls
-	pm, err := pb.NewProtocolMessenger(&msgSender{
-		h:         libp2pHost,
-		protocols: kaddht.DefaultProtocols,
-		timeout:   time.Minute,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "new protocol messenger")
-	}
-
 	h := &Host{
 		ctx:      c.Context,
 		Host:     libp2pHost,
 		DBClient: dbClient,
 		DHT:      dht,
-		pm:       pm,
 		crawlers: c.Int("crawler-count"),
 	}
 
