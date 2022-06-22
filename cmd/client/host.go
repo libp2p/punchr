@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
@@ -36,6 +35,7 @@ type Host struct {
 
 	holePunchEventsPeers sync.Map
 	bpAddrInfos          []peer.AddrInfo
+	rcmgr                *ResourceManager
 }
 
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
@@ -50,9 +50,15 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		bpAddrInfos = addrInfos
 	}
 
+	rcmgr, err := NewResourceManager()
+	if err != nil {
+		return nil, errors.Wrap(err, "new resource manager")
+	}
+
 	h := &Host{
 		holePunchEventsPeers: sync.Map{},
 		bpAddrInfos:          bpAddrInfos,
+		rcmgr:                rcmgr,
 	}
 
 	// Configure new libp2p host
@@ -64,14 +70,13 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		libp2p.ListenAddrStrings("/ip6/::/tcp/0"),
 		libp2p.ListenAddrStrings("/ip6/::/udp/0/quic"),
 		libp2p.EnableHolePunching(holepunch.WithTracer(h)),
+		libp2p.ResourceManager(rcmgr),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
 
 	h.Host = libp2pHost
-
-	libp2pHost.Network().Notify(h)
 
 	return h, nil
 }
@@ -171,7 +176,6 @@ func (h *Host) GetProtocols(pid peer.ID) []string {
 }
 
 func (h *Host) Close() error {
-	h.Host.Network().StopNotify(h)
 	return h.Host.Close()
 }
 
@@ -307,34 +311,18 @@ func (hps HolePunchState) TrackHolePunch(ctx context.Context, remoteID peer.ID, 
 func (h *Host) WaitForDCUtRStream(pid peer.ID) <-chan struct{} {
 	dcutrOpenedChan := make(chan struct{})
 
-	// The following go routine is a hack. We want to be notified as soon as the remote peer has opened a dcutr stream.
-	// go-libp2p v0.20.0 has removed the OpenedStream notification (which didn't really work anyway). Now we check
-	// every 10 ms all streams on all connections for the /libp2p/dcutr stream. If
 	go func() {
-		timeout := time.After(CommunicationTimeout)
-		timer := time.NewTimer(0)
-		for {
-			select {
-			case <-timeout:
-				h.logEntry(pid).Infoln("/libp2p/dcutr stream was not opened after " + CommunicationTimeout.String())
-				close(dcutrOpenedChan)
-				return
-			case <-timer.C:
-			}
+		openedStream := h.rcmgr.Register(pid)
+		defer h.rcmgr.Unregister(pid)
 
-			for _, conn := range h.Network().ConnsToPeer(pid) {
-				for _, stream := range conn.GetStreams() {
-					if stream.Protocol() != holepunch.Protocol {
-						continue
-					}
-					h.logEntry(pid).Infoln("/libp2p/dcutr stream opened!")
-					dcutrOpenedChan <- struct{}{}
-					close(dcutrOpenedChan)
-					return
-				}
-			}
-			timer.Reset(10 * time.Millisecond)
+		select {
+		case <-time.After(CommunicationTimeout):
+			h.logEntry(pid).Infoln("/libp2p/dcutr stream was not opened after " + CommunicationTimeout.String())
+		case <-openedStream:
+			h.logEntry(pid).Infoln("/libp2p/dcutr stream opened!")
+			dcutrOpenedChan <- struct{}{}
 		}
+		close(dcutrOpenedChan)
 	}()
 
 	h.logEntry(pid).Infoln("Waiting for /libp2p/dcutr stream...")
@@ -403,8 +391,3 @@ func (h *Host) Trace(evt *holepunch.Event) {
 
 	val.(chan *holepunch.Event) <- evt
 }
-
-func (h *Host) Listen(network.Network, multiaddr.Multiaddr)      {}
-func (h *Host) ListenClose(network.Network, multiaddr.Multiaddr) {}
-func (h *Host) Connected(network.Network, network.Conn)          {}
-func (h *Host) Disconnected(network.Network, network.Conn)       {}
