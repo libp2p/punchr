@@ -27,11 +27,11 @@ import (
 // distributing the work load to different hosts and then reporting
 // the results back.
 type Punchr struct {
-	hosts         []*Host
-	apiKey        string
-	privKeyPrefix string
-	client        pb.PunchrServiceClient
-	clientConn    *grpc.ClientConn
+	hosts       []*Host
+	apiKey      string
+	privKeyFile string
+	client      pb.PunchrServiceClient
+	clientConn  *grpc.ClientConn
 }
 
 func NewPunchr(c *cli.Context) (*Punchr, error) {
@@ -54,27 +54,32 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	}
 
 	return &Punchr{
-		hosts:         make([]*Host, c.Int("host-count")),
-		apiKey:        c.String("api-key"),
-		privKeyPrefix: c.String("key-prefix"),
-		client:        pb.NewPunchrServiceClient(conn),
-		clientConn:    conn,
+		hosts:       make([]*Host, c.Int("host-count")),
+		apiKey:      c.String("api-key"),
+		privKeyFile: c.String("key-file"),
+		client:      pb.NewPunchrServiceClient(conn),
+		clientConn:  conn,
 	}, nil
 }
 
 func (p Punchr) InitHosts(c *cli.Context) error {
-	for i := range p.hosts {
-		// Load private key data from file or create a new identity
-		privKeyFile := fmt.Sprintf("%s-%d.key", p.privKeyPrefix, i)
-		privKey, err := key.Load(privKeyFile)
+	privKeys, err := key.Load(p.privKeyFile)
+	if err != nil {
+		privKeys, err = key.Add(p.privKeyFile, len(p.hosts))
 		if err != nil {
-			privKey, err = key.Create(privKeyFile)
-			if err != nil {
-				return errors.Wrap(err, "load or create key pair")
-			}
+			return errors.Wrap(err, "create new key pairs")
 		}
+	} else if len(p.hosts) > len(privKeys) {
+		// we have more hosts than keys, generate remaining
+		additionalPrivKeys, err := key.Add(p.privKeyFile, len(p.hosts)-len(privKeys))
+		if err != nil {
+			return errors.Wrap(err, "create new key pairs")
+		}
+		privKeys = append(privKeys, additionalPrivKeys...)
+	}
 
-		h, err := InitHost(c, privKey)
+	for i := range p.hosts {
+		h, err := InitHost(c, privKeys[i])
 		if err != nil {
 			return errors.Wrap(err, "init host")
 		}

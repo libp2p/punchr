@@ -235,6 +235,7 @@ Cargo.lock
 
 honeypot
 *.key
+*.keys
 dist/
 rust-client/target
 rust-client/Cargo.lock

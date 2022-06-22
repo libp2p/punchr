@@ -79,12 +79,12 @@ func main() {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:        "key-prefix",
-				Usage:       "Each hosts' private key file prefix",
+				Name:        "key-file",
+				Usage:       "File where punchr saves the host identities.",
 				TakesFile:   true,
-				EnvVars:     []string{"PUNCHR_CLIENT_KEY_FILE_PREFIX"},
-				DefaultText: "punchrclient",
-				Value:       "punchrclient",
+				EnvVars:     []string{"PUNCHR_CLIENT_KEY_FILE"},
+				DefaultText: "punchrclient.keys",
+				Value:       "punchrclient.keys",
 			},
 			&cli.StringSliceFlag{
 				Name:    "bootstrap-peers",
