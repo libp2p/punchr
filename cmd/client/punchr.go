@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"time"
-
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -15,6 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	"github.com/dennis-tra/punchr/pkg/key"
@@ -37,7 +38,17 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	// Dial gRPC server
 	addr := fmt.Sprintf("%s:%s", c.String("server-host"), c.String("server-port"))
 	log.WithField("addr", addr).Infoln("Dial server")
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	// Derive transport credentials from configuration
+	var tc credentials.TransportCredentials
+	if c.Bool("server-ssl") {
+		config := &tls.Config{InsecureSkipVerify: c.Bool("server-ssl-skip-verify")}
+		tc = credentials.NewTLS(config)
+	} else {
+		tc = insecure.NewCredentials()
+	}
+
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(tc))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")
 	}
