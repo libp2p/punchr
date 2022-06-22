@@ -221,7 +221,7 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi
-ExecStart=/home/pi/punchrclient --server-host w.x.y.z --api-key ABCD
+ExecStart=/home/pi/punchrclient --api-key 636757c1-36b9-4294-bd58-4ecc432dad26
 Restart=on-failure
 
 [Install]
@@ -232,6 +232,12 @@ To start the service run:
 
 ```shell
 sudo service punchr-client start
+```
+
+Bootstrap peers example:
+
+```shell
+--bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 ```
 
 ## Maintainers
