@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -11,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -92,22 +93,34 @@ func (p Punchr) InitHosts(c *cli.Context) error {
 // Bootstrap loops through all hosts, connects each of them to the canonical bootstrap nodes, and
 // waits until they have identified their public address(es).
 func (p Punchr) Bootstrap(ctx context.Context) error {
-	errg, ectx := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
+	var successes int32
+
 	for _, h := range p.hosts {
+		wg.Add(1)
 		h2 := h
-		errg.Go(func() error {
+		go func() {
+			defer wg.Done()
 			log.WithField("hostID", util.FmtPeerID(h2.ID())).Info("Bootstrapping host...")
-			if err := h2.Bootstrap(ectx); err != nil {
-				return errors.Wrapf(err, "bootstrapping host %s", util.FmtPeerID(h2.ID()))
+			if err := h2.Bootstrap(ctx); err != nil {
+				log.Warnf("bootstrapping host %s: %s\n", util.FmtPeerID(h2.ID()), err)
+				return
 			}
 
-			if err := h2.WaitForPublicAddr(ectx); err != nil {
-				return errors.Wrapf(err, "waiting for public addr host %s", util.FmtPeerID(h2.ID()))
+			if err := h2.WaitForPublicAddr(ctx); err != nil {
+				log.Warnf("waiting for public addr host %s: %s\n", util.FmtPeerID(h2.ID()), err)
+				return
 			}
-			return nil
-		})
+			atomic.AddInt32(&successes, 1)
+		}()
 	}
-	return errg.Wait()
+	wg.Wait()
+
+	if successes >= 3 || successes == int32(len(p.hosts)) {
+		return nil
+	} else {
+		return fmt.Errorf("could not connect to at least three hosts")
+	}
 }
 
 // Register makes all hosts known to the server.
