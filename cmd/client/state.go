@@ -113,12 +113,18 @@ func (hps HolePunchState) ToProto() (*pb.TrackHolePunchRequest, error) {
 }
 
 type HolePunchAttempt struct {
-	HostID          peer.ID
-	RemoteID        peer.ID
-	OpenedAt        time.Time
-	StartedAt       time.Time
-	EndedAt         time.Time
-	StartRTT        time.Duration
+	HostID   peer.ID
+	RemoteID peer.ID
+
+	// Time when the /libp2p/dcutr stream was opened
+	OpenedAt time.Time
+	// Time when we received a hole punch started event
+	StartedAt time.Time
+	// Time when this hole punch attempt stopped (failure, cancel, timeout)
+	EndedAt time.Time
+	// The measured round trip time from the holepunch start event
+	StartRTT time.Duration
+
 	ElapsedTime     time.Duration
 	Error           string
 	DirectDialError string

@@ -9,7 +9,7 @@ clean:
 build-linux: clean build-linux-honeypot build-linux-client build-linux-server
 
 build-linux-honeypot:
-	GOOS=linux GOARCH=amd64 go build -o dist/honeypot cmd/honeypot/*
+	GOOS=linux GOARCH=amd64 go build -o dist/punchrhoneypot cmd/honeypot/*
 
 build-linux-client:
 	GOOS=linux GOARCH=amd64 go build -o dist/punchrclient cmd/client/*
@@ -23,7 +23,7 @@ build-linux-server:
 build: clean build-honeypot build-client build-server
 
 build-honeypot:
-	go build -o dist/honeypot cmd/honeypot/*
+	go build -o dist/punchrhoneypot cmd/honeypot/*
 
 build-client:
 	go build -o dist/punchrclient cmd/client/*

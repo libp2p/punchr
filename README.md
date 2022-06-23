@@ -21,6 +21,8 @@ Specifically, this repo contains:
 - [Background](#background)
 - [Install](#install)
 - [Usage](#usage)
+- [Deployment](#deployment)
+- [Release](#release)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -197,21 +199,11 @@ make migrate-up
 
 ## Deployment
 
-### RaspberryPi
+### Clients
 
-If you want to run the punchr client on a RaspberryPi run:
+#### RaspberryPi
 
-```shell
-make build-raspi-client
-```
-
-and then
-
-```shell
-scp dist/punchrclient pi@x.x.x.x:~/punchrclient 
-```
-
-to copy it to your device. Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
+Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases). Then you could install a systemd service at `/etc/systemd/system/punchrclient.service`:
 
 ```text
 [Unit]
@@ -221,7 +213,7 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi
-ExecStart=/home/pi/punchrclient --api-key 636757c1-36b9-4294-bd58-4ecc432dad26
+ExecStart=/home/pi/punchrclient --api-key <some-api-key>
 Restart=on-failure
 
 [Install]
@@ -234,17 +226,67 @@ To start the service run:
 sudo service punchr-client start
 ```
 
-Bootstrap peers example:
+If the client can't connect to bootstrap peers try this additional command line paramater in `ExecStart`:
 
 ```shell
 --bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
+```
+
+## Server
+
+Systemd service example at `/etc/systemd/system/punchr-server.service`:
+
+```text
+[Unit]
+Description=Punchr Server
+After=network.target
+
+[Service]
+User=punchr # your user name
+WorkingDirectory=/home/punchr # configure working directory
+ExecStart=/home/punchr/punchrserver # path to binary
+Restart=on-failure
+
+[Install]
+WantedBy=multiuser.target
+```
+
+To start the service run:
+
+```shell
+sudo service punchr-client start
+```
+
+## Honeypot
+
+Systemd service example at `/etc/systemd/system/punchr-honeypot.service`:
+
+```text
+[Unit]
+Description=Punchr Honeypot
+After=network.target
+
+[Service]
+User=punchr # your user
+WorkingDirectory=/home/punchr # configure working directory
+ExecStart=/home/punchr/punchrhoneypot # path to binary
+Restart=on-failure
+
+[Install]
+WantedBy=multiuser.target
+```
+
+To start the service run:
+
+```shell
+sudo service punchr-honeypot start
 ```
 
 ## Release
 
 ### go-client
 
-Head over to the [Create Go-Client Release](https://github.com/dennis-tra/punchr/actions/workflows/workflow_dispatch_release_go_client.yaml) GitHub-Action and click on `Run Workflow`. Then provide the release version and optionally the git commit you want to release from. This will build go-client binaries for several platforms, create a new GitHub release, and tag the repository accordingly.
+Tag a commit with a semantic version and this will trigger a GitHub-Action. Then provide the release version and optionally the git commit you want to release from. This will build go-client binaries for several platforms, create a new GitHub release, and tag the repository accordingly.
 
 ## Maintainers
 
