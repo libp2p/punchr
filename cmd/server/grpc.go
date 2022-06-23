@@ -119,7 +119,7 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 	}
 
 	var resp *pb.GetAddrInfoResponse
-	if rand.Float32() > 0.5 {
+	if rand.Float32() > 0.2 {
 		resp, err = s.querySingleMaddr(ctx, dbHostIDs)
 	} else {
 		resp, err = s.queryAllMaddrs(ctx, dbHostIDs)
