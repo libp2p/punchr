@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -28,12 +29,10 @@ func (h *Host) Connected(_ network.Network, conn network.Conn) {
 		return
 	}
 
-	status := "ok"
 	if err := h.handleNewConnection(conn); err != nil {
 		log.WithError(err).Warnln("An error occurred while handling the new connection")
-		status = "error"
+		handledConns.With(prometheus.Labels{"supports_dcutr": "", "listens_on_relay": "", "status": "error"}).Inc()
 	}
-	handledConns.With(prometheus.Labels{"status": status}).Inc()
 }
 
 // handleNewConnection handles the new connection establishment.
@@ -113,7 +112,17 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		return errors.Wrap(err, "set connection event multi addresses")
 	}
 
-	return txn.Commit()
+	if err = txn.Commit(); err != nil {
+		return errors.Wrap(err, "commit txn")
+	}
+
+	handledConns.With(prometheus.Labels{
+		"supports_dcutr":   strconv.FormatBool(dbConnEvt.SupportsDcutr),
+		"listens_on_relay": strconv.FormatBool(dbConnEvt.ListensOnRelayMultiAddress),
+		"status":           "ok",
+	}).Inc()
+
+	return nil
 }
 
 // IdentifyWait waits for the "identify" protocol to complete.

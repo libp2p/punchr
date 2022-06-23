@@ -26,7 +26,7 @@ var (
 			Namespace: "honeypot",
 			Help:      "The number of handled connections",
 		},
-		[]string{"status"},
+		[]string{"supports_dcutr", "listens_on_relay", "status"},
 	)
 	crawledPeers = promauto.NewCounterVec(
 		prometheus.CounterOpts{
