@@ -1,0 +1,65 @@
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: punchrclient
+    main: ./cmd/client
+    binary: punchrclient
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+      - freebsd
+      - netbsd
+      - openbsd
+    goarch:
+      - amd64
+      - 386
+      - arm
+      - arm64
+    goarm:
+      - 5
+      - 6
+      - 7
+    ignore:
+      - goos: darwin
+        goarch: 386
+      - goos: darwin
+        goarch: arm
+      - goos: openbsd
+        goarch: arm
+      - goos: freebsd
+        goarch: arm
+      - goos: netbsd
+        goarch: arm
+  - id: punchrserver
+    main: ./cmd/server
+    binary: punchrserver
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+  - id: punchrhoneypot
+    main: ./cmd/honeypot
+    binary: punchrhoneypot
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+archives:
+  - format: binary
+    allow_different_binary_count: true
+    replacements:
+      darwin: macos
+      386: i386
+      amd64: x86_64
+release:
+  draft: true
+  prerelease: auto
+  name_template: "Release {{.Tag}}"
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Version }}"

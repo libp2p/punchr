@@ -15,13 +15,23 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	version = "dev" // set via goreleaser
+	commit  = ""    // set via goreleaser
+)
+
 func main() {
+	shortCommit := commit
+	if len(shortCommit) > 7 {
+		shortCommit = shortCommit[:7]
+	}
+
 	app := &cli.App{
 		Name:      "punchrclient",
 		Usage:     "A libp2p host that is capable of DCUtR.",
 		UsageText: "punchrclient [global options] command [command options] [arguments...]",
 		Action:    RootAction,
-		Version:   "0.2.0",
+		Version:   fmt.Sprintf("%s+%s", version, shortCommit),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "telemetry-host",

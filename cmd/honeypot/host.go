@@ -40,9 +40,9 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 
 	// Load private key data from file or create a new identity
 	privKeyFile := c.String("key")
-	privKey, err := key.Load(privKeyFile)
-	if err != nil {
-		privKey, err = key.Create(privKeyFile)
+	privKeys, err := key.Load(privKeyFile)
+	if err != nil || len(privKeys) < 1 {
+		privKeys, err = key.Add(privKeyFile, 1)
 		if err != nil {
 			return nil, errors.Wrap(err, "load or create key pair")
 		}
@@ -52,7 +52,7 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 	var dht *kaddht.IpfsDHT
 	agentVersion := "punchr/honeypot/" + c.App.Version
 	libp2pHost, err := libp2p.New(
-		libp2p.Identity(privKey),
+		libp2p.Identity(privKeys[0]),
 		libp2p.UserAgent(agentVersion),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%s/quic", port)),

@@ -240,3 +240,5 @@ dist/
 rust-client/target
 rust-client/Cargo.lock
 punchr.gz
+
+dist/

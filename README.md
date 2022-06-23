@@ -240,6 +240,12 @@ Bootstrap peers example:
 --bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 ```
 
+## Release
+
+### go-client
+
+Head over to the [Create Go-Client Release](https://github.com/dennis-tra/punchr/actions/workflows/workflow_dispatch_release_go_client.yaml) GitHub-Action and click on `Run Workflow`. Then provide the release version and optionally the git commit you want to release from. This will build go-client binaries for several platforms, create a new GitHub release, and tag the repository accordingly.
+
 ## Maintainers
 
 [@dennis-tra](https://github.com/dennis-tra).
