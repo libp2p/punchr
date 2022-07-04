@@ -50,6 +50,12 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	protocols := h.GetProtocols(conn.RemotePeer())
 	maddrs := h.GetMultiAddresses(conn.RemotePeer())
 
+	if !util.SupportDCUtR(protocols) {
+		// don't save peer as it doesn't support DCUtR
+		log.Debugln("Incoming connection, peer does not support DCUtR")
+		return nil
+	}
+
 	// It can happen that the `conn.RemoteMultiaddr()` is not part of the peer store maddrs.
 	found := false
 	for _, maddr := range maddrs {
