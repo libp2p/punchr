@@ -37,6 +37,9 @@ message GetAddrInfoRequest {
 
   // All host IDs that the client is managing
   repeated bytes all_host_ids = 2;
+
+  // An authentication key for this request
+  required string api_key = 3;
 }
 
 message GetAddrInfoResponse {
@@ -107,6 +110,12 @@ message TrackHolePunchRequest {
 
   // Unix timestamp in nanoseconds of when the overall hole punch process ended
   required uint64 ended_at = 11;
+
+  // All multi addresses the client is listening on
+  repeated bytes listen_multi_addresses = 12;
+
+  // An authentication key for this request
+  required string api_key = 13;
 }
 
 message TrackHolePunchResponse {}

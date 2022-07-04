@@ -13,6 +13,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -133,7 +134,13 @@ func RootAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	pb.RegisterPunchrServiceServer(s, &Server{DBClient: dbClient})
+
+	cache, err := lru.New(1000)
+	if err != nil {
+		return errors.Wrap(err, "new lru api key cache")
+	}
+
+	pb.RegisterPunchrServiceServer(s, &Server{DBClient: dbClient, apiKeyCache: cache})
 
 	// Start gRPC server
 	log.WithField("addr", lis.Addr().String()).Infoln("Starting server")

@@ -225,6 +225,7 @@ func (p Punchr) RequestAddrInfo(ctx context.Context, clientID peer.ID) (*peer.Ad
 
 	// Request address information
 	req := &pb.GetAddrInfoRequest{
+		ApiKey:     &p.apiKey,
 		HostId:     hostID,
 		AllHostIds: allHostIDs,
 	}
@@ -269,7 +270,7 @@ func (p Punchr) TrackHolePunchResult(ctx context.Context, hps *HolePunchState) e
 		"endReason": hps.Outcome,
 	}).Infoln("Tracking hole punch result")
 
-	req, err := hps.ToProto()
+	req, err := hps.ToProto(p.apiKey)
 	if err != nil {
 		return err
 	}

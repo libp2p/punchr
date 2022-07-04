@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -26,19 +27,14 @@ import (
 
 type Server struct {
 	pb.UnimplementedPunchrServiceServer
-	DBClient *db.Client
+	DBClient    *db.Client
+	apiKeyCache *lru.Cache
 }
 
 func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	if req.ApiKey == nil || *req.ApiKey == "" {
-		return nil, fmt.Errorf("API key is missing")
-	}
-
-	dbAuthorization, err := s.DBClient.GetAuthorization(ctx, s.DBClient, *req.ApiKey)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("unauthorized")
-	} else if err != nil {
-		return nil, errors.Wrap(err, "checking authorization for api key")
+	authID, err := s.checkApiKey(ctx, req.ApiKey)
+	if err != nil {
+		return nil, err
 	}
 
 	clientID, err := peer.IDFromBytes(req.ClientId)
@@ -60,7 +56,7 @@ func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regi
 
 	clientExists, err := models.Clients(
 		models.ClientWhere.PeerID.EQ(dbPeer.ID),
-		models.ClientWhere.AuthorizationID.EQ(dbAuthorization.ID),
+		models.ClientWhere.AuthorizationID.EQ(authID),
 	).Exists(ctx, txn)
 	if err != nil {
 		return nil, errors.Wrap(err, "checking authorization for api key")
@@ -72,7 +68,7 @@ func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regi
 
 	client := models.Client{
 		PeerID:          dbPeer.ID,
-		AuthorizationID: dbAuthorization.ID,
+		AuthorizationID: authID,
 	}
 
 	err = client.Insert(ctx, txn, boil.Infer())
@@ -84,19 +80,9 @@ func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regi
 }
 
 func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*pb.GetAddrInfoResponse, error) {
-	hostID, err := peer.IDFromBytes(req.HostId)
+	_, err := s.checkApiKey(ctx, req.ApiKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "peer ID from client ID")
-	}
-
-	dbHostPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(hostID.String())).One(ctx, s.DBClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "get client peer from db")
-	}
-
-	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbHostPeer.ID)).Exists(ctx, s.DBClient)
-	if !clientExists {
-		return nil, fmt.Errorf("unauthorized")
+		return nil, err
 	}
 
 	hostIDs := make([]string, len(req.AllHostIds))
@@ -304,6 +290,27 @@ LIMIT 1
 }
 
 func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchRequest) (*pb.TrackHolePunchResponse, error) {
+	_, err := s.checkApiKey(ctx, req.ApiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ConnectStartedAt == nil {
+		return nil, errors.Wrap(err, "connect started at is nil")
+	}
+	if req.ConnectEndedAt == nil {
+		return nil, errors.Wrap(err, "connect ended at is nil")
+	}
+	if req.EndedAt == nil {
+		return nil, errors.Wrap(err, "ended at is nil")
+	}
+	if req.HasDirectConns == nil {
+		return nil, errors.Wrap(err, "has direct conns is nil")
+	}
+	if len(req.ListenMultiAddresses) == 0 {
+		return nil, errors.Wrap(err, "no listen multi addresses given")
+	}
+
 	start := time.Now()
 	defer func() { log.WithField("dur", time.Since(start).String()).Infoln("Tracked result") }()
 
@@ -319,7 +326,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 
 	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbClientPeer.ID)).Exists(ctx, s.DBClient)
 	if !clientExists {
-		return nil, fmt.Errorf("unauthorized")
+		return nil, fmt.Errorf("client not registered")
 	}
 
 	remoteID, err := peer.IDFromBytes(req.RemoteId)
@@ -376,28 +383,35 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 	defer db.DeferRollback(txn)
 
-	if req.ConnectStartedAt == nil {
-		return nil, errors.Wrap(err, "connect started at is nil")
+	lmaddrs := make([]multiaddr.Multiaddr, len(req.ListenMultiAddresses))
+	for i, maddrBytes := range req.ListenMultiAddresses {
+		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "multi addr from bytes")
+		}
+		lmaddrs[i] = maddr
 	}
-	if req.ConnectEndedAt == nil {
-		return nil, errors.Wrap(err, "connect ended at is nil")
+
+	dbLMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, lmaddrs)
+	if err != nil {
+		return nil, errors.Wrap(err, "upsert listen multi addresses")
 	}
-	if req.EndedAt == nil {
-		return nil, errors.Wrap(err, "ended at is nil")
-	}
-	if req.HasDirectConns == nil {
-		return nil, errors.Wrap(err, "has direct conns is nil")
+
+	maddrSetID, err := s.DBClient.UpsertMultiAddressesSet(ctx, txn, dbLMaddrs)
+	if err != nil {
+		return nil, errors.Wrap(err, "upsert multi addresses set")
 	}
 
 	hpr := &models.HolePunchResult{
-		ClientID:         dbClientPeer.ID,
-		RemoteID:         dbRemotePeer.ID,
-		ConnectStartedAt: time.Unix(0, int64(*req.ConnectStartedAt)),
-		ConnectEndedAt:   time.Unix(0, int64(*req.ConnectEndedAt)),
-		HasDirectConns:   *req.HasDirectConns,
-		Outcome:          s.mapHolePunchOutcome(req),
-		Error:            null.StringFromPtr(req.Error),
-		EndedAt:          time.Unix(0, int64(*req.EndedAt)),
+		ClientID:                  dbClientPeer.ID,
+		ListenMultiAddressesSetID: maddrSetID,
+		RemoteID:                  dbRemotePeer.ID,
+		ConnectStartedAt:          time.Unix(0, int64(*req.ConnectStartedAt)),
+		ConnectEndedAt:            time.Unix(0, int64(*req.ConnectEndedAt)),
+		HasDirectConns:            *req.HasDirectConns,
+		Outcome:                   s.mapHolePunchOutcome(req),
+		Error:                     null.StringFromPtr(req.Error),
+		EndedAt:                   time.Unix(0, int64(*req.EndedAt)),
 	}
 
 	if err = hpr.Insert(ctx, txn, boil.Infer()); err != nil {
@@ -459,6 +473,33 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
+}
+
+func (s Server) checkApiKey(ctx context.Context, apiKey *string) (int, error) {
+	if apiKey == nil || *apiKey == "" {
+		return 0, fmt.Errorf("API key is missing")
+	}
+
+	iAuthID, found := s.apiKeyCache.Get(*apiKey)
+	authID, ok := iAuthID.(int)
+	if found && !ok {
+		s.apiKeyCache.Remove(*apiKey)
+	}
+
+	if found {
+		return authID, nil
+	}
+
+	dbAuthorization, err := s.DBClient.GetAuthorization(ctx, s.DBClient, *apiKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("unauthorized")
+	} else if err != nil {
+		return 0, errors.Wrap(err, "checking authorization for api key")
+	}
+
+	s.apiKeyCache.Add(*apiKey, dbAuthorization.ID)
+
+	return dbAuthorization.ID, nil
 }
 
 func (s Server) mapHolePunchAttemptOutcome(hpa *pb.HolePunchAttempt) string {

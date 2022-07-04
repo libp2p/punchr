@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -19,6 +21,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries"
 
 	"github.com/dennis-tra/punchr/pkg/maxmind"
 	"github.com/dennis-tra/punchr/pkg/models"
@@ -161,6 +164,29 @@ func (c *Client) UpsertMultiAddresses(ctx context.Context, exec boil.ContextExec
 	}
 
 	return dbMaddrs, nil
+}
+
+func (c *Client) UpsertMultiAddressesSet(ctx context.Context, exec boil.ContextExecutor, dbMaddrs models.MultiAddressSlice) (int, error) {
+	ids := make([]string, len(dbMaddrs))
+	for i, dbMaddr := range dbMaddrs {
+		ids[i] = strconv.FormatInt(dbMaddr.ID, 10)
+	}
+
+	rows, err := queries.Raw("SELECT upsert_multi_addresses_sets('{"+strings.Join(ids, ",")+"}')").QueryContext(ctx, exec)
+	if err != nil {
+		return 0, errors.Wrap(err, "upsert multi addresses set")
+	}
+
+	if !rows.Next() {
+		return 0, fmt.Errorf("no multi address set created")
+	}
+
+	var maddrSetID int
+	if err = rows.Scan(&maddrSetID); err != nil {
+		return 0, errors.Wrap(err, "scan multi address set id")
+	}
+
+	return maddrSetID, errors.Wrap(rows.Close(), "close multi address set query rows")
 }
 
 func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecutor, maddr ma.Multiaddr) (models.IPAddressSlice, *string, *string, *int, error) {

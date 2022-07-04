@@ -13,6 +13,7 @@ var TableNames = struct {
 	HolePunchResultsXMultiAddresses string
 	IPAddresses                     string
 	MultiAddresses                  string
+	MultiAddressesSets              string
 	MultiAddressesXIPAddresses      string
 	PeerLogs                        string
 	Peers                           string
@@ -26,6 +27,7 @@ var TableNames = struct {
 	HolePunchResultsXMultiAddresses: "hole_punch_results_x_multi_addresses",
 	IPAddresses:                     "ip_addresses",
 	MultiAddresses:                  "multi_addresses",
+	MultiAddressesSets:              "multi_addresses_sets",
 	MultiAddressesXIPAddresses:      "multi_addresses_x_ip_addresses",
 	PeerLogs:                        "peer_logs",
 	Peers:                           "peers",

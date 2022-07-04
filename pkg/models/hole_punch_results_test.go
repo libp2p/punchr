@@ -851,6 +851,57 @@ func testHolePunchResultToOnePeerUsingClient(t *testing.T) {
 	}
 }
 
+func testHolePunchResultToOneMultiAddressesSetUsingListenMultiAddressesSet(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local HolePunchResult
+	var foreign MultiAddressesSet
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, holePunchResultDBTypes, false, holePunchResultColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize HolePunchResult struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, multiAddressesSetDBTypes, false, multiAddressesSetColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize MultiAddressesSet struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	local.ListenMultiAddressesSetID = foreign.ID
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.ListenMultiAddressesSet().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if check.ID != foreign.ID {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := HolePunchResultSlice{&local}
+	if err = local.L.LoadListenMultiAddressesSet(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.ListenMultiAddressesSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.ListenMultiAddressesSet = nil
+	if err = local.L.LoadListenMultiAddressesSet(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.ListenMultiAddressesSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
 func testHolePunchResultToOnePeerUsingRemote(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -956,6 +1007,63 @@ func testHolePunchResultToOneSetOpPeerUsingClient(t *testing.T) {
 
 		if a.ClientID != x.ID {
 			t.Error("foreign key was wrong value", a.ClientID, x.ID)
+		}
+	}
+}
+func testHolePunchResultToOneSetOpMultiAddressesSetUsingListenMultiAddressesSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a HolePunchResult
+	var b, c MultiAddressesSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, multiAddressesSetDBTypes, false, strmangle.SetComplement(multiAddressesSetPrimaryKeyColumns, multiAddressesSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, multiAddressesSetDBTypes, false, strmangle.SetComplement(multiAddressesSetPrimaryKeyColumns, multiAddressesSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*MultiAddressesSet{&b, &c} {
+		err = a.SetListenMultiAddressesSet(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.ListenMultiAddressesSet != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.ListenMultiAddressesSetHolePunchResults[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if a.ListenMultiAddressesSetID != x.ID {
+			t.Error("foreign key was wrong value", a.ListenMultiAddressesSetID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.ListenMultiAddressesSetID))
+		reflect.Indirect(reflect.ValueOf(&a.ListenMultiAddressesSetID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if a.ListenMultiAddressesSetID != x.ID {
+			t.Error("foreign key was wrong value", a.ListenMultiAddressesSetID, x.ID)
 		}
 	}
 }
@@ -1091,7 +1199,7 @@ func testHolePunchResultsSelect(t *testing.T) {
 }
 
 var (
-	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `RemoteID`: `bigint`, `ConnectStartedAt`: `timestamp with time zone`, `ConnectEndedAt`: `timestamp with time zone`, `HasDirectConns`: `boolean`, `Error`: `text`, `Outcome`: `enum.hole_punch_outcome('UNKNOWN','NO_CONNECTION','NO_STREAM','CONNECTION_REVERSED','CANCELLED','FAILED','SUCCESS')`, `EndedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `RemoteID`: `bigint`, `ConnectStartedAt`: `timestamp with time zone`, `ConnectEndedAt`: `timestamp with time zone`, `HasDirectConns`: `boolean`, `Error`: `text`, `Outcome`: `enum.hole_punch_outcome('UNKNOWN','NO_CONNECTION','NO_STREAM','CONNECTION_REVERSED','CANCELLED','FAILED','SUCCESS')`, `EndedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ListenMultiAddressesSetID`: `integer`}
 	_                      = bytes.MinRead
 )
 

@@ -15,8 +15,9 @@ import (
 )
 
 type HolePunchState struct {
-	// The host that established the connection to the remote peer via a relay
-	HostID peer.ID
+	// The host that established the connection to the remote peer via a relay and it's listening multi addresses
+	HostID      peer.ID
+	LocalMaddrs []multiaddr.Multiaddr
 
 	// The remote peer and its multi addresses - usually relayed ones.
 	RemoteID     peer.ID
@@ -38,11 +39,12 @@ type HolePunchState struct {
 	EndedAt time.Time
 }
 
-func NewHolePunchState(hostID peer.ID, remoteID peer.ID, maddrs []multiaddr.Multiaddr) *HolePunchState {
+func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr) *HolePunchState {
 	return &HolePunchState{
 		HostID:            hostID,
 		RemoteID:          remoteID,
-		RemoteMaddrs:      maddrs,
+		RemoteMaddrs:      rmaddrs,
+		LocalMaddrs:       lmaddrs,
 		HolePunchAttempts: []*HolePunchAttempt{},
 		OpenMaddrs:        []multiaddr.Multiaddr{},
 	}
@@ -66,7 +68,7 @@ func (hps HolePunchState) onlyRelayRemoteAddrs() bool {
 	return true
 }
 
-func (hps HolePunchState) ToProto() (*pb.TrackHolePunchRequest, error) {
+func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, error) {
 	localID, err := hps.HostID.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal local peer id")
@@ -75,6 +77,11 @@ func (hps HolePunchState) ToProto() (*pb.TrackHolePunchRequest, error) {
 	remoteID, err := hps.RemoteID.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal remote peer id")
+	}
+
+	lMaddrBytes := make([][]byte, len(hps.LocalMaddrs))
+	for i, maddr := range hps.LocalMaddrs {
+		lMaddrBytes[i] = maddr.Bytes()
 	}
 
 	rMaddrBytes := make([][]byte, len(hps.RemoteMaddrs))
@@ -98,7 +105,9 @@ func (hps HolePunchState) ToProto() (*pb.TrackHolePunchRequest, error) {
 	}
 
 	return &pb.TrackHolePunchRequest{
+		ApiKey:               &apiKey,
 		ClientId:             localID,
+		ListenMultiAddresses: lMaddrBytes,
 		RemoteId:             remoteID,
 		RemoteMultiAddresses: rMaddrBytes,
 		ConnectStartedAt:     toUnixNanos(hps.ConnectStartedAt),

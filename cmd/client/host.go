@@ -192,7 +192,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	defer h.UnregisterPeerToTrace(addrInfo.ID)
 
 	// initialize a new hole punch state
-	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs)
+	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs, h.Addrs())
 	defer func() { hpState.EndedAt = time.Now() }()
 
 	// Track open connections after the hole punch
