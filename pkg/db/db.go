@@ -239,7 +239,7 @@ func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecuto
 		dbIPAddresses = append(dbIPAddresses, dbIPAddress)
 	}
 
-	return dbIPAddresses, util.UniqueStr(countries), util.UniqueStr(continents), util.UniqueInt(asns), nil
+	return dbIPAddresses, util.Unique(countries), util.Unique(continents), util.Unique(asns), nil
 }
 
 // MapNetDirection maps the connection direction the corresponding database types.
