@@ -12,8 +12,8 @@ Specifically, this repo contains:
 
 **Dashboards:**
 
-- [`Health Dashboard`](http://49.12.205.145:3000/d/43l1QaC7z/punchr-health)
-- [`Performance Dashboard`](http://49.12.205.145:3000/d/F8qg0DP7k/punchr-performance)
+- [`Health Dashboard`](https://punchr.dtrautwein.eu/grafana/d/43l1QaC7z/punchr-health)
+- [`Performance Dashboard`](https://punchr.dtrautwein.eu/grafana/d/F8qg0DP7k/punchr-performance)
 
 ## Table of Contents
 
@@ -40,7 +40,7 @@ The goal is to measure the hole punching success rate. For that, we are using a 
 2. `NO_CONNECTION` - The client could not connect to the remote peer via any of the provided multi addresses. At the moment this is just a single relay multi address.
 3. `NO_STREAM` - The client could connect to the remote peer via any of the provided multi addresses but no `/libp2p/dcutr` stream was opened within 15s. That stream is necessary to perform the hole punch.
 4. `CONNECTION_REVERSED` - The client only used one or more relay multi addresses to connect to the remote peer, the `/libp2p/dcutr` stream was not opened within 15s, and we still end up with a direct connection. This means the remote peer succesfully reversed it.
-5. `CANCELLED` - The user stopped the client
+5. `CANCELLED` - The user stopped the client (also returned by the rust client for quic multi addresses)
 6. `FAILED` - The hole punch was attempted multiple times but none succeeded OR the `/libp2p/dcutr` was opened but we have not received the internal start event OR there was a general protocol error.
 7. `SUCCESS` - Any of the three hole punch attempts succeeded.
 
@@ -74,23 +74,24 @@ USAGE:
    honeypot [global options] command [command options] [arguments...]
 
 VERSION:
-   0.2.0
+   dev+
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
+   --crawler-count value   The number of parallel crawlers (default: 10) [$PUNCHR_HONEYPOT_CRAWLER_COUNT]
+   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_HONEYPOT_DATABASE_HOST]
+   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_NAME]
+   --db-password value     The password for the database to use (default: password) [$PUNCHR_HONEYPOT_DATABASE_PASSWORD]
+   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_HONEYPOT_DATABASE_PORT]
+   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_HONEYPOT_DATABASE_SSL_MODE]
+   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_USER]
+   --help, -h              show help (default: false)
+   --key FILE              Load private key for peer ID from FILE (default: honeypot.key) [$PUNCHR_HONEYPOT_KEY_FILE]
    --port value            On which port should the libp2p host listen (default: 11000) [$PUNCHR_HONEYPOT_PORT]
    --telemetry-host value  To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_HONEYPOT_TELEMETRY_HOST]
    --telemetry-port value  On which port should the telemetry (prometheus, pprof) server listen (default: 11001) [$PUNCHR_HONEYPOT_TELEMETRY_PORT]
-   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_HONEYPOT_DATABASE_HOST]
-   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_HONEYPOT_DATABASE_PORT]
-   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_NAME]
-   --db-password value     The password for the database to use (default: password) [$PUNCHR_HONEYPOT_DATABASE_PASSWORD]
-   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_USER]
-   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_HONEYPOT_DATABASE_SSL_MODE]
-   --key FILE              Load private key for peer ID from FILE (default: honeypot.key) [$PUNCHR_HONEYPOT_KEY_FILE]
-   --help, -h              show help (default: false)
    --version, -v           print the version (default: false)
 ```
 ### `server`
@@ -107,22 +108,22 @@ USAGE:
    punchrserver [global options] command [command options] [arguments...]
 
 VERSION:
-   0.2.0
+   dev+
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
+   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_SERVER_DATABASE_HOST]
+   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_NAME]
+   --db-password value     The password for the database to use (default: password) [$PUNCHR_SERVER_DATABASE_PASSWORD]
+   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_SERVER_DATABASE_PORT]
+   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_SERVER_DATABASE_SSL_MODE]
+   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_USER]
+   --help, -h              show help (default: false)
    --port value            On which port should the gRPC host listen (default: 10000) [$PUNCHR_SERVER_PORT]
    --telemetry-host value  To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_SERVER_TELEMETRY_HOST]
    --telemetry-port value  On which port should the telemetry (prometheus, pprof) server listen (default: 10001) [$PUNCHR_SERVER_TELEMETRY_PORT]
-   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_SERVER_DATABASE_HOST]
-   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_SERVER_DATABASE_PORT]
-   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_NAME]
-   --db-password value     The password for the database to use (default: password) [$PUNCHR_SERVER_DATABASE_PASSWORD]
-   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_USER]
-   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_SERVER_DATABASE_SSL_MODE]
-   --help, -h              show help (default: false)
    --version, -v           print the version (default: false)
 ```
 
@@ -139,25 +140,30 @@ USAGE:
    punchrclient [global options] command [command options] [arguments...]
 
 VERSION:
-   0.2.0
+   dev+
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --port value            On which port should the libp2p host listen (default: 12000) [$PUNCHR_CLIENT_PORT]
-   --telemetry-host value  To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_CLIENT_TELEMETRY_HOST]
-   --telemetry-port value  On which port should the telemetry (prometheus, pprof) server listen (default: 12001) [$PUNCHR_CLIENT_TELEMETRY_PORT]
-   --server-host value     Where does the the punchr server listen (default: localhost) [$PUNCHR_CLIENT_TELEMETRY_HOST]
-   --server-port value     On which port listens the punchr server (default: 10000) [$PUNCHR_CLIENT_TELEMETRY_PORT]
-   --key FILE              Load private key for peer ID from FILE (default: punchr.key) [$PUNCHR_CLIENT_KEY_FILE]
-   --help, -h              show help (default: false)
-   --version, -v           print the version (default: false)
+   --api-key value           The key to authenticate against the API [$PUNCHR_CLIENT_API_KEY]
+   --bootstrap-peers value   Comma separated list of multi addresses of bootstrap peers  (accepts multiple inputs) [$NEBULA_BOOTSTRAP_PEERS]
+   --help, -h                show help (default: false)
+   --host-count value        How many libp2p hosts should be used to hole punch (default: 10) [$PUNCHR_CLIENT_HOST_COUNT]
+   --key-file value          File where punchr saves the host identities. (default: punchrclient.keys) [$PUNCHR_CLIENT_KEY_FILE]
+   --server-host value       Where does the the punchr server listen (default: punchr.dtrautwein.eu) [$PUNCHR_CLIENT_SERVER_HOST]
+   --server-port value       On which port listens the punchr server (default: 443) [$PUNCHR_CLIENT_SERVER_PORT]
+   --server-ssl              Whether or not to use a SSL connection to the server. (default: true) [$PUNCHR_CLIENT_SERVER_SSL]
+   --server-ssl-skip-verify  Whether or not to skip SSL certificate verification. (default: false) [$PUNCHR_CLIENT_SERVER_SSL_SKIP_VERIFY]
+   --telemetry-host value    To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_CLIENT_TELEMETRY_HOST]
+   --telemetry-port value    On which port should the telemetry (prometheus, pprof) server listen (default: 12001) [$PUNCHR_CLIENT_TELEMETRY_PORT]
+   --version, -v             print the version (default: false)
 ```
 
 Resource requirements:
 
-- `mem` - `~100MB`
+- `Storage` - `~35MB`
+- `Memory` - `~100MB`
 - `CPU` - `~2.5%`
 
 ### `rust-client`
@@ -166,6 +172,7 @@ Resource requirements:
 
 ## Install
 
+Head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary or compile it yourself. 
 Run `make build` and find the executables in the `dist` folder. When running the honeypot or server the database migrations folder `./migrations` needs to be in the working directory of either process.
 
 The honeypot listens on port `10000`, the server on port `11000` and clients on `12000`. All components expose prometheus and pprof telemetry on `10001`, `11001`, and `12001` respectively.
@@ -286,11 +293,12 @@ sudo service punchr-honeypot start
 
 ### go-client
 
-Tag a commit with a semantic version and this will trigger a GitHub-Action. Then provide the release version and optionally the git commit you want to release from. This will build go-client binaries for several platforms, create a new GitHub release, and tag the repository accordingly.
+Tag a commit with a semantic version and this will trigger a GitHub-Action. This will build go-client binaries for several platforms and create a new GitHub release.
 
 ## Maintainers
 
-[@dennis-tra](https://github.com/dennis-tra).
+[@dennis-tra](https://github.com/dennis-tra)
+
 
 ## Contributing
 
