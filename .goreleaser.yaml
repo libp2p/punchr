@@ -4,7 +4,7 @@ before:
 builds:
   - id: punchrclient
     main: ./cmd/client
-    binary: punchrclient
+    binary: punchrclient-go
     env:
       - CGO_ENABLED=0
     goos:
