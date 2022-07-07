@@ -15,6 +15,10 @@ Specifically, this repo contains:
 - [`Health Dashboard`](https://punchr.dtrautwein.eu/grafana/d/43l1QaC7z/punchr-health)
 - [`Performance Dashboard`](https://punchr.dtrautwein.eu/grafana/d/F8qg0DP7k/punchr-performance)
 
+**Want to participate?**
+
+- [Register here](https://forms.gle/ueNS5iGQup6oszCQ8)
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
