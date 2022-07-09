@@ -21,14 +21,13 @@ use libp2p::swarm::{
 use libp2p::tcp::TcpConfig;
 use libp2p::Transport;
 use libp2p::{identity, PeerId};
-use log::info;
+use log::{info, warn};
 use std::convert::TryInto;
+use std::env;
 use std::net::Ipv4Addr;
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-const ROUNDS: u8 = 50;
 
 pub mod grpc {
     tonic::include_proto!("_");
@@ -47,13 +46,31 @@ struct Opt {
     #[clap(long)]
     secret_key_seed: u8,
 
+    /// If set to `true`, use relay-v1 protocol.
+    /// Per default relay-v2 is used.
     #[clap(long)]
     relay_v1: bool,
+
+    /// Number of iterations to run.
+    /// Will loop eternally if set to `None`.
+    #[clap(long)]
+    rounds: Option<usize>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = env_logger::try_init();
+
+    // Api-key used to authenticate our client at the server.
+    let api_key = match env::var("API_KEY") {
+        Ok(k) => k,
+        Err(env::VarError::NotPresent) => {
+            warn!("No value for env variable \"API_KEY\" found. If the server enforces authorization it will reject our requests.");
+            String::new()
+        }
+        Err(e) => return Err(e.into()),
+    };
+
     let opt = Opt::parse();
 
     let mut client =
@@ -67,7 +84,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut protocols = None;
 
-    for _ in 0..ROUNDS {
+    let mut iterations = opt.rounds.map(|r| (0, r));
+    while iterations
+        .as_mut()
+        .map(|(i, r)| {
+            *i += 1;
+            i <= r
+        })
+        .unwrap_or(true)
+    {
         let mut swarm = init_swarm(local_key.clone(), opt.relay_v1).await?;
         if protocols.is_none() {
             let supported_protocols = swarm
@@ -85,6 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             client_id: local_peer_id.to_bytes(),
             agent_version: agent_version(),
             protocols: protocols.clone().unwrap(),
+            api_key: api_key.clone(),
         });
 
         client.register(request).await?;
@@ -92,6 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let request = tonic::Request::new(grpc::GetAddrInfoRequest {
             host_id: local_peer_id.to_bytes(),
             all_host_ids: vec![local_peer_id.to_bytes()],
+            api_key: api_key.clone(),
         });
 
         let response = client.get_addr_info(request).await?.into_inner();
@@ -104,29 +131,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(Multiaddr::try_from)
             .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
 
+        let state = HolePunchState::new(
+            local_peer_id,
+            swarm.listeners(),
+            remote_peer_id,
+            remote_addrs.clone(),
+            api_key.clone(),
+        );
+
         if remote_addrs
             .iter()
             .all(|a| a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
         {
-            info!(
-                "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported.",
-                remote_peer_id, remote_addrs
-            );
-            let unix_time_now = unix_time_now();
-            let request = grpc::TrackHolePunchRequest {
-                client_id: local_peer_id.into(),
-                remote_id: response.remote_id,
-                remote_multi_addresses: remote_addrs.into_iter().map(|a| a.to_vec()).collect(),
-                open_multi_addresses: Vec::new(),
-                has_direct_conns: false,
-                connect_started_at: unix_time_now,
-                connect_ended_at: unix_time_now,
-                hole_punch_attempts: Vec::new(),
-                error: Some("rust-lib2p doesn't support quic transport yet.".into()),
-                outcome: grpc::HolePunchOutcome::Cancelled.into(),
-                ended_at: unix_time_now
-            };
-
+            let request = state.cancel();
             client
                 .track_hole_punch(tonic::Request::new(request))
                 .await?;
@@ -140,13 +157,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         swarm.dial(
             DialOpts::peer_id(remote_peer_id)
-                .addresses(remote_addrs.clone())
+                .addresses(remote_addrs)
                 .build(),
         )?;
 
-        let request = HolePunchState::new(local_peer_id, remote_peer_id, remote_addrs)
-            .drive_hole_punch(&mut swarm)
-            .await;
+        let request = state.drive_hole_punch(&mut swarm).await;
 
         client
             .track_hole_punch(tonic::Request::new(request))
@@ -242,7 +257,13 @@ struct HolePunchState {
 }
 
 impl HolePunchState {
-    fn new(client_id: PeerId, remote_id: PeerId, remote_multi_addresses: Vec<Multiaddr>) -> Self {
+    fn new<'a>(
+        client_id: PeerId,
+        client_listen_addrs: impl Iterator<Item = &'a Multiaddr>,
+        remote_id: PeerId,
+        remote_multi_addresses: Vec<Multiaddr>,
+        api_key: String,
+    ) -> Self {
         let request = grpc::TrackHolePunchRequest {
             client_id: client_id.into(),
             remote_id: remote_id.into(),
@@ -258,12 +279,27 @@ impl HolePunchState {
             error: None,
             outcome: grpc::HolePunchOutcome::Unknown.into(),
             ended_at: 0,
+            listen_multi_addresses: client_listen_addrs.map(|a| a.to_vec()).collect(),
+            api_key,
         };
         HolePunchState {
             request,
             remote_id,
             active_holepunch_attempt: None,
         }
+    }
+
+    fn cancel(mut self) -> grpc::TrackHolePunchRequest {
+        info!(
+            "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported.",
+            self.request.remote_id, self.request.remote_multi_addresses
+        );
+        let unix_time_now = unix_time_now();
+        self.request.connect_ended_at = unix_time_now;
+        self.request.ended_at = unix_time_now;
+        self.request.error = Some("rust-lib2p doesn't support quic transport yet.".into());
+        self.request.outcome = grpc::HolePunchOutcome::Cancelled.into();
+        self.request
     }
 
     async fn drive_hole_punch(
@@ -465,7 +501,7 @@ impl HolePunchAttemptState {
         );
         grpc::HolePunchAttempt {
             opened_at: self.opened_at,
-            started_at: self.started_at,
+            started_at: Some(self.started_at),
             ended_at,
             start_rtt: None,
             elapsed_time: (ended_at - self.started_at) as f32 / 1000f32,
