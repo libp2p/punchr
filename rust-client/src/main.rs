@@ -21,8 +21,9 @@ use libp2p::swarm::{
 use libp2p::tcp::TcpConfig;
 use libp2p::Transport;
 use libp2p::{identity, PeerId};
-use log::info;
+use log::{info, warn};
 use std::convert::TryInto;
+use std::env;
 use std::net::Ipv4Addr;
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
@@ -51,17 +52,23 @@ struct Opt {
     /// Per default relay-v2 is used.
     #[clap(long)]
     relay_v1: bool,
-
-    /// Api-key used to authenticate our client at the server.
-    #[clap(long)]
-    api_key: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = env_logger::try_init();
+
+    // Api-key used to authenticate our client at the server.
+    let api_key = match env::var("API_KEY") {
+        Ok(k) => k,
+        Err(env::VarError::NotPresent) => {
+            warn!("No value for env variable \"API_KEY\" found. If the server enforces authorization it will reject our requests.");
+            String::new()
+        }
+        Err(e) => return Err(e.into()),
+    };
+
     let opt = Opt::parse();
-    let api_key = opt.api_key;
 
     let mut client =
         grpc::punchr_service_client::PunchrServiceClient::connect(opt.url.clone()).await?;
