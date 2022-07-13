@@ -122,8 +122,9 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 }
 
 type HolePunchAttempt struct {
-	HostID   peer.ID
-	RemoteID peer.ID
+	HostID      peer.ID
+	RemoteID    peer.ID
+	RemoteAddrs []multiaddr.Multiaddr
 
 	// Time when the /libp2p/dcutr stream was opened
 	OpenedAt time.Time
@@ -144,6 +145,16 @@ func (hpa *HolePunchAttempt) handleStartHolePunchEvt(event *holepunch.Event, evt
 	hpa.logEntry().Infoln("Hole punch started")
 	hpa.StartedAt = time.Unix(0, event.Timestamp)
 	hpa.StartRTT = evt.RTT
+
+	maddrs := make([]multiaddr.Multiaddr, len(evt.RemoteAddrs))
+	for i, addr := range evt.RemoteAddrs {
+		maddr, err := multiaddr.NewMultiaddr(addr)
+		if err != nil {
+			log.WithError(err).WithField("maddr", addr).Warn("Could not parse maddr")
+		}
+		maddrs[i] = maddr
+	}
+	hpa.RemoteAddrs = maddrs
 }
 
 func (hpa *HolePunchAttempt) handleEndHolePunchEvt(event *holepunch.Event, evt *holepunch.EndHolePunchEvt) {
@@ -217,6 +228,12 @@ func (hpa HolePunchAttempt) ToProto() *pb.HolePunchAttempt {
 	if !hpa.StartedAt.IsZero() {
 		startedAt = toUnixNanos(hpa.StartedAt)
 	}
+
+	maddrs := make([][]byte, len(hpa.RemoteAddrs))
+	for i, raddr := range hpa.RemoteAddrs {
+		maddrs[i] = raddr.Bytes()
+	}
+
 	return &pb.HolePunchAttempt{
 		OpenedAt:        toUnixNanos(hpa.OpenedAt),
 		StartedAt:       startedAt,
@@ -226,6 +243,7 @@ func (hpa HolePunchAttempt) ToProto() *pb.HolePunchAttempt {
 		Error:           &hpa.Error,
 		DirectDialError: &hpa.DirectDialError,
 		Outcome:         &hpa.Outcome,
+		MultiAddresses:  maddrs,
 	}
 }
 

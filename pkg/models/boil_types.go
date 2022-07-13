@@ -82,7 +82,6 @@ const (
 
 // Enum values for hole_punch_multi_address_relationship
 const (
-	HolePunchMultiAddressRelationshipLISTEN  = "LISTEN"
 	HolePunchMultiAddressRelationshipINITIAL = "INITIAL"
 	HolePunchMultiAddressRelationshipFINAL   = "FINAL"
 )
