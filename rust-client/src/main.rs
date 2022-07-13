@@ -22,11 +22,15 @@ use libp2p::tcp::TcpConfig;
 use libp2p::Transport;
 use libp2p::{identity, PeerId};
 use log::{info, warn};
+use rustls::client::{
+    ClientConfig, HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
+};
 use std::convert::TryInto;
 use std::env;
 use std::net::Ipv4Addr;
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod grpc {
@@ -73,8 +77,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let opt = Opt::parse();
 
-    let mut client =
-        grpc::punchr_service_client::PunchrServiceClient::connect(opt.url.clone()).await?;
+    // Custom tls client config that accepts all certificates.
+    let tls = ClientConfig::builder()
+        .with_safe_defaults()
+        .with_custom_certificate_verifier(Arc::new(DummyVerifyAll))
+        .with_no_client_auth();
+    let connector = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_tls_config(tls)
+        .https_or_http()
+        .enable_http2()
+        .build();
+    let conn = tonic::transport::Endpoint::new(opt.url.clone())?
+        .connect_with_connector(connector)
+        .await?;
+    let mut client = grpc::punchr_service_client::PunchrServiceClient::new(conn);
 
     info!("Connected to server {}.", opt.url);
 
@@ -560,5 +576,40 @@ impl From<Either<(), client::Event>> for Event {
 impl From<dcutr::behaviour::Event> for Event {
     fn from(e: dcutr::behaviour::Event) -> Self {
         Event::Dcutr(e)
+    }
+}
+
+/// Dummy TLS Server verifier that approves all server certificates.
+struct DummyVerifyAll;
+
+impl ServerCertVerifier for DummyVerifyAll {
+    fn verify_server_cert(
+        &self,
+        _: &rustls::Certificate,
+        _: &[rustls::Certificate],
+        _: &rustls::ServerName,
+        _: &mut dyn Iterator<Item = &[u8]>,
+        _: &[u8],
+        _: std::time::SystemTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _: &[u8],
+        _: &rustls::Certificate,
+        _: &rustls::internal::msgs::handshake::DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _: &[u8],
+        _: &rustls::Certificate,
+        _: &rustls::internal::msgs::handshake::DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
     }
 }
