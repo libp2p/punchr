@@ -101,6 +101,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut protocols = None;
 
     let mut iterations = opt.rounds.map(|r| (0, r));
+
+    #[allow(clippy::blocks_in_if_conditions)]
     while iterations
         .as_mut()
         .map(|(i, r)| {
@@ -147,18 +149,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(Multiaddr::try_from)
             .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
 
+        let filter_remote_addrs: Vec<Multiaddr> = remote_addrs
+            .into_iter()
+            .filter(|a| !a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
+            .collect();
+
         let state = HolePunchState::new(
             local_peer_id,
             swarm.listeners(),
             remote_peer_id,
-            remote_addrs.clone(),
+            filter_remote_addrs.iter().map(|a| a.to_vec()).collect(),
             api_key.clone(),
         );
 
-        if remote_addrs
-            .iter()
-            .all(|a| a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
-        {
+        if filter_remote_addrs.is_empty() {
             let request = state.cancel();
             client
                 .track_hole_punch(tonic::Request::new(request))
@@ -168,12 +172,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         info!(
             "Attempting to punch through to {:?} via {:?}.",
-            remote_peer_id, remote_addrs
+            remote_peer_id, filter_remote_addrs
         );
 
         swarm.dial(
             DialOpts::peer_id(remote_peer_id)
-                .addresses(remote_addrs)
+                .addresses(filter_remote_addrs)
                 .build(),
         )?;
 
@@ -277,16 +281,13 @@ impl HolePunchState {
         client_id: PeerId,
         client_listen_addrs: impl Iterator<Item = &'a Multiaddr>,
         remote_id: PeerId,
-        remote_multi_addresses: Vec<Multiaddr>,
+        remote_multi_addresses: Vec<Vec<u8>>,
         api_key: String,
     ) -> Self {
         let request = grpc::TrackHolePunchRequest {
             client_id: client_id.into(),
             remote_id: remote_id.into(),
-            remote_multi_addresses: remote_multi_addresses
-                .into_iter()
-                .map(|a| a.to_vec())
-                .collect(),
+            remote_multi_addresses,
             open_multi_addresses: Vec::new(),
             has_direct_conns: false,
             connect_started_at: unix_time_now(),
@@ -308,7 +309,7 @@ impl HolePunchState {
     fn cancel(mut self) -> grpc::TrackHolePunchRequest {
         info!(
             "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported.",
-            self.request.remote_id, self.request.remote_multi_addresses
+            self.remote_id, self.request.remote_multi_addresses.iter().map(|a| Multiaddr::try_from(a.clone()).unwrap()).collect::<Vec<_>>()
         );
         let unix_time_now = unix_time_now();
         self.request.connect_ended_at = unix_time_now;
@@ -386,8 +387,10 @@ impl HolePunchState {
         self.request.error = error;
         self.request.ended_at = unix_time_now();
         info!(
-            "Finished whole hole punching process with outcome: {:?}, error: {:?}",
-            self.request.outcome, self.request.error
+            "Finished whole hole punching process: attempts: {:?}, outcome: {:?}, error: {:?}",
+            self.request.hole_punch_attempts.len(),
+            self.request.outcome,
+            self.request.error
         );
         self.request
     }
