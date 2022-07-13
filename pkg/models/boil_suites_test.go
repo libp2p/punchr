@@ -216,11 +216,13 @@ func TestOneToOne(t *testing.T) {}
 func TestToMany(t *testing.T) {
 	t.Run("AuthorizationToClients", testAuthorizationToManyClients)
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyMultiAddresses)
+	t.Run("HolePunchAttemptToMultiAddresses", testHolePunchAttemptToManyMultiAddresses)
 	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyHolePunchAttempts)
 	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyHolePunchResultsXMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyMultiAddresses)
 	t.Run("MultiAddressToConnectionMultiAddressConnectionEvents", testMultiAddressToManyConnectionMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyConnectionEvents)
+	t.Run("MultiAddressToHolePunchAttempts", testMultiAddressToManyHolePunchAttempts)
 	t.Run("MultiAddressToHolePunchResultsXMultiAddresses", testMultiAddressToManyHolePunchResultsXMultiAddresses)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyIPAddresses)
 	t.Run("MultiAddressesSetToListenMultiAddressesSetHolePunchResults", testMultiAddressesSetToManyListenMultiAddressesSetHolePunchResults)
@@ -266,11 +268,13 @@ func TestOneToOneRemove(t *testing.T) {}
 func TestToManyAdd(t *testing.T) {
 	t.Run("AuthorizationToClients", testAuthorizationToManyAddOpClients)
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyAddOpMultiAddresses)
+	t.Run("HolePunchAttemptToMultiAddresses", testHolePunchAttemptToManyAddOpMultiAddresses)
 	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyAddOpHolePunchAttempts)
 	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyAddOpHolePunchResultsXMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyAddOpMultiAddresses)
 	t.Run("MultiAddressToConnectionMultiAddressConnectionEvents", testMultiAddressToManyAddOpConnectionMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyAddOpConnectionEvents)
+	t.Run("MultiAddressToHolePunchAttempts", testMultiAddressToManyAddOpHolePunchAttempts)
 	t.Run("MultiAddressToHolePunchResultsXMultiAddresses", testMultiAddressToManyAddOpHolePunchResultsXMultiAddresses)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyAddOpIPAddresses)
 	t.Run("MultiAddressesSetToListenMultiAddressesSetHolePunchResults", testMultiAddressesSetToManyAddOpListenMultiAddressesSetHolePunchResults)
@@ -286,8 +290,10 @@ func TestToManyAdd(t *testing.T) {
 // or deadlocks can occur.
 func TestToManySet(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManySetOpMultiAddresses)
+	t.Run("HolePunchAttemptToMultiAddresses", testHolePunchAttemptToManySetOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManySetOpMultiAddresses)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManySetOpConnectionEvents)
+	t.Run("MultiAddressToHolePunchAttempts", testMultiAddressToManySetOpHolePunchAttempts)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManySetOpIPAddresses)
 }
 
@@ -295,8 +301,10 @@ func TestToManySet(t *testing.T) {
 // or deadlocks can occur.
 func TestToManyRemove(t *testing.T) {
 	t.Run("ConnectionEventToMultiAddresses", testConnectionEventToManyRemoveOpMultiAddresses)
+	t.Run("HolePunchAttemptToMultiAddresses", testHolePunchAttemptToManyRemoveOpMultiAddresses)
 	t.Run("IPAddressToMultiAddresses", testIPAddressToManyRemoveOpMultiAddresses)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyRemoveOpConnectionEvents)
+	t.Run("MultiAddressToHolePunchAttempts", testMultiAddressToManyRemoveOpHolePunchAttempts)
 	t.Run("MultiAddressToIPAddresses", testMultiAddressToManyRemoveOpIPAddresses)
 }
 

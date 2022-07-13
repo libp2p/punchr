@@ -777,7 +777,7 @@ func testHolePunchResultsXMultiAddressesSelect(t *testing.T) {
 }
 
 var (
-	holePunchResultsXMultiAddressDBTypes = map[string]string{`HolePunchResultID`: `integer`, `MultiAddressID`: `bigint`, `Relationship`: `enum.hole_punch_multi_address_relationship('LISTEN','INITIAL','FINAL')`}
+	holePunchResultsXMultiAddressDBTypes = map[string]string{`HolePunchResultID`: `integer`, `MultiAddressID`: `bigint`, `Relationship`: `enum.hole_punch_multi_address_relationship('INITIAL','FINAL')`}
 	_                                    = bytes.MinRead
 )
 

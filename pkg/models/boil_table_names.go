@@ -9,6 +9,7 @@ var TableNames = struct {
 	ConnectionEvents                string
 	ConnectionEventsXMultiAddresses string
 	HolePunchAttempt                string
+	HolePunchAttemptXMultiAddresses string
 	HolePunchResults                string
 	HolePunchResultsXMultiAddresses string
 	IPAddresses                     string
@@ -23,6 +24,7 @@ var TableNames = struct {
 	ConnectionEvents:                "connection_events",
 	ConnectionEventsXMultiAddresses: "connection_events_x_multi_addresses",
 	HolePunchAttempt:                "hole_punch_attempt",
+	HolePunchAttemptXMultiAddresses: "hole_punch_attempt_x_multi_addresses",
 	HolePunchResults:                "hole_punch_results",
 	HolePunchResultsXMultiAddresses: "hole_punch_results_x_multi_addresses",
 	IPAddresses:                     "ip_addresses",
