@@ -1,5 +1,4 @@
 use clap::Parser;
-use either::Either;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
@@ -11,14 +10,13 @@ use libp2p::dns::DnsConfig;
 use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::noise;
 use libp2p::ping::{Ping, PingConfig, PingEvent};
-use libp2p::relay::v1::{new_transport_and_behaviour, Relay, RelayConfig};
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{
     ConnectionHandlerUpgrErr, IntoConnectionHandler, NetworkBehaviour, Swarm, SwarmBuilder,
     SwarmEvent,
 };
-use libp2p::tcp::TcpConfig;
+use libp2p::tcp::{TcpTransport, GenTcpConfig};
 use libp2p::Transport;
 use libp2p::{identity, PeerId};
 use log::{info, warn};
@@ -49,11 +47,6 @@ struct Opt {
     /// Fixed value to generate deterministic peer id.
     #[clap(long)]
     secret_key_seed: u8,
-
-    /// If set to `true`, use relay-v1 protocol.
-    /// Per default relay-v2 is used.
-    #[clap(long)]
-    relay_v1: bool,
 
     /// Number of iterations to run.
     /// Will loop eternally if set to `None`.
@@ -111,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .unwrap_or(true)
     {
-        let mut swarm = init_swarm(local_key.clone(), opt.relay_v1).await?;
+        let mut swarm = init_swarm(local_key.clone()).await?;
         if protocols.is_none() {
             let supported_protocols = swarm
                 .behaviour_mut()
@@ -195,7 +188,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn init_swarm(
     local_key: identity::Keypair,
-    use_relay_v1: bool,
 ) -> Result<Swarm<Behaviour>, Box<dyn std::error::Error>> {
     let local_peer_id = PeerId::from(local_key.public());
 
@@ -203,30 +195,17 @@ async fn init_swarm(
         .into_authentic(&local_key)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let relay_behaviour;
-    let transport = if use_relay_v1 {
-        let transport = DnsConfig::system(TcpConfig::new().port_reuse(true)).await?;
-        let (relay_transport, behaviour) =
-            new_transport_and_behaviour(RelayConfig::default(), transport);
-        relay_behaviour = Either::Left(behaviour);
-        relay_transport
-            .upgrade(upgrade::Version::V1)
-            .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-            .multiplex(libp2p::yamux::YamuxConfig::default())
-            .boxed()
-    } else {
-        let (relay_transport, relay_client) = Client::new_transport_and_behaviour(local_peer_id);
-        relay_behaviour = Either::Right(relay_client);
 
-        OrTransport::new(
-            relay_transport,
-            DnsConfig::system(TcpConfig::new().port_reuse(true)).await?,
-        )
-        .upgrade(upgrade::Version::V1)
-        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-        .multiplex(libp2p::yamux::YamuxConfig::default())
-        .boxed()
-    };
+    let (relay_transport, relay_behaviour) = Client::new_transport_and_behaviour(local_peer_id);
+
+    let transport = OrTransport::new(
+        relay_transport,
+        DnsConfig::system(TcpTransport::new(GenTcpConfig::new().port_reuse(true))).await?,
+    )
+    .upgrade(upgrade::Version::V1)
+    .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+    .multiplex(libp2p::yamux::YamuxConfig::default())
+    .boxed();
 
     let identify_config = IdentifyConfig::new("/ipfs/0.1.0".to_string(), local_key.public())
         .with_agent_version(agent_version());
@@ -543,7 +522,7 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
 #[derive(libp2p::NetworkBehaviour)]
 #[behaviour(out_event = "Event", event_process = false)]
 struct Behaviour {
-    relay: Either<Relay, Client>,
+    relay: Client,
     ping: Ping,
     identify: Identify,
     dcutr: dcutr::behaviour::Behaviour,
@@ -554,7 +533,7 @@ struct Behaviour {
 enum Event {
     Ping(PingEvent),
     Identify(IdentifyEvent),
-    Relay(Either<(), client::Event>),
+    Relay(client::Event),
     Dcutr(dcutr::behaviour::Event),
 }
 
@@ -570,8 +549,8 @@ impl From<IdentifyEvent> for Event {
     }
 }
 
-impl From<Either<(), client::Event>> for Event {
-    fn from(e: Either<(), client::Event>) -> Self {
+impl From<client::Event> for Event {
+    fn from(e: client::Event) -> Self {
         Event::Relay(e)
     }
 }
