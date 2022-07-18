@@ -119,7 +119,7 @@ func (p Punchr) Bootstrap(ctx context.Context) error {
 	if successes >= 3 || successes == int32(len(p.hosts)) {
 		return nil
 	} else {
-		return fmt.Errorf("could not connect to at least three hosts")
+		return fmt.Errorf("could not connect to enough hosts")
 	}
 }
 
