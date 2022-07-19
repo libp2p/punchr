@@ -346,7 +346,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 	defer db.DeferRollback(txn)
 
-	dbAttempts := make([]*models.HolePunchAttempt, len(req.HolePunchAttempts))
+	dbhpas := make([]*models.HolePunchAttempt, len(req.HolePunchAttempts))
 	for i, hpa := range req.HolePunchAttempts {
 		if hpa.OpenedAt == nil {
 			return nil, errors.Wrapf(err, "opened at in attempt %d is nil", i)
@@ -371,21 +371,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			startedAt = &t
 		}
 
-		maddrs := make([]multiaddr.Multiaddr, len(hpa.MultiAddresses))
-		for j, maddrBytes := range hpa.MultiAddresses {
-			maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
-			if err != nil {
-				return nil, errors.Wrap(err, "hole punch attempt multi addr from bytes")
-			}
-			maddrs[j] = maddr
-		}
-
-		dbMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, maddrs)
-		if err != nil {
-			return nil, errors.Wrap(err, "hole punch attempt multi addresses")
-		}
-
-		dbhpa := &models.HolePunchAttempt{
+		dbhpas[i] = &models.HolePunchAttempt{
 			OpenedAt:        time.Unix(0, int64(*hpa.OpenedAt)),
 			StartedAt:       null.TimeFromPtr(startedAt),
 			EndedAt:         time.Unix(0, int64(*hpa.EndedAt)),
@@ -395,12 +381,6 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			Error:           null.NewString(hpa.GetError(), hpa.GetError() != ""),
 			DirectDialError: null.NewString(hpa.GetDirectDialError(), hpa.GetDirectDialError() != ""),
 		}
-
-		if err = dbhpa.SetMultiAddresses(ctx, txn, false, dbMaddrs...); err != nil {
-			return nil, errors.Wrap(err, "upsert listen multi addresses")
-		}
-
-		dbAttempts[i] = dbhpa
 	}
 
 	lmaddrs := make([]multiaddr.Multiaddr, len(req.ListenMultiAddresses))
@@ -438,8 +418,28 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "insert hole punch result")
 	}
 
-	if err = hpr.AddHolePunchAttempts(ctx, txn, true, dbAttempts...); err != nil {
+	if err = hpr.AddHolePunchAttempts(ctx, txn, true, dbhpas...); err != nil {
 		return nil, errors.Wrap(err, "add attempts to hole punch result")
+	}
+
+	for i, hpa := range req.HolePunchAttempts {
+		hpamaddrs := make([]multiaddr.Multiaddr, len(hpa.MultiAddresses))
+		for j, maddrBytes := range hpa.MultiAddresses {
+			maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
+			if err != nil {
+				return nil, errors.Wrap(err, "hole punch attempt multi addr from bytes")
+			}
+			hpamaddrs[j] = maddr
+		}
+
+		dbHPAMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, hpamaddrs)
+		if err != nil {
+			return nil, errors.Wrap(err, "hole punch attempt multi addresses")
+		}
+
+		if err = dbhpas[i].SetMultiAddresses(ctx, txn, false, dbHPAMaddrs...); err != nil {
+			return nil, errors.Wrap(err, "upsert hole punch attempt multi addresses")
+		}
 	}
 
 	omaddrs := make([]multiaddr.Multiaddr, len(req.OpenMultiAddresses))
