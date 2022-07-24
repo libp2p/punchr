@@ -172,7 +172,28 @@ Resource requirements:
 
 ### `rust-client`
 
-**TODO**
+Rust implementation of the punchr client.
+
+Help output:
+```
+Rust Punchr Client 0.1.0
+
+USAGE:
+    rust-client [OPTIONS]
+
+OPTIONS:
+    -h, --help                         Print help information
+        --pem <PATH_TO_PEM_FILE>       Path to PEM encoded CA certificate against which the server's
+                                       TLS certificate is verified [default: hardcoded CA
+                                       certificate for punchr.dtrautwein.eu]
+        --rounds <NUMBER_OF_ROUNDS>    Only run a fixed number of rounds
+        --seed <SECRET_KEY_SEED>       Fixed value to generate a deterministic peer id
+        --server <SERVER_URL>          URL and port of the punchr server. Note that the scheme ist
+                                       required [default: https://punchr.dtrautwein.eu:443]
+    -V, --version                      Print version information
+
+Note: The api key for authentication is read from env value "API_KEY".
+```
 
 ## Install
 

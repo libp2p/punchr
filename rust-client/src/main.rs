@@ -51,16 +51,16 @@ struct Opt {
     )]
     server: String,
 
-    /// Path to a file with the pem encoded TLS Certificate of the server
-    /// [default: hardcoded CERTIFICATE for punchr.dtrautwein.eu]
+    /// Path to PEM encoded CA certificate against which the server's TLS certificate is verified
+    /// [default: hardcoded CA certificate for punchr.dtrautwein.eu]
     #[clap(long, name = "PATH_TO_PEM_FILE")]
     pem: Option<String>,
 
-    /// Fixed value to generate deterministic peer id.
+    /// Fixed value to generate a deterministic peer id.
     #[clap(long, name = "SECRET_KEY_SEED")]
     seed: Option<u8>,
 
-    /// Only run a limited number of rounds.
+    /// Only run a fixed number of rounds.
     #[clap(long, name = "NUMBER_OF_ROUNDS")]
     rounds: Option<usize>,
 }
