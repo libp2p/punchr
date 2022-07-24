@@ -10,8 +10,6 @@ env_logger = "0.9"
 either = "1.6.1"
 futures = "0.3"
 futures-timer = "2"
-hyper = "0.14.20" 
-hyper-rustls = { version = "0.23.0", features = ["http2"] }
 libp2p = { version = "0.46.1", default-features = false, features = ["dcutr", "dns-async-std", "identify", "noise", "relay", "ping", "tcp-async-io", "yamux"] }
 log = "0.4"
 prost = "0.9"
