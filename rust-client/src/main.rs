@@ -16,20 +16,17 @@ use libp2p::swarm::{
     ConnectionHandlerUpgrErr, IntoConnectionHandler, NetworkBehaviour, Swarm, SwarmBuilder,
     SwarmEvent,
 };
-use libp2p::tcp::{TcpTransport, GenTcpConfig};
+use libp2p::tcp::{GenTcpConfig, TcpTransport};
 use libp2p::Transport;
 use libp2p::{identity, PeerId};
 use log::{info, warn};
-use rustls::client::{
-    ClientConfig, HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
-};
 use std::convert::TryInto;
 use std::env;
 use std::net::Ipv4Addr;
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tonic::transport::{Certificate, ClientTlsConfig, Endpoint};
 
 pub mod grpc {
     tonic::include_proto!("_");
@@ -40,17 +37,31 @@ fn agent_version() -> String {
 }
 
 #[derive(Parser, Debug)]
+#[clap(
+    name = "Rust Punchr Client",
+    version,
+    after_help = "Note: The api key for authentication is read from env value \"API_KEY\"."
+)]
 struct Opt {
-    #[clap(long)]
-    url: String,
+    /// URL and port of the punchr server. Note that the scheme ist required.
+    #[clap(
+        long,
+        name = "SERVER_URL",
+        default_value = "https://punchr.dtrautwein.eu:443"
+    )]
+    server: String,
+
+    /// Path to a file with the pem encoded TLS Certificate of the server
+    /// [default: hardcoded CERTIFICATE for punchr.dtrautwein.eu]
+    #[clap(long, name = "PATH_TO_PEM_FILE")]
+    pem: Option<String>,
 
     /// Fixed value to generate deterministic peer id.
-    #[clap(long)]
-    secret_key_seed: u8,
+    #[clap(long, name = "SECRET_KEY_SEED")]
+    seed: Option<u8>,
 
-    /// Number of iterations to run.
-    /// Will loop eternally if set to `None`.
-    #[clap(long)]
+    /// Only run a limited number of rounds.
+    #[clap(long, name = "NUMBER_OF_ROUNDS")]
     rounds: Option<usize>,
 }
 
@@ -70,24 +81,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let opt = Opt::parse();
 
-    // Custom tls client config that accepts all certificates.
-    let tls = ClientConfig::builder()
-        .with_safe_defaults()
-        .with_custom_certificate_verifier(Arc::new(DummyVerifyAll))
-        .with_no_client_auth();
-    let connector = hyper_rustls::HttpsConnectorBuilder::new()
-        .with_tls_config(tls)
-        .https_or_http()
-        .enable_http2()
-        .build();
-    let conn = tonic::transport::Endpoint::new(opt.url.clone())?
-        .connect_with_connector(connector)
+    let pem = match opt.pem {
+        Some(path) => tokio::fs::read(path).await?,
+        None => CERTIFICATE.into(),
+    };
+
+    // We have to manually set the CA certificate again which the server certificate is
+    // verified, otherwise the rustls WebPKI verifier will reject the server certificate.
+    let tls = ClientTlsConfig::new().ca_certificate(Certificate::from_pem(pem));
+    let channel = Endpoint::from_shared(opt.server.clone())?
+        .tls_config(tls)?
+        .connect()
         .await?;
-    let mut client = grpc::punchr_service_client::PunchrServiceClient::new(conn);
+    let mut client = grpc::punchr_service_client::PunchrServiceClient::new(channel);
 
-    info!("Connected to server {}.", opt.url);
+    info!("Connected to server {}.", opt.server);
 
-    let local_key = generate_ed25519(opt.secret_key_seed);
+    let local_key = generate_ed25519(opt.seed);
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
 
@@ -194,7 +204,6 @@ async fn init_swarm(
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&local_key)
         .expect("Signing libp2p-noise static DH keypair failed.");
-
 
     let (relay_transport, relay_behaviour) = Client::new_transport_and_behaviour(local_peer_id);
 
@@ -510,13 +519,18 @@ impl HolePunchAttemptState {
     }
 }
 
-fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
-    let mut bytes = [0u8; 32];
-    bytes[0] = secret_key_seed;
-
-    let secret_key = identity::ed25519::SecretKey::from_bytes(&mut bytes)
-        .expect("this returns `Err` only if the length is wrong; the length is correct; qed");
-    identity::Keypair::Ed25519(secret_key.into())
+fn generate_ed25519(secret_key_seed: Option<u8>) -> identity::Keypair {
+    match secret_key_seed {
+        Some(seed) => {
+            let mut bytes = [0u8; 32];
+            bytes[0] = seed;
+            let secret_key = identity::ed25519::SecretKey::from_bytes(&mut bytes).expect(
+                "this returns `Err` only if the length is wrong; the length is correct; qed",
+            );
+            identity::Keypair::Ed25519(secret_key.into())
+        }
+        None => identity::Keypair::generate_ed25519(),
+    }
 }
 
 #[derive(libp2p::NetworkBehaviour)]
@@ -561,37 +575,36 @@ impl From<dcutr::behaviour::Event> for Event {
     }
 }
 
-/// Dummy TLS Server verifier that approves all server certificates.
-struct DummyVerifyAll;
-
-impl ServerCertVerifier for DummyVerifyAll {
-    fn verify_server_cert(
-        &self,
-        _: &rustls::Certificate,
-        _: &[rustls::Certificate],
-        _: &rustls::ServerName,
-        _: &mut dyn Iterator<Item = &[u8]>,
-        _: &[u8],
-        _: std::time::SystemTime,
-    ) -> Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _: &[u8],
-        _: &rustls::Certificate,
-        _: &rustls::internal::msgs::handshake::DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _: &[u8],
-        _: &rustls::Certificate,
-        _: &rustls::internal::msgs::handshake::DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-}
+/// PEM encoded X509 certificate from ISRG Root X1.
+/// This is the root CA certificate for punchr.dtrautwein.eu.
+const CERTIFICATE: &str = "-----BEGIN CERTIFICATE-----
+MIIFYDCCBEigAwIBAgIQQAF3ITfU6UK47naqPGQKtzANBgkqhkiG9w0BAQsFADA/
+MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT
+DkRTVCBSb290IENBIFgzMB4XDTIxMDEyMDE5MTQwM1oXDTI0MDkzMDE4MTQwM1ow
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwggIiMA0GCSqGSIb3DQEB
+AQUAA4ICDwAwggIKAoICAQCt6CRz9BQ385ueK1coHIe+3LffOJCMbjzmV6B493XC
+ov71am72AE8o295ohmxEk7axY/0UEmu/H9LqMZshftEzPLpI9d1537O4/xLxIZpL
+wYqGcWlKZmZsj348cL+tKSIG8+TA5oCu4kuPt5l+lAOf00eXfJlII1PoOK5PCm+D
+LtFJV4yAdLbaL9A4jXsDcCEbdfIwPPqPrt3aY6vrFk/CjhFLfs8L6P+1dy70sntK
+4EwSJQxwjQMpoOFTJOwT2e4ZvxCzSow/iaNhUd6shweU9GNx7C7ib1uYgeGJXDR5
+bHbvO5BieebbpJovJsXQEOEO3tkQjhb7t/eo98flAgeYjzYIlefiN5YNNnWe+w5y
+sR2bvAP5SQXYgd0FtCrWQemsAXaVCg/Y39W9Eh81LygXbNKYwagJZHduRze6zqxZ
+Xmidf3LWicUGQSk+WT7dJvUkyRGnWqNMQB9GoZm1pzpRboY7nn1ypxIFeFntPlF4
+FQsDj43QLwWyPntKHEtzBRL8xurgUBN8Q5N0s8p0544fAQjQMNRbcTa0B7rBMDBc
+SLeCO5imfWCKoqMpgsy6vYMEG6KDA0Gh1gXxG8K28Kh8hjtGqEgqiNx2mna/H2ql
+PRmP6zjzZN7IKw0KKP/32+IVQtQi0Cdd4Xn+GOdwiK1O5tmLOsbdJ1Fu/7xk9TND
+TwIDAQABo4IBRjCCAUIwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYw
+SwYIKwYBBQUHAQEEPzA9MDsGCCsGAQUFBzAChi9odHRwOi8vYXBwcy5pZGVudHJ1
+c3QuY29tL3Jvb3RzL2RzdHJvb3RjYXgzLnA3YzAfBgNVHSMEGDAWgBTEp7Gkeyxx
++tvhS5B1/8QVYIWJEDBUBgNVHSAETTBLMAgGBmeBDAECATA/BgsrBgEEAYLfEwEB
+ATAwMC4GCCsGAQUFBwIBFiJodHRwOi8vY3BzLnJvb3QteDEubGV0c2VuY3J5cHQu
+b3JnMDwGA1UdHwQ1MDMwMaAvoC2GK2h0dHA6Ly9jcmwuaWRlbnRydXN0LmNvbS9E
+U1RST09UQ0FYM0NSTC5jcmwwHQYDVR0OBBYEFHm0WeZ7tuXkAXOACIjIGlj26Ztu
+MA0GCSqGSIb3DQEBCwUAA4IBAQAKcwBslm7/DlLQrt2M51oGrS+o44+/yQoDFVDC
+5WxCu2+b9LRPwkSICHXM6webFGJueN7sJ7o5XPWioW5WlHAQU7G75K/QosMrAdSW
+9MUgNTP52GE24HGNtLi1qoJFlcDyqSMo59ahy2cI2qBDLKobkx/J3vWraV0T9VuG
+WCLKTVXkcGdtwlfFRjlBz4pYg1htmf5X6DYO8A4jqv2Il9DjXA6USbW1FzXSLr9O
+he8Y4IWS6wY7bCkjCWDcRQJMEhg76fsO3txE+FiYruq9RUWhiF1myv4Q6W+CyBFC
+Dfvp7OOGAN6dEOM4+qR9sdjoSYKEBpsr6GtPAQw4dy753ec5
+-----END CERTIFICATE-----";
