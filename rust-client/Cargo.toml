@@ -16,7 +16,6 @@ libp2p = { version = "0.46.1", default-features = false, features = ["dcutr", "d
 log = "0.4"
 prost = "0.9"
 clap = { version = "3.1.6", features = ["derive"]}
-rustls = { version = "0.20.6", features = ["dangerous_configuration"] }
 tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
 tonic = { version = "0.6", features = ["tls"] }
 
