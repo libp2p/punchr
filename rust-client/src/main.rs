@@ -13,8 +13,8 @@ use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{
-    ConnectionHandlerUpgrErr, IntoConnectionHandler, NetworkBehaviour, Swarm, SwarmBuilder,
-    SwarmEvent,
+    ConnectionHandlerUpgrErr, DialError, IntoConnectionHandler, NetworkBehaviour, Swarm,
+    SwarmBuilder, SwarmEvent,
 };
 use libp2p::tcp::{GenTcpConfig, TcpTransport};
 use libp2p::Transport;
@@ -327,12 +327,20 @@ impl HolePunchState {
                     peer_id,
                     endpoint,
                     num_established,
+                    concurrent_dial_errors,
                     ..
                 } => {
                     info!("Established connection to {:?} via {:?}", peer_id, endpoint);
                     if peer_id == self.remote_id {
+                        let failed = concurrent_dial_errors
+                            .map(|e| {
+                                e.into_iter()
+                                    .map(|(addr, _err)| addr.to_vec())
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or_default();
                         if let ControlFlow::Break((outcome, error)) =
-                            self.handle_established_connection(endpoint, num_established)
+                            self.handle_established_connection(endpoint, num_established, failed)
                         {
                             break (outcome, error);
                         }
@@ -340,10 +348,17 @@ impl HolePunchState {
                 }
                 SwarmEvent::OutgoingConnectionError { peer_id, error } => {
                     info!("Outgoing connection error to {:?}: {:?}", peer_id, error);
+                    let addresses = match error {
+                        DialError::Transport(dials) => dials
+                            .into_iter()
+                            .map(|(addr, _err)| addr.to_vec())
+                            .collect(),
+                        _ => Default::default(),
+                    };
                     if peer_id == Some(self.remote_id) {
                         let is_connected = swarm.is_connected(&self.remote_id);
                         if let ControlFlow::Break((outcome, error)) =
-                            self.handle_connection_error(is_connected)
+                            self.handle_connection_error(is_connected, addresses)
                         {
                             break (outcome, error);
                         }
@@ -392,6 +407,7 @@ impl HolePunchState {
                 self.active_holepunch_attempt = Some(HolePunchAttemptState {
                     opened_at: self.request.connect_ended_at,
                     started_at: unix_time_now(),
+                    addresses: vec![],
                 });
             }
             dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded { .. } => {
@@ -437,6 +453,7 @@ impl HolePunchState {
         &mut self,
         endpoint: ConnectedPoint,
         num_established: NonZeroU32,
+        mut failed_addrs: Vec<Vec<u8>>,
     ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
         if num_established == NonZeroU32::new(1).expect("1 != 0") {
             self.request.connect_ended_at = unix_time_now();
@@ -449,10 +466,16 @@ impl HolePunchState {
         if !endpoint.is_relayed() {
             self.request.has_direct_conns = true;
         }
-
-        if self.active_holepunch_attempt.is_none() && !endpoint.is_relayed() {
-            // Reverse-dial succeeded.
-            return ControlFlow::Break((grpc::HolePunchOutcome::ConnectionReversed, None));
+        match self.active_holepunch_attempt.as_mut() {
+            Some(attempt) => {
+                failed_addrs.push(endpoint.get_remote_address().to_vec());
+                attempt.addresses.extend(failed_addrs)
+            }
+            None if !endpoint.is_relayed() => {
+                // Reverse-dial succeeded.
+                return ControlFlow::Break((grpc::HolePunchOutcome::ConnectionReversed, None));
+            }
+            _ => {}
         }
 
         ControlFlow::Continue(())
@@ -461,6 +484,7 @@ impl HolePunchState {
     fn handle_connection_error(
         &mut self,
         is_connected: bool,
+        failed_addresses: Vec<Vec<u8>>,
     ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
         if !is_connected {
             // Initial connection to the remote failed.
@@ -469,7 +493,8 @@ impl HolePunchState {
             return ControlFlow::Break((grpc::HolePunchOutcome::NoConnection, error));
         }
 
-        if let Some(attempt) = self.active_holepunch_attempt.take() {
+        if let Some(mut attempt) = self.active_holepunch_attempt.take() {
+            attempt.addresses.extend(failed_addresses);
             // Hole punch attempt failed. Up to 3 attempts may fail before the whole hole-punch
             // is considered as failed.
             let attempt_outcome = grpc::HolePunchAttemptOutcome::Failed;
@@ -493,6 +518,7 @@ fn unix_time_now() -> u64 {
 struct HolePunchAttemptState {
     opened_at: u64,
     started_at: u64,
+    addresses: Vec<Vec<u8>>,
 }
 
 impl HolePunchAttemptState {
@@ -515,6 +541,7 @@ impl HolePunchAttemptState {
             outcome: attempt_outcome.into(),
             error: attempt_error,
             direct_dial_error: None,
+            multi_addresses: self.addresses,
         }
     }
 }
