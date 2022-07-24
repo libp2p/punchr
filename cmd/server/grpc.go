@@ -339,6 +339,13 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "get remote peer from db")
 	}
 
+	// Start a database transaction
+	txn, err := s.DBClient.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "begin txn")
+	}
+	defer db.DeferRollback(txn)
+
 	dbAttempts := make([]*models.HolePunchAttempt, len(req.HolePunchAttempts))
 	for i, hpa := range req.HolePunchAttempts {
 		if hpa.OpenedAt == nil {
@@ -364,7 +371,21 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			startedAt = &t
 		}
 
-		dbAttempts[i] = &models.HolePunchAttempt{
+		maddrs := make([]multiaddr.Multiaddr, len(hpa.MultiAddresses))
+		for j, maddrBytes := range hpa.MultiAddresses {
+			maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
+			if err != nil {
+				return nil, errors.Wrap(err, "hole punch attempt multi addr from bytes")
+			}
+			maddrs[j] = maddr
+		}
+
+		dbMaddrs, err := s.DBClient.UpsertMultiAddresses(ctx, txn, maddrs)
+		if err != nil {
+			return nil, errors.Wrap(err, "hole punch attempt multi addresses")
+		}
+
+		dbhpa := &models.HolePunchAttempt{
 			OpenedAt:        time.Unix(0, int64(*hpa.OpenedAt)),
 			StartedAt:       null.TimeFromPtr(startedAt),
 			EndedAt:         time.Unix(0, int64(*hpa.EndedAt)),
@@ -374,14 +395,13 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			Error:           null.NewString(hpa.GetError(), hpa.GetError() != ""),
 			DirectDialError: null.NewString(hpa.GetDirectDialError(), hpa.GetDirectDialError() != ""),
 		}
-	}
 
-	// Start a database transaction
-	txn, err := s.DBClient.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "begin txn")
+		if err = dbhpa.SetMultiAddresses(ctx, txn, false, dbMaddrs...); err != nil {
+			return nil, errors.Wrap(err, "upsert listen multi addresses")
+		}
+
+		dbAttempts[i] = dbhpa
 	}
-	defer db.DeferRollback(txn)
 
 	lmaddrs := make([]multiaddr.Multiaddr, len(req.ListenMultiAddresses))
 	for i, maddrBytes := range req.ListenMultiAddresses {
