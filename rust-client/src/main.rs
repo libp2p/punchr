@@ -97,7 +97,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Connected to server {}.", opt.server);
 
-    let local_key = generate_ed25519(opt.seed);
+    let seed = opt.seed.unwrap_or_else(rand::random);
+    let local_key = generate_ed25519(seed);
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
 
@@ -546,18 +547,12 @@ impl HolePunchAttemptState {
     }
 }
 
-fn generate_ed25519(secret_key_seed: Option<u8>) -> identity::Keypair {
-    match secret_key_seed {
-        Some(seed) => {
-            let mut bytes = [0u8; 32];
-            bytes[0] = seed;
-            let secret_key = identity::ed25519::SecretKey::from_bytes(&mut bytes).expect(
-                "this returns `Err` only if the length is wrong; the length is correct; qed",
-            );
-            identity::Keypair::Ed25519(secret_key.into())
-        }
-        None => identity::Keypair::generate_ed25519(),
-    }
+fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
+    let mut bytes = [0u8; 32];
+    bytes[0] = secret_key_seed;
+    let secret_key = identity::ed25519::SecretKey::from_bytes(&mut bytes)
+        .expect("this returns `Err` only if the length is wrong; the length is correct; qed");
+    identity::Keypair::Ed25519(secret_key.into())
 }
 
 #[derive(libp2p::NetworkBehaviour)]
