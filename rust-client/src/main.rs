@@ -104,17 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut protocols = None;
 
-    let mut iterations = opt.rounds.map(|r| (0, r));
-
-    #[allow(clippy::blocks_in_if_conditions)]
-    while iterations
-        .as_mut()
-        .map(|(i, r)| {
-            *i += 1;
-            i <= r
-        })
-        .unwrap_or(true)
-    {
+    for _ in 0..opt.rounds.unwrap_or(usize::MAX) {
         let mut swarm = init_swarm(local_key.clone()).await?;
         if protocols.is_none() {
             let supported_protocols = swarm
