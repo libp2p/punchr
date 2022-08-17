@@ -288,8 +288,8 @@ If the client can't connect to bootstrap peers try this additional command line 
 
 ### NixOS
 
-If you're running NixOS, you can get the client systemd service with the NixOS
-Module included in the flake.
+If you're running NixOS, you can use the client option with the NixOS Module
+included in the flake.
 
 Usage:
 ```nix
