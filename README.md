@@ -264,6 +264,31 @@ If the client can't connect to bootstrap peers try this additional command line 
 --bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 ```
 
+#### NixOS
+
+If you're running NixOS, you can get the client systemd service with the NixOS
+Module included in the flake.
+
+Usage:
+```nix
+{
+  inputs.punchr = {
+    url = "github:dennis-tra/punchr";
+  };
+   # ...
+
+  outputs = inputs@{ self , nixpkgs }: {
+      # ...Inside NixOS config
+      {
+         imports = [ inputs.punchr.nixosModules.client ];
+         services.punchr-client.apiKey = "<API-KEY>";
+      }
+  };
+}
+```
+
+You can run the client by itself with `nix run github:dennis-tra/punchr#client`.
+
 ## Server
 
 Systemd service example at `/etc/systemd/system/punchr-server.service`:
