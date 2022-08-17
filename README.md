@@ -1,4 +1,4 @@
-# Punchr
+# Punchr <!-- omit in toc -->
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
@@ -19,7 +19,29 @@ Specifically, this repo contains:
 
 - [Register here](https://forms.gle/ueNS5iGQup6oszCQ8)
 
-## Table of Contents
+# Table of Contents <!-- omit in toc -->
+- [Background](#background)
+- [Outcomes](#outcomes)
+  - [Hole Punch Outcomes](#hole-punch-outcomes)
+  - [Hole Punch Attempt Outcomes](#hole-punch-attempt-outcomes)
+- [Components](#components)
+  - [`honeypot`](#honeypot)
+  - [`server`](#server)
+  - [`go-client`](#go-client)
+  - [`rust-client`](#rust-client)
+- [Install](#install)
+- [Development](#development)
+- [Deployment](#deployment)
+  - [Clients](#clients)
+    - [RaspberryPi](#raspberrypi)
+    - [NixOS](#nixos)
+- [Server](#server-1)
+- [Honeypot](#honeypot-1)
+- [Release](#release)
+  - [go-client](#go-client-1)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+- [License](#license)
 
 - [Table of Contents](#table-of-contents)
 - [Background](#background)
@@ -30,7 +52,7 @@ Specifically, this repo contains:
 - [Contributing](#contributing)
 - [License](#license)
 
-## Background
+# Background
 
 ![punchr flow diagram](./docs/punchr.drawio.png)
 
@@ -60,9 +82,9 @@ Any connection to a remote peer can consist of multiple attempts to hole punch a
 6. `FAILED` - We exchanged `CONNECT` and `SYNC` messages on the `/libp2p/dcutr` stream but the final direct connection attempt failed -> the hole punch was unsuccessful
 7. `SUCCESS` - We were able to directly connect to the remote peer.
 
-## Components
+# Components
 
-### `honeypot`
+## `honeypot`
 
 The honeypot operates as a DHT server and periodically walks the complete DHT to announce itself to the network. The idea is that other peers add the honeypot to their routing table. This increases the chances of peers behind NATs passing by the honeypot when they request information from the DHT network.
 
@@ -98,7 +120,7 @@ GLOBAL OPTIONS:
    --telemetry-port value  On which port should the telemetry (prometheus, pprof) server listen (default: 11001) [$PUNCHR_HONEYPOT_TELEMETRY_PORT]
    --version, -v           print the version (default: false)
 ```
-### `server`
+## `server`
 
 The server exposes a gRPC api that allows clients to query for recently seen NAT'ed DCUtR capable peers that can be probed and then report the result of the hole punching process back.
 
@@ -131,7 +153,7 @@ GLOBAL OPTIONS:
    --version, -v           print the version (default: false)
 ```
 
-### `go-client`
+## `go-client`
 
 The client announces itself to the server and then periodically queries the server for peers to hole punch. If the server returns address information the client connects to the remote peer via the relay and waits for the remote to initiate a hole punch. Finally, the outcome gets reported back to the server.
 
@@ -170,7 +192,7 @@ Resource requirements:
 - `Memory` - `~100MB`
 - `CPU` - `~2.5%`
 
-### `rust-client`
+## `rust-client`
 
 Rust implementation of the punchr client.
 
@@ -195,14 +217,14 @@ OPTIONS:
 Note: The api key for authentication is read from env value "API_KEY".
 ```
 
-## Install
+# Install
 
 Head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary or compile it yourself. 
 Run `make build` and find the executables in the `dist` folder. When running the honeypot or server the database migrations folder `./migrations` needs to be in the working directory of either process.
 
 The honeypot listens on port `10000`, the server on port `11000` and clients on `12000`. All components expose prometheus and pprof telemetry on `10001`, `11001`, and `12001` respectively.
 
-## Development
+# Development
 
 Run `make tools` to install all necessary tools for code generation (protobuf and database models). Specifically, this will run:
 
@@ -229,11 +251,11 @@ migrate create -ext sql -dir migrations -seq create_some_table
 make migrate-up
 ```
 
-## Deployment
+# Deployment
 
-### Clients
+## Clients
 
-#### RaspberryPi
+### RaspberryPi
 
 Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases). Then you could install a systemd service at `/etc/systemd/system/punchrclient.service`:
 
@@ -264,7 +286,7 @@ If the client can't connect to bootstrap peers try this additional command line 
 --bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 ```
 
-#### NixOS
+### NixOS
 
 If you're running NixOS, you can get the client systemd service with the NixOS
 Module included in the flake.
@@ -289,7 +311,7 @@ Usage:
 
 You can run the client by itself with `nix run github:dennis-tra/punchr#client`.
 
-## Server
+# Server
 
 Systemd service example at `/etc/systemd/system/punchr-server.service`:
 
@@ -314,7 +336,7 @@ To start the service run:
 sudo service punchr-client start
 ```
 
-## Honeypot
+# Honeypot
 
 Systemd service example at `/etc/systemd/system/punchr-honeypot.service`:
 
@@ -339,23 +361,23 @@ To start the service run:
 sudo service punchr-honeypot start
 ```
 
-## Release
+# Release
 
-### go-client
+## go-client
 
 Tag a commit with a semantic version and this will trigger a GitHub-Action. This will build go-client binaries for several platforms and create a new GitHub release.
 
-## Maintainers
+# Maintainers
 
 [@dennis-tra](https://github.com/dennis-tra)
 
 
-## Contributing
+# Contributing
 
 Feel free to dive in! [Open an issue](https://github.com/RichardLitt/standard-readme/issues/new) or submit PRs.
 
 Standard Readme follows the [Contributor Covenant](http://contributor-covenant.org/version/1/3/0/) Code of Conduct.
 
-## License
+# License
 
 [Apache License Version 2.0](LICENSE)
