@@ -304,6 +304,9 @@ Usage:
       {
          imports = [ inputs.punchr.nixosModules.client ];
          services.punchr-client.apiKey = "<API-KEY>";
+
+         # Make sure this is readable/writable by the `punchr` user or `punchr` group.
+         services.punchr-client.clientKeyFile = "/var/lib/punchr/client.keys"; # default value
       }
   };
 }
