@@ -35,20 +35,11 @@ Specifically, this repo contains:
   - [Clients](#clients)
     - [RaspberryPi](#raspberrypi)
     - [NixOS](#nixos)
-- [Server](#server-1)
-- [Honeypot](#honeypot-1)
+- [Server](#server)
+- [Honeypot](#honeypot)
 - [Release](#release)
-  - [go-client](#go-client-1)
+  - [go-client](#go-client)
 - [Maintainers](#maintainers)
-- [Contributing](#contributing)
-- [License](#license)
-
-- [Table of Contents](#table-of-contents)
-- [Background](#background)
-- [Install](#install)
-- [Usage](#usage)
-- [Deployment](#deployment)
-- [Release](#release)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -126,7 +117,7 @@ The server exposes a gRPC api that allows clients to query for recently seen NAT
 
 Help output:
 
-```shell
+```text
 NAME:
    punchrserver - A gRPC server that exposes peers to hole punch and tracks the results.
 
@@ -158,7 +149,7 @@ GLOBAL OPTIONS:
 The client announces itself to the server and then periodically queries the server for peers to hole punch. If the server returns address information the client connects to the remote peer via the relay and waits for the remote to initiate a hole punch. Finally, the outcome gets reported back to the server.
 
 Help output:
-```
+```text
 NAME:
    punchrclient - A libp2p host that is capable of DCUtR.
 
@@ -216,6 +207,12 @@ OPTIONS:
 
 Note: The api key for authentication is read from env value "API_KEY".
 ```
+
+Resource requirements:
+
+- `Storage` - `~12MB`
+- `Memory` - `~20MB`
+- `CPU` - `~0.2%`
 
 # Install
 
