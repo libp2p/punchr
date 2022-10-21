@@ -41,7 +41,18 @@ type Host struct {
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
+	nonDNS := []string{
+		"/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+		"/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+		"/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp",
+	}
+	nonDNSaddrInfo, err := parseBootstrapPeers(nonDNS)
+	if err != nil {
+		panic(err)
+	}
+
 	bpAddrInfos := kaddht.GetDefaultBootstrapPeerAddrInfos()
+	bpAddrInfos = append(nonDNSaddrInfo, bpAddrInfos...)
 	if c.IsSet("bootstrap-peers") {
 		addrInfos, err := parseBootstrapPeers(c.StringSlice("bootstrap-peers"))
 		if err != nil {
