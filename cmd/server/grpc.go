@@ -11,7 +11,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/lib/pq"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"

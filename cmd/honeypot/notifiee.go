@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/libp2p/go-libp2p-core/event"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
+	manet "github.com/multiformats/go-multiaddr/net"
+
+	"github.com/libp2p/go-libp2p/core/event"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -88,6 +90,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 
 	// Determine if there is at least one relay multi address and determine the database
+	// TODO: redundant with above
 	var connMaddrID int64
 	var hasRelayMaddr bool
 	for _, dbMaddr := range dbMaddrs {
