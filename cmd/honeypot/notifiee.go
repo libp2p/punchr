@@ -103,9 +103,12 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	// TODO: redundant with above
 	var connMaddrID int64
 	var hasRelayMaddr bool
+	var advertisedMaddrs []*models.MultiAddress
 	for _, dbMaddr := range dbMaddrs {
 		if dbMaddr.Maddr == conn.RemoteMultiaddr().String() {
 			connMaddrID = dbMaddr.ID
+		} else {
+			advertisedMaddrs = append(advertisedMaddrs, dbMaddr)
 		}
 		if dbMaddr.IsRelay {
 			hasRelayMaddr = true
@@ -127,7 +130,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 
 	// Associate multi addresses with this connection event
-	if err = dbConnEvt.SetMultiAddresses(h.ctx, txn, false, dbMaddrs...); err != nil {
+	if err = dbConnEvt.SetMultiAddresses(h.ctx, txn, false, advertisedMaddrs...); err != nil {
 		return errors.Wrap(err, "set connection event multi addresses")
 	}
 
