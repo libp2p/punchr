@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"sort"
 	"strconv"
 	"sync"
@@ -247,6 +249,19 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 		}
 	}()
 
+	// Wait for pings to finish
+	defer func() {
+		for _, ping := range hpState.Pings {
+			res := <-ping.Result
+			if res.Error == nil {
+				hpState.markMeasurement(ping.Type, ping.RemoteID, res.RTT)
+			}
+		}
+		for relays := range hpState.Relays {
+			hpState.estimateRtt(relays)
+		}
+	}()
+
 	// connect to the remote peer via relay
 	hpState.ConnectStartedAt = time.Now()
 	if err := h.Connect(ctx, addrInfo); err != nil {
@@ -258,6 +273,36 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	}
 	hpState.ConnectEndedAt = time.Now()
 	h.logEntry(addrInfo.ID).Infoln("Connected!")
+
+	//extract relay address
+	hpState.Relays = ExtractRelayInfo(addrInfo)
+	for relay := range hpState.Relays {
+		if h.Network().Connectedness(relay) == network.Connected {
+			hpState.Relays[relay].RelayAgentVersion = h.GetAgentVersion(relay)
+			hpState.Relays[relay].RelayProtocols = h.GetProtocols(relay)
+			hpState.Pings = append(hpState.Pings, &PingMeasurement{
+				RemoteID: relay,
+				Type:     ToRelay,
+				Result:   ping.Ping(ctx, h.Host, relay),
+			})
+		}
+	}
+	relays := make([]peer.ID, 0)
+	for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
+		relayId, _, err := ExtractRelayMaddr(conn.RemoteMultiaddr())
+		if err != nil {
+			continue
+		} else {
+			relays = append(relays, relayId)
+		}
+	}
+	if len(relays) == 1 {
+		hpState.Pings = append(hpState.Pings, &PingMeasurement{
+			RemoteID: relays[0],
+			Type:     ToRemoteThroughRelay,
+			Result:   ping.Ping(ctx, h.Host, addrInfo.ID),
+		})
+	}
 
 	// we were able to connect to the remote peer.
 	for i := 0; i < RetryCount; i++ {

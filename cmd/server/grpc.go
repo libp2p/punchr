@@ -12,10 +12,8 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -520,6 +518,11 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			return nil, errors.Wrap(err, "insert router information")
 		}
 	}
+	//Insert and update relay and rtt data.
+
+	//TODO upsert relay peer info on peer table
+
+	//TODO insert rtt measurements
 
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
 }

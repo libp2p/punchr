@@ -123,6 +123,12 @@ message TrackHolePunchRequest {
 
   // Protocols filtered by
   repeated int32 protocols = 15;
+
+  // Information about the relays
+  repeated RelayInfo relay_info = 16;
+
+  // rtt measurement for the remote peer after the hole punch
+  required float rtt = 17;
 }
 
 message TrackHolePunchResponse {}
@@ -179,4 +185,25 @@ enum HolePunchAttemptOutcome {
 
   // The hole punch was performed and was successful
   HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS = 6;
+}
+
+
+message RelayInfo {
+  // The relay peer ID
+  required bytes relay_id = 1;
+
+  // The relay agent_version
+  required string agent_version = 2;
+
+  // The relay protocols
+  repeated string protocols = 3;
+
+  // The relay multi address
+  repeated bytes relay_multi_addresses = 4;
+
+  // rtt measurement to the relay
+  required float rtt = 5;
+
+  // estimated rtt from the remote peer to the relay
+  required float estimated_remote_rtt = 6;
 }

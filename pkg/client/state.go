@@ -2,17 +2,105 @@ package client
 
 import (
 	"fmt"
+	"github.com/multiformats/go-multiaddr"
+	"strings"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
-	"github.com/multiformats/go-multiaddr"
+	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/punchr/pkg/pb"
 	"github.com/dennis-tra/punchr/pkg/util"
 )
+
+type pingMeasurementType int
+
+const (
+	ToRelay = iota
+	ToRemoteThroughRelay
+	ToRemoteAfterHolePunch
+)
+
+type PingMeasurement struct {
+	RemoteID peer.ID
+	Type     pingMeasurementType
+	Result   <-chan ping.Result
+}
+
+type RelayInfo struct {
+	RelayAgentVersion     *string
+	RelayProtocols        []string
+	RelayMaddrs           []multiaddr.Multiaddr
+	RelayRtt              time.Duration
+	RemoteRttThroughRelay time.Duration
+	//Estimated RTT (rtt from remote to relay)
+	EstimatedRtt time.Duration
+}
+
+func (i RelayInfo) toProto(id peer.ID) (*pb.RelayInfo, error) {
+	relayId, err := id.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal relay peer id")
+	}
+
+	maddrs := make([][]byte, len(i.RelayMaddrs))
+	for i, raddr := range i.RelayMaddrs {
+		maddrs[i] = raddr.Bytes()
+	}
+
+	return &pb.RelayInfo{
+		RelayId:             relayId,
+		AgentVersion:        i.RelayAgentVersion,
+		Protocols:           i.RelayProtocols,
+		Rtt:                 toSeconds(i.RelayRtt),
+		EstimatedRemoteRtt:  toSeconds(i.EstimatedRtt),
+		RelayMultiAddresses: maddrs,
+	}, nil
+}
+
+func ExtractRelayMaddr(maddr multiaddr.Multiaddr) (peer.ID, multiaddr.Multiaddr, error) {
+	maddrStr := maddr.String()
+	maddrStrTokens := strings.Split(maddrStr, "p2p-circuit")
+	if len(maddrStrTokens) != 2 {
+		return "", nil, errors.New("not a relayed address")
+	}
+	maddr, err := multiaddr.NewMultiaddr(maddrStrTokens[0])
+	if err != nil {
+		return "", nil, errors.Wrap(err, "error parsing relay address")
+	}
+
+	value, err := maddr.ValueForProtocol(multiaddr.P_P2P)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "error parsing relay address")
+	}
+	relayId, err := peer.Decode(value)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "error parsing relay address")
+	}
+	return relayId, maddr, nil
+}
+
+func ExtractRelayInfo(info peer.AddrInfo) map[peer.ID]*RelayInfo {
+	relays := make(map[peer.ID]*RelayInfo)
+
+	for _, addr := range info.Addrs {
+		relayId, maddr, err := ExtractRelayMaddr(addr)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		if _, ok := relays[relayId]; !ok {
+			relays[relayId] = &RelayInfo{
+				RelayMaddrs: []multiaddr.Multiaddr{},
+			}
+		}
+		relays[relayId].RelayMaddrs = append(relays[relayId].RelayMaddrs, maddr)
+	}
+	return relays
+}
 
 type HolePunchState struct {
 	// The host that established the connection to the remote peer via a relay and it's listening multi addresses
@@ -41,6 +129,16 @@ type HolePunchState struct {
 	// The login page of the router
 	RouterHTML      string
 	ProtocolFilters []int
+
+	// For latency measurement
+	// Relay data
+	Relays map[peer.ID]*RelayInfo
+
+	// Remote Peer data
+	RemoteRttAfterHolePunch time.Duration
+
+	// Pings
+	Pings []*PingMeasurement
 }
 
 func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr) *HolePunchState {
@@ -51,6 +149,7 @@ func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Mul
 		LocalMaddrs:       lmaddrs,
 		HolePunchAttempts: []*HolePunchAttempt{},
 		OpenMaddrs:        []multiaddr.Multiaddr{},
+		Pings:             []*PingMeasurement{},
 	}
 }
 
@@ -108,6 +207,15 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		routerLoginHTML = &hps.RouterHTML
 	}
 
+	relayInfo := make([]*pb.RelayInfo, len(hps.Relays))
+	i := 0
+	for relayId, relaydata := range hps.Relays {
+		relayInfo[i], err = relaydata.toProto(relayId)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal relay info")
+		}
+	}
+
 	var errStr *string
 	if hps.Error != "" {
 		errStr = &hps.Error
@@ -128,7 +236,27 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		Error:                errStr,
 		EndedAt:              toUnixNanos(hps.EndedAt),
 		RouterLoginHtml:      routerLoginHTML,
+		RelayInfo:            relayInfo,
+		Rtt:                  toSeconds(hps.RemoteRttAfterHolePunch),
 	}, nil
+}
+
+func (hps *HolePunchState) markMeasurement(measurementType pingMeasurementType, peerId peer.ID, rtt time.Duration) {
+	switch measurementType {
+	case ToRelay:
+		hps.Relays[peerId].RelayRtt = rtt
+	case ToRemoteThroughRelay:
+		hps.Relays[peerId].RemoteRttThroughRelay = rtt
+	case ToRemoteAfterHolePunch:
+		hps.RemoteRttAfterHolePunch = rtt
+	}
+}
+
+func (hps *HolePunchState) estimateRtt(peerId peer.ID) {
+	if _, ok := hps.Relays[peerId]; ok && hps.Relays[peerId].RelayRtt != 0 && hps.Relays[peerId].RemoteRttThroughRelay != 0 {
+		hps.Relays[peerId].EstimatedRtt = hps.Relays[peerId].RemoteRttThroughRelay - hps.Relays[peerId].RelayRtt
+	}
+	return
 }
 
 type HolePunchAttempt struct {
