@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -191,6 +192,28 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		//   3. We have a direct connection to the remote peer after we have waited for the libp2p/dcutr stream.
 		if hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM && hpState.onlyRelayRemoteAddrs() && hpState.HasDirectConns {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED
+		}
+
+		if hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS || hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED {
+			hadError := false
+			for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
+				_, _, err := ExtractRelayMaddr(conn.RemoteMultiaddr())
+				if err != nil {
+					continue
+				} else {
+					err := conn.Close()
+					if err != nil {
+						log.WithError(err).Warn("Could not close relay connection")
+						hadError = true
+					}
+				}
+			}
+			if !hadError {
+				res := <-ping.Ping(ctx, h, addrInfo.ID)
+				if res.Error == nil {
+					hpState.markMeasurement(ToRemoteAfterHolePunch, addrInfo.ID, res.RTT)
+				}
+			}
 		}
 
 		// Tell the server about the hole punch outcome

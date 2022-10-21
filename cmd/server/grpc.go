@@ -492,6 +492,12 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		}
 	}
 
+	//Insert and update relay and rtt data.
+
+	//TODO upsert relay peer info on peer table
+
+	//TODO insert rtt measurements
+
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
 }
 
