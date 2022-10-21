@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 
-	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -52,7 +52,7 @@ func Load(privKeyFile string) ([]crypto.PrivKey, error) {
 func Add(privKeyFile string, count int) ([]crypto.PrivKey, error) {
 	log.WithField("privKeyFile", privKeyFile).Infof("Generating %d new key pairs...", count)
 
-	file, err := os.OpenFile(privKeyFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	file, err := os.OpenFile(privKeyFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, errors.Wrap(err, "open file")
 	}

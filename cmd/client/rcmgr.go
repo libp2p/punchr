@@ -4,10 +4,10 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
-	rcmgr "github.com/libp2p/go-libp2p-resource-manager"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 )
 
@@ -21,8 +21,18 @@ type ResourceManager struct {
 var _ network.ResourceManager = (*ResourceManager)(nil)
 
 func NewResourceManager() (*ResourceManager, error) {
-	limiter := rcmgr.NewDefaultLimiter()
-	libp2p.SetDefaultServiceLimits(limiter)
+	// Start with the default scaling limits.
+	scalingLimits := rcmgr.DefaultLimits
+
+	// Add limits around included libp2p protocols
+	libp2p.SetDefaultServiceLimits(&scalingLimits)
+
+	// Turn the scaling limits into a static set of limits using `.AutoScale`. This
+	// scales the limits proportional to your system memory.
+	limits := scalingLimits.AutoScale()
+
+	// The resource manager expects a limiter, se we create one from our limits.
+	limiter := rcmgr.NewFixedLimiter(limits)
 
 	mgr, err := rcmgr.NewResourceManager(limiter)
 	if err != nil {

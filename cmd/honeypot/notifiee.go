@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/libp2p/go-libp2p-core/event"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
+	manet "github.com/multiformats/go-multiaddr/net"
+
+	"github.com/libp2p/go-libp2p/core/event"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -56,6 +58,16 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		return nil
 	}
 
+	// Check if the remote peer only has relay addresses
+	for _, maddr := range maddrs {
+		if !manet.IsPrivateAddr(maddr) && !util.IsRelayedMaddr(maddr) {
+			log.Debugln("Incoming connection, has a public non-relay address")
+			return nil
+		}
+	}
+
+	log.Infoln("OK ", maddrs)
+
 	// It can happen that the `conn.RemoteMultiaddr()` is not part of the peer store maddrs.
 	found := false
 	for _, maddr := range maddrs {
@@ -88,11 +100,15 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 
 	// Determine if there is at least one relay multi address and determine the database
+	// TODO: redundant with above
 	var connMaddrID int64
 	var hasRelayMaddr bool
+	var advertisedMaddrs []*models.MultiAddress
 	for _, dbMaddr := range dbMaddrs {
 		if dbMaddr.Maddr == conn.RemoteMultiaddr().String() {
 			connMaddrID = dbMaddr.ID
+		} else {
+			advertisedMaddrs = append(advertisedMaddrs, dbMaddr)
 		}
 		if dbMaddr.IsRelay {
 			hasRelayMaddr = true
@@ -114,7 +130,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 
 	// Associate multi addresses with this connection event
-	if err = dbConnEvt.SetMultiAddresses(h.ctx, txn, false, dbMaddrs...); err != nil {
+	if err = dbConnEvt.SetMultiAddresses(h.ctx, txn, false, advertisedMaddrs...); err != nil {
 		return errors.Wrap(err, "set connection event multi addresses")
 	}
 

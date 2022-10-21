@@ -13,10 +13,10 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -43,7 +43,18 @@ type Host struct {
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
+	nonDNS := []string{
+		"/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+		"/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+		"/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp",
+	}
+	nonDNSaddrInfo, err := parseBootstrapPeers(nonDNS)
+	if err != nil {
+		panic(err)
+	}
+
 	bpAddrInfos := kaddht.GetDefaultBootstrapPeerAddrInfos()
+	bpAddrInfos = append(nonDNSaddrInfo, bpAddrInfos...)
 	if c.IsSet("bootstrap-peers") {
 		addrInfos, err := parseBootstrapPeers(c.StringSlice("bootstrap-peers"))
 		if err != nil {
@@ -116,7 +127,7 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 	for _, bp := range h.bpAddrInfos {
 		log.WithField("remoteID", util.FmtPeerID(bp.ID)).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
-			log.Warn("Error connecting to bootstrap peer", bp)
+			log.Warn("Error connecting to bootstrap peer ", bp)
 			errCount++
 			lastErr = errors.Wrap(err, "connecting to bootstrap peer")
 		}

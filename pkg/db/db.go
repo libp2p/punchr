@@ -3,7 +3,11 @@ package db
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,8 +16,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
@@ -27,6 +31,9 @@ import (
 	"github.com/dennis-tra/punchr/pkg/models"
 	"github.com/dennis-tra/punchr/pkg/util"
 )
+
+//go:embed migrations
+var migrations embed.FS
 
 type Client struct {
 	*sql.DB
@@ -73,22 +80,60 @@ func NewClient(c *cli.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "new maxmind client")
 	}
 
+	client := &Client{DB: dbh, MMClient: mmClient}
+	client.applyMigrations(c, dbh)
+
+	return client, nil
+}
+
+func (c *Client) applyMigrations(ctx *cli.Context, dbh *sql.DB) {
+	tmpDir, err := os.MkdirTemp("", "punchr-"+ctx.App.Version)
+	if err != nil {
+		log.WithError(err).WithField("pattern", "punchr-"+ctx.App.Version).Warnln("Could not create tmp directory for migrations")
+		return
+	}
+	defer func() {
+		if err = os.RemoveAll(tmpDir); err != nil {
+			log.WithError(err).WithField("tmpDir", tmpDir).Warnln("Could not clean up tmp directory")
+		}
+	}()
+	log.WithField("dir", tmpDir).Debugln("Created temporary directory")
+
+	err = fs.WalkDir(migrations, ".", func(path string, d fs.DirEntry, err error) error {
+		join := filepath.Join(tmpDir, path)
+		if d.IsDir() {
+			return os.MkdirAll(join, 0o755)
+		}
+
+		data, err := migrations.ReadFile(path)
+		if err != nil {
+			return errors.Wrap(err, "read file")
+		}
+
+		return os.WriteFile(join, data, 0o644)
+	})
+	if err != nil {
+		log.WithError(err).Warnln("Could not create migrations files")
+		return
+	}
+
 	// Apply migrations
 	driver, err := postgres.WithInstance(dbh, &postgres.Config{})
 	if err != nil {
-		return nil, err
+		log.WithError(err).Warnln("Could not create driver instance")
+		return
 	}
 
-	m, err := migrate.NewWithDatabaseInstance("file://./migrations", "punchr", driver)
+	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations"), ctx.String("db-name"), driver)
 	if err != nil {
-		return nil, err
+		log.WithError(err).Warnln("Could not create migrate instance")
+		return
 	}
 
-	if err = m.Up(); err != nil && err != migrate.ErrNoChange {
-		return nil, err
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		log.WithError(err).Warnln("Couldn't apply migrations")
+		return
 	}
-
-	return &Client{DB: dbh, MMClient: mmClient}, nil
 }
 
 // DeferRollback calls rollback on the given transaction and logs the potential error.

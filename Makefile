@@ -53,8 +53,8 @@ database:
 database-reset: migrate-down migrate-up models
 
 migrate-up:
-	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path migrations up
+	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations up
 
 migrate-down:
-	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path migrations down
+	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations down
 
