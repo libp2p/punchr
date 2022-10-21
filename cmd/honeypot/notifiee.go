@@ -58,6 +58,16 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		return nil
 	}
 
+	// Check if the remote peer only has relay addresses
+	for _, maddr := range maddrs {
+		if !manet.IsPrivateAddr(maddr) && !util.IsRelayedMaddr(maddr) {
+			log.Debugln("Incoming connection, has a public non-relay address")
+			return nil
+		}
+	}
+
+	log.Infoln("OK ", maddrs)
+
 	// It can happen that the `conn.RemoteMultiaddr()` is not part of the peer store maddrs.
 	found := false
 	for _, maddr := range maddrs {
