@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+
 	"github.com/libp2p/go-libp2p"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/crawler"
@@ -48,12 +50,20 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 		}
 	}
 
+	// Configure the resource manager to not limit anything
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		return nil, errors.Wrap(err, "new resource manager")
+	}
+
 	// Configure new libp2p host
 	var dht *kaddht.IpfsDHT
 	agentVersion := "punchr/honeypot/" + c.App.Version
 	libp2pHost, err := libp2p.New(
 		libp2p.Identity(privKeys[0]),
 		libp2p.UserAgent(agentVersion),
+		libp2p.ResourceManager(rm),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%s/quic", port)),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/tcp/%s", port)),
