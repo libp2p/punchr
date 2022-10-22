@@ -1,8 +1,6 @@
 package client
 
 import (
-	"fmt"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -11,7 +9,7 @@ var App = &cli.App{
 	Usage:     "A libp2p host that is capable of DCUtR.",
 	UsageText: "punchrclient [global options] command [command options] [arguments...]",
 	Action:    RootAction,
-	Version:   fmt.Sprintf("%s+%s", version, ""),
+	Version:   "0.5.0",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:        "telemetry-host",
