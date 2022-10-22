@@ -232,7 +232,6 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
 			deduplicate[conn.RemoteMultiaddr().String()] = struct{}{}
 		}
-		fmt.Println("hpState.OpenMaddrs", hpState.OpenMaddrs)
 		hpState.HasDirectConns = h.hasDirectConnToPeer(addrInfo.ID)
 	}()
 
