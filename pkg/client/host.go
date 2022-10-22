@@ -238,7 +238,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	// connect to the remote peer via relay
 	hpState.ConnectStartedAt = time.Now()
 	if err := h.Connect(ctx, addrInfo); err != nil {
-		h.logEntry(addrInfo.ID).WithError(err).Infoln("Error connecting to remote peer")
+		h.logEntry(addrInfo.ID).Infoln("Error connecting to remote peer")
 		hpState.ConnectEndedAt = time.Now()
 		hpState.Error = err.Error()
 		hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION
