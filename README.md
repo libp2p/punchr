@@ -1,6 +1,12 @@
-# Punchr <!-- omit in toc -->
+![Punchr Logo](docs/punchr-logo.jpg)
+
+# Punchr
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
+
+> **Note**
+>
+> We are running a hole punching week from the **5th to the 12th of December 2022**. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project.
 
 This repo contains components to measure [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
