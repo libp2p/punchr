@@ -36,7 +36,7 @@ type Host struct {
 	holePunchEventsPeers sync.Map
 	bpAddrInfos          []peer.AddrInfo
 	rcmgr                *ResourceManager
-	maddrs               map[multiaddr.Multiaddr]struct{}
+	maddrs               map[string]struct{}
 }
 
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
@@ -71,7 +71,7 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		holePunchEventsPeers: sync.Map{},
 		bpAddrInfos:          bpAddrInfos,
 		rcmgr:                rcmgr,
-		maddrs:               map[multiaddr.Multiaddr]struct{}{},
+		maddrs:               map[string]struct{}{},
 	}
 
 	// Configure new libp2p host
@@ -159,7 +159,7 @@ func (h *Host) WaitForPublicAddr(ctx context.Context) error {
 			logEntry.Debug("Found >= 1 public addresses!")
 			for _, maddr := range h.Host.Addrs() {
 				if manet.IsPublicAddr(maddr) {
-					h.maddrs[maddr] = struct{}{}
+					h.maddrs[maddr.String()] = struct{}{}
 				}
 			}
 
@@ -224,9 +224,15 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 
 	// Track open connections after the hole punch
 	defer func() {
+		deduplicate := map[string]struct{}{}
 		for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
+			if _, found := deduplicate[conn.RemoteMultiaddr().String()]; found {
+				continue
+			}
 			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
+			deduplicate[conn.RemoteMultiaddr().String()] = struct{}{}
 		}
+		fmt.Println("hpState.OpenMaddrs", hpState.OpenMaddrs)
 		hpState.HasDirectConns = h.hasDirectConnToPeer(addrInfo.ID)
 	}()
 

@@ -99,6 +99,10 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 		return nil, errors.Wrap(err, "get client peer from db")
 	}
 
+	if len(dbHosts) == 0 {
+		return nil, errors.Wrap(err, "please restart the client")
+	}
+
 	dbHostIDs := make([]string, len(dbHosts))
 	for i, dbHost := range dbHosts {
 		dbHostIDs[i] = strconv.FormatInt(dbHost.ID, 10)
@@ -181,7 +185,7 @@ LIMIT 1
 	}
 	remoteID, err := peer.Decode(remoteMultiHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "query addr infos")
+		return nil, errors.Wrap(err, "decode remote multi hash")
 	}
 
 	remoteIDBytes, err := remoteID.Marshal()
@@ -266,7 +270,7 @@ LIMIT 1
 
 	remoteID, err := peer.Decode(remoteMultiHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "query addr infos")
+		return nil, errors.Wrap(err, "decode remote multi hash")
 	}
 
 	remoteIDBytes, err := remoteID.Marshal()

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -11,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"github.com/emersion/go-autostart"
 	"github.com/friendsofgo/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -26,9 +28,22 @@ var (
 	menuItemStatus = fyne.NewMenuItem("", nil)
 	menuItemToggle = fyne.NewMenuItem("", nil)
 	menuItemApiKey = fyne.NewMenuItem("Set API Key", nil)
+	menuItemLogin  = fyne.NewMenuItem("", nil)
 )
 
 func main() {
+	execPath, err := os.Executable()
+	if err != nil {
+		log.WithError(err).Errorln("Could not determine executable path")
+		os.Exit(1)
+	}
+
+	autostartApp := &autostart.App{
+		Name:        "com.protocol.ai.punchr",
+		DisplayName: "Punchr Client",
+		Exec:        []string{execPath},
+	}
+
 	a := app.New()
 	a.SetIcon(gloveInactiveEmoji)
 
@@ -52,16 +67,36 @@ func main() {
 	menuItemApiKey.Action = func() {
 		p.ShowApiKeyDialog()
 	}
+	menuItemLogin.Action = func() {
+		if autostartApp.IsEnabled() {
+			if err := autostartApp.Disable(); err != nil {
+				log.WithError(err).Warnln("error")
+			}
+			menuItemLogin.Label = "🔴 Launch on Login: Disabled"
+		} else {
+			log.Println("Enabling app...")
+			if err := autostartApp.Enable(); err != nil {
+				log.WithError(err).Warnln("error")
+			}
+			menuItemLogin.Label = "🟢 Launch on Login: Enabled"
+		}
+		sysTrayMenu.Refresh()
+	}
 
-	sysTrayMenu = fyne.NewMenu("Punchr", menuItemStatus, fyne.NewMenuItemSeparator(), menuItemToggle, menuItemApiKey)
+	sysTrayMenu = fyne.NewMenu("Punchr", menuItemStatus, fyne.NewMenuItemSeparator(), menuItemToggle, menuItemApiKey, menuItemLogin)
 	desk.SetSystemTrayMenu(sysTrayMenu)
 
 	if p.apiKey == "" {
 		menuItemStatus.Label = "No API-Key"
 		menuItemToggle.Disabled = true
 	} else {
-		menuItemStatus.Label = "API-Key: " + p.apiKey
-		menuItemToggle.Label = "Start Hole Punching"
+		go p.StartHolePunching()
+	}
+
+	if autostartApp.IsEnabled() {
+		menuItemLogin.Label = "🟢 Launch on Login: Enabled"
+	} else {
+		menuItemLogin.Label = "🔴 Launch on Login: Disabled"
 	}
 
 	sysTrayMenu.Refresh()
@@ -138,7 +173,7 @@ func (p *Punchr) StartHolePunching() {
 
 	p.isHolePunching = true
 	desk.SetSystemTrayIcon(gloveActiveEmoji)
-	menuItemStatus.Label = "Running..."
+	menuItemStatus.Label = "🟢 Running..."
 	menuItemToggle.Label = "Stop Hole Punching"
 	sysTrayMenu.Refresh()
 

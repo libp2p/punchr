@@ -242,5 +242,9 @@ punchr.gz
 
 dist/
 
+**/*api-key.txt
+
+gui/client/**.app
+
 # Nix build result symlink
 result

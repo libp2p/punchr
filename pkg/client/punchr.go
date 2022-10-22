@@ -228,7 +228,7 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		if !p.disableRouterCheck {
 			// Check if the multi addresses have changed - if that's the case we have switched networks
 			for _, maddr := range h.Addrs() {
-				if _, found := h.maddrs[maddr]; found {
+				if _, found := h.maddrs[maddr.String()]; found {
 					continue
 				}
 
@@ -240,9 +240,9 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 				}
 
 				// Update list of multi addresses
-				h.maddrs = map[multiaddr.Multiaddr]struct{}{}
+				h.maddrs = map[string]struct{}{}
 				for _, newMaddr := range h.Addrs() {
-					h.maddrs[newMaddr] = struct{}{}
+					h.maddrs[newMaddr.String()] = struct{}{}
 				}
 
 				break
