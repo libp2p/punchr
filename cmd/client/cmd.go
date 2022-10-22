@@ -99,7 +99,12 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:    "bootstrap-peers",
 				Usage:   "Comma separated list of multi addresses of bootstrap peers",
-				EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
+				EnvVars: []string{"PUNCHR_BOOTSTRAP_PEERS"},
+			},
+			&cli.BoolFlag{
+				Name:  "disable-router-check",
+				Usage: "Set this flag if you don't want punchr to check your router home page",
+				Value: false,
 			},
 		},
 		EnableBashCompletion: true,
@@ -128,6 +133,12 @@ func RootAction(c *cli.Context) error {
 	// Initialize its hosts
 	if err = punchr.InitHosts(c); err != nil {
 		return errors.Wrap(err, "punchr init hosts")
+	}
+
+	if !c.Bool("disable-router-check") {
+		if err = punchr.UpdateRouterHTML(); err != nil {
+			log.WithError(err).Warnln("Could not get router HTML page")
+		}
 	}
 
 	// Connect punchr hosts to bootstrap nodes

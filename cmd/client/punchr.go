@@ -4,10 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/jackpal/gateway"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -28,11 +32,13 @@ import (
 // distributing the work load to different hosts and then reporting
 // the results back.
 type Punchr struct {
-	hosts       []*Host
-	apiKey      string
-	privKeyFile string
-	client      pb.PunchrServiceClient
-	clientConn  *grpc.ClientConn
+	hosts              []*Host
+	apiKey             string
+	privKeyFile        string
+	client             pb.PunchrServiceClient
+	clientConn         *grpc.ClientConn
+	routerHTML         string
+	disableRouterCheck bool
 }
 
 func NewPunchr(c *cli.Context) (*Punchr, error) {
@@ -55,11 +61,12 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	}
 
 	return &Punchr{
-		hosts:       make([]*Host, c.Int("host-count")),
-		apiKey:      c.String("api-key"),
-		privKeyFile: c.String("key-file"),
-		client:      pb.NewPunchrServiceClient(conn),
-		clientConn:  conn,
+		hosts:              make([]*Host, c.Int("host-count")),
+		apiKey:             c.String("api-key"),
+		privKeyFile:        c.String("key-file"),
+		client:             pb.NewPunchrServiceClient(conn),
+		clientConn:         conn,
+		disableRouterCheck: c.Bool("disable-router-check"),
 	}, nil
 }
 
@@ -86,6 +93,30 @@ func (p Punchr) InitHosts(c *cli.Context) error {
 		}
 		p.hosts[i] = h
 	}
+
+	return nil
+}
+
+// UpdateRouterHTML discovers the default gateway address and fetches the
+// home HTML page to get a sense which router is used.
+func (p Punchr) UpdateRouterHTML() error {
+	router, err := gateway.DiscoverGateway()
+	if err != nil {
+		return errors.Wrap(err, "discover gateway")
+	}
+
+	u := url.URL{Scheme: "http", Host: router.String()}
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return err
+	}
+
+	html, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "read response body")
+	}
+
+	p.routerHTML = string(html)
 
 	return nil
 }
@@ -191,6 +222,30 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		//   3. We have a direct connection to the remote peer after we have waited for the libp2p/dcutr stream.
 		if hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM && hpState.onlyRelayRemoteAddrs() && hpState.HasDirectConns {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED
+		}
+
+		if !p.disableRouterCheck {
+			// Check if the multi addresses have changed - if that's the case we have switched networks
+			for _, maddr := range h.Addrs() {
+				if _, found := h.maddrs[maddr]; found {
+					continue
+				}
+
+				log.Infoln("Found new multi addresses - fetching Router Login")
+				if err = p.UpdateRouterHTML(); err != nil {
+					log.WithError(err).Warnln("Could not get router HTML page")
+				} else {
+					hpState.RouterHTML = p.routerHTML
+				}
+
+				// Update list of multi addresses
+				h.maddrs = map[multiaddr.Multiaddr]struct{}{}
+				for _, newMaddr := range h.Addrs() {
+					h.maddrs[newMaddr] = struct{}{}
+				}
+
+				break
+			}
 		}
 
 		// Tell the server about the hole punch outcome

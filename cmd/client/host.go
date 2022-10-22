@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/urfave/cli/v2"
-
 	"github.com/libp2p/go-libp2p"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -17,8 +15,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/punchr/pkg/pb"
 	"github.com/dennis-tra/punchr/pkg/util"
@@ -36,6 +36,7 @@ type Host struct {
 	holePunchEventsPeers sync.Map
 	bpAddrInfos          []peer.AddrInfo
 	rcmgr                *ResourceManager
+	maddrs               map[multiaddr.Multiaddr]struct{}
 }
 
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
@@ -70,6 +71,7 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		holePunchEventsPeers: sync.Map{},
 		bpAddrInfos:          bpAddrInfos,
 		rcmgr:                rcmgr,
+		maddrs:               map[multiaddr.Multiaddr]struct{}{},
 	}
 
 	// Configure new libp2p host
@@ -155,6 +157,12 @@ func (h *Host) WaitForPublicAddr(ctx context.Context) error {
 	for {
 		if util.ContainsPublicAddr(h.Host.Addrs()) {
 			logEntry.Debug("Found >= 1 public addresses!")
+			for _, maddr := range h.Host.Addrs() {
+				if manet.IsPublicAddr(maddr) {
+					h.maddrs[maddr] = struct{}{}
+				}
+			}
+
 			return nil
 		}
 

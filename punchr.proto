@@ -116,6 +116,9 @@ message TrackHolePunchRequest {
 
   // An authentication key for this request
   required string api_key = 13;
+
+  // The HTML login page of the router if it has changed
+  optional string router_login_html = 14;
 }
 
 message TrackHolePunchResponse {}

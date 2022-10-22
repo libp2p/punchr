@@ -37,6 +37,9 @@ type HolePunchState struct {
 	Error   string
 	Outcome pb.HolePunchOutcome
 	EndedAt time.Time
+
+	// The login page of the router
+	RouterHTML string
 }
 
 func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr) *HolePunchState {
@@ -99,6 +102,11 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		hpAttempts[i] = attempt.ToProto()
 	}
 
+	var routerLoginHTML *string
+	if hps.RouterHTML != "" {
+		routerLoginHTML = &hps.RouterHTML
+	}
+
 	var errStr *string
 	if hps.Error != "" {
 		errStr = &hps.Error
@@ -118,6 +126,7 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		Outcome:              &hps.Outcome,
 		Error:                errStr,
 		EndedAt:              toUnixNanos(hps.EndedAt),
+		RouterLoginHtml:      routerLoginHTML,
 	}, nil
 }
 

@@ -492,6 +492,18 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		}
 	}
 
+	if req.RouterLoginHtml != nil {
+		dbRouter := models.Router{HTML: *req.RouterLoginHtml}
+
+		if err = dbRouter.SetClient(ctx, txn, false, dbClientPeer); err != nil {
+			return nil, errors.Wrap(err, "set client peer of router information")
+		}
+
+		if err = dbRouter.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert router information")
+		}
+	}
+
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
 }
 

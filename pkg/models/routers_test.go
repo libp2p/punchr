@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testPeerLogs(t *testing.T) {
+func testRouters(t *testing.T) {
 	t.Parallel()
 
-	query := PeerLogs()
+	query := Routers()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testPeerLogsDelete(t *testing.T) {
+func testRoutersDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testPeerLogsDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testPeerLogsDelete(t *testing.T) {
 	}
 }
 
-func testPeerLogsQueryDeleteAll(t *testing.T) {
+func testRoutersQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testPeerLogsQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := PeerLogs().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := Routers().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testPeerLogsQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testPeerLogsSliceDeleteAll(t *testing.T) {
+func testRoutersSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testPeerLogsSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := PeerLogSlice{o}
+	slice := RouterSlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testPeerLogsSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testPeerLogsSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testPeerLogsExists(t *testing.T) {
+func testRoutersExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testPeerLogsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := PeerLogExists(ctx, tx, o.ID)
+	e, err := RouterExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if PeerLog exists: %s", err)
+		t.Errorf("Unable to check if Router exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected PeerLogExists to return true, but got false.")
+		t.Errorf("Expected RouterExists to return true, but got false.")
 	}
 }
 
-func testPeerLogsFind(t *testing.T) {
+func testRoutersFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testPeerLogsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	peerLogFound, err := FindPeerLog(ctx, tx, o.ID)
+	routerFound, err := FindRouter(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if peerLogFound == nil {
+	if routerFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testPeerLogsBind(t *testing.T) {
+func testRoutersBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testPeerLogsBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = PeerLogs().Bind(ctx, tx, o); err != nil {
+	if err = Routers().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testPeerLogsOne(t *testing.T) {
+func testRoutersOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testPeerLogsOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := PeerLogs().One(ctx, tx); err != nil {
+	if x, err := Routers().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testPeerLogsAll(t *testing.T) {
+func testRoutersAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	peerLogOne := &PeerLog{}
-	peerLogTwo := &PeerLog{}
-	if err = randomize.Struct(seed, peerLogOne, peerLogDBTypes, false, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	routerOne := &Router{}
+	routerTwo := &Router{}
+	if err = randomize.Struct(seed, routerOne, routerDBTypes, false, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
-	if err = randomize.Struct(seed, peerLogTwo, peerLogDBTypes, false, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	if err = randomize.Struct(seed, routerTwo, routerDBTypes, false, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = peerLogOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = routerOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = peerLogTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = routerTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := PeerLogs().All(ctx, tx)
+	slice, err := Routers().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testPeerLogsAll(t *testing.T) {
 	}
 }
 
-func testPeerLogsCount(t *testing.T) {
+func testRoutersCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	peerLogOne := &PeerLog{}
-	peerLogTwo := &PeerLog{}
-	if err = randomize.Struct(seed, peerLogOne, peerLogDBTypes, false, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	routerOne := &Router{}
+	routerTwo := &Router{}
+	if err = randomize.Struct(seed, routerOne, routerDBTypes, false, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
-	if err = randomize.Struct(seed, peerLogTwo, peerLogDBTypes, false, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	if err = randomize.Struct(seed, routerTwo, routerDBTypes, false, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = peerLogOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = routerOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = peerLogTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = routerTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testPeerLogsCount(t *testing.T) {
 	}
 }
 
-func peerLogBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func peerLogAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *PeerLog) error {
-	*o = PeerLog{}
+func routerAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Router) error {
+	*o = Router{}
 	return nil
 }
 
-func testPeerLogsHooks(t *testing.T) {
+func testRoutersHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &PeerLog{}
-	o := &PeerLog{}
+	empty := &Router{}
+	o := &Router{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, peerLogDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize PeerLog object: %s", err)
+	if err = randomize.Struct(seed, o, routerDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize Router object: %s", err)
 	}
 
-	AddPeerLogHook(boil.BeforeInsertHook, peerLogBeforeInsertHook)
+	AddRouterHook(boil.BeforeInsertHook, routerBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	peerLogBeforeInsertHooks = []PeerLogHook{}
+	routerBeforeInsertHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.AfterInsertHook, peerLogAfterInsertHook)
+	AddRouterHook(boil.AfterInsertHook, routerAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	peerLogAfterInsertHooks = []PeerLogHook{}
+	routerAfterInsertHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.AfterSelectHook, peerLogAfterSelectHook)
+	AddRouterHook(boil.AfterSelectHook, routerAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	peerLogAfterSelectHooks = []PeerLogHook{}
+	routerAfterSelectHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.BeforeUpdateHook, peerLogBeforeUpdateHook)
+	AddRouterHook(boil.BeforeUpdateHook, routerBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	peerLogBeforeUpdateHooks = []PeerLogHook{}
+	routerBeforeUpdateHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.AfterUpdateHook, peerLogAfterUpdateHook)
+	AddRouterHook(boil.AfterUpdateHook, routerAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	peerLogAfterUpdateHooks = []PeerLogHook{}
+	routerAfterUpdateHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.BeforeDeleteHook, peerLogBeforeDeleteHook)
+	AddRouterHook(boil.BeforeDeleteHook, routerBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	peerLogBeforeDeleteHooks = []PeerLogHook{}
+	routerBeforeDeleteHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.AfterDeleteHook, peerLogAfterDeleteHook)
+	AddRouterHook(boil.AfterDeleteHook, routerAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	peerLogAfterDeleteHooks = []PeerLogHook{}
+	routerAfterDeleteHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.BeforeUpsertHook, peerLogBeforeUpsertHook)
+	AddRouterHook(boil.BeforeUpsertHook, routerBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	peerLogBeforeUpsertHooks = []PeerLogHook{}
+	routerBeforeUpsertHooks = []RouterHook{}
 
-	AddPeerLogHook(boil.AfterUpsertHook, peerLogAfterUpsertHook)
+	AddRouterHook(boil.AfterUpsertHook, routerAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	peerLogAfterUpsertHooks = []PeerLogHook{}
+	routerAfterUpsertHooks = []RouterHook{}
 }
 
-func testPeerLogsInsert(t *testing.T) {
+func testRoutersInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testPeerLogsInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testPeerLogsInsert(t *testing.T) {
 	}
 }
 
-func testPeerLogsInsertWhitelist(t *testing.T) {
+func testRoutersInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(peerLogColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(routerColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,17 +494,17 @@ func testPeerLogsInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testPeerLogToOnePeerUsingPeer(t *testing.T) {
+func testRouterToOnePeerUsingClient(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var local PeerLog
+	var local Router
 	var foreign Peer
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, peerLogDBTypes, false, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	if err := randomize.Struct(seed, &local, routerDBTypes, false, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Peer struct: %s", err)
@@ -514,12 +514,12 @@ func testPeerLogToOnePeerUsingPeer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	local.PeerID = foreign.ID
+	local.ClientID = foreign.ID
 	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := local.Peer().One(ctx, tx)
+	check, err := local.Client().One(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,35 +528,35 @@ func testPeerLogToOnePeerUsingPeer(t *testing.T) {
 		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
 	}
 
-	slice := PeerLogSlice{&local}
-	if err = local.L.LoadPeer(ctx, tx, false, (*[]*PeerLog)(&slice), nil); err != nil {
+	slice := RouterSlice{&local}
+	if err = local.L.LoadClient(ctx, tx, false, (*[]*Router)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.Peer == nil {
+	if local.R.Client == nil {
 		t.Error("struct should have been eager loaded")
 	}
 
-	local.R.Peer = nil
-	if err = local.L.LoadPeer(ctx, tx, true, &local, nil); err != nil {
+	local.R.Client = nil
+	if err = local.L.LoadClient(ctx, tx, true, &local, nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.Peer == nil {
+	if local.R.Client == nil {
 		t.Error("struct should have been eager loaded")
 	}
 }
 
-func testPeerLogToOneSetOpPeerUsingPeer(t *testing.T) {
+func testRouterToOneSetOpPeerUsingClient(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a PeerLog
+	var a Router
 	var b, c Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerLogDBTypes, false, strmangle.SetComplement(peerLogPrimaryKeyColumns, peerLogColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, routerDBTypes, false, strmangle.SetComplement(routerPrimaryKeyColumns, routerColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
@@ -574,43 +574,43 @@ func testPeerLogToOneSetOpPeerUsingPeer(t *testing.T) {
 	}
 
 	for i, x := range []*Peer{&b, &c} {
-		err = a.SetPeer(ctx, tx, i != 0, x)
+		err = a.SetClient(ctx, tx, i != 0, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if a.R.Peer != x {
+		if a.R.Client != x {
 			t.Error("relationship struct not set to correct value")
 		}
 
-		if x.R.PeerLogs[0] != &a {
+		if x.R.ClientRouters[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
-		if a.PeerID != x.ID {
-			t.Error("foreign key was wrong value", a.PeerID)
+		if a.ClientID != x.ID {
+			t.Error("foreign key was wrong value", a.ClientID)
 		}
 
-		zero := reflect.Zero(reflect.TypeOf(a.PeerID))
-		reflect.Indirect(reflect.ValueOf(&a.PeerID)).Set(zero)
+		zero := reflect.Zero(reflect.TypeOf(a.ClientID))
+		reflect.Indirect(reflect.ValueOf(&a.ClientID)).Set(zero)
 
 		if err = a.Reload(ctx, tx); err != nil {
 			t.Fatal("failed to reload", err)
 		}
 
-		if a.PeerID != x.ID {
-			t.Error("foreign key was wrong value", a.PeerID, x.ID)
+		if a.ClientID != x.ID {
+			t.Error("foreign key was wrong value", a.ClientID, x.ID)
 		}
 	}
 }
 
-func testPeerLogsReload(t *testing.T) {
+func testRoutersReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -625,14 +625,14 @@ func testPeerLogsReload(t *testing.T) {
 	}
 }
 
-func testPeerLogsReloadAll(t *testing.T) {
+func testRoutersReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -642,21 +642,21 @@ func testPeerLogsReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := PeerLogSlice{o}
+	slice := RouterSlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testPeerLogsSelect(t *testing.T) {
+func testRoutersSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -666,7 +666,7 @@ func testPeerLogsSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := PeerLogs().All(ctx, tx)
+	slice, err := Routers().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -677,25 +677,25 @@ func testPeerLogsSelect(t *testing.T) {
 }
 
 var (
-	peerLogDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `bigint`, `Field`: `text`, `Old`: `text`, `New`: `text`, `CreatedAt`: `timestamp with time zone`}
-	_              = bytes.MinRead
+	routerDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `integer`, `HTML`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	_             = bytes.MinRead
 )
 
-func testPeerLogsUpdate(t *testing.T) {
+func testRoutersUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(peerLogPrimaryKeyColumns) {
+	if 0 == len(routerPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(peerLogAllColumns) == len(peerLogPrimaryKeyColumns) {
+	if len(routerAllColumns) == len(routerPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -705,7 +705,7 @@ func testPeerLogsUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -714,8 +714,8 @@ func testPeerLogsUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -725,18 +725,18 @@ func testPeerLogsUpdate(t *testing.T) {
 	}
 }
 
-func testPeerLogsSliceUpdateAll(t *testing.T) {
+func testRoutersSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(peerLogAllColumns) == len(peerLogPrimaryKeyColumns) {
+	if len(routerAllColumns) == len(routerPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &PeerLog{}
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := &Router{}
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -746,7 +746,7 @@ func testPeerLogsSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -755,20 +755,20 @@ func testPeerLogsSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, peerLogDBTypes, true, peerLogPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	if err = randomize.Struct(seed, o, routerDBTypes, true, routerPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(peerLogAllColumns, peerLogPrimaryKeyColumns) {
-		fields = peerLogAllColumns
+	if strmangle.StringSliceMatch(routerAllColumns, routerPrimaryKeyColumns) {
+		fields = routerAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			peerLogAllColumns,
-			peerLogPrimaryKeyColumns,
+			routerAllColumns,
+			routerPrimaryKeyColumns,
 		)
-		fields = strmangle.SetComplement(fields, peerLogGeneratedColumns)
+		fields = strmangle.SetComplement(fields, routerGeneratedColumns)
 	}
 
 	value := reflect.Indirect(reflect.ValueOf(o))
@@ -785,7 +785,7 @@ func testPeerLogsSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := PeerLogSlice{o}
+	slice := RouterSlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -793,29 +793,29 @@ func testPeerLogsSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testPeerLogsUpsert(t *testing.T) {
+func testRoutersUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(peerLogAllColumns) == len(peerLogPrimaryKeyColumns) {
+	if len(routerAllColumns) == len(routerPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := PeerLog{}
-	if err = randomize.Struct(seed, &o, peerLogDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	o := Router{}
+	if err = randomize.Struct(seed, &o, routerDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert PeerLog: %s", err)
+		t.Errorf("Unable to upsert Router: %s", err)
 	}
 
-	count, err := PeerLogs().Count(ctx, tx)
+	count, err := Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -824,15 +824,15 @@ func testPeerLogsUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, peerLogDBTypes, false, peerLogPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize PeerLog struct: %s", err)
+	if err = randomize.Struct(seed, &o, routerDBTypes, false, routerPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Router struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert PeerLog: %s", err)
+		t.Errorf("Unable to upsert Router: %s", err)
 	}
 
-	count, err = PeerLogs().Count(ctx, tx)
+	count, err = Routers().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}

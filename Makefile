@@ -48,7 +48,7 @@ models:
 	sqlboiler psql
 
 database:
-	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=punchr -e POSTGRES_DB=punchr postgres:13
+	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=punchr -e POSTGRES_DB=punchr postgres:14
 
 database-reset: migrate-down migrate-up models
 
