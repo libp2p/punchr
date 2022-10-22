@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"io"
 	"os"
+	"path"
+	"sync/atomic"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -19,10 +23,15 @@ import (
 	"github.com/dennis-tra/punchr/pkg/client"
 )
 
+//go:embed glove-active.png
+var gloveActive []byte
+
+//go:embed glove-inactive.png
+var gloveInactive []byte
+
 var (
-	gloveActiveEmoji, _   = fyne.LoadResourceFromPath("./gui/client/glove-active.png")
-	gloveInactiveEmoji, _ = fyne.LoadResourceFromPath("./gui/client/glove-inactive.png")
-	apiKeyURI             = storage.NewFileURI("punchr-client-api-key.txt")
+	gloveActiveEmoji   = fyne.NewStaticResource("glove-active", gloveActive)
+	gloveInactiveEmoji = fyne.NewStaticResource("glove-inactive", gloveInactive)
 
 	sysTrayMenu    *fyne.Menu
 	menuItemStatus = fyne.NewMenuItem("", nil)
@@ -32,19 +41,20 @@ var (
 )
 
 func main() {
-	execPath, err := os.Executable()
+	a := app.New()
+
+	p, err := NewPunchr(a)
 	if err != nil {
-		log.WithError(err).Errorln("Could not determine executable path")
+		log.WithError(err).Errorln("Could not instantiate new punchr")
 		os.Exit(1)
 	}
 
 	autostartApp := &autostart.App{
 		Name:        "com.protocol.ai.punchr",
 		DisplayName: "Punchr Client",
-		Exec:        []string{execPath},
+		Exec:        []string{p.execPath},
 	}
 
-	a := app.New()
 	a.SetIcon(gloveInactiveEmoji)
 
 	desk, isDesktopApp := a.(desktop.App)
@@ -53,12 +63,10 @@ func main() {
 		return
 	}
 
-	p := NewPunchr(a)
-
 	menuItemStatus.Disabled = true
 	menuItemToggle.Label = "Start Hole Punching"
 	menuItemToggle.Action = func() {
-		if p.isHolePunching {
+		if p.isHolePunching.Load() {
 			go p.StopHolePunching()
 		} else {
 			go p.StartHolePunching()
@@ -108,29 +116,42 @@ type Punchr struct {
 	app            fyne.App
 	hpCtx          context.Context
 	hpCtxCancel    context.CancelFunc
-	isHolePunching bool
+	isHolePunching *atomic.Bool
 	apiKey         string
+	execPath       string
+	apiKeyURI      fyne.URI
 }
 
-func NewPunchr(app fyne.App) *Punchr {
-	apiKey, err := loadApiKey()
+func NewPunchr(app fyne.App) (*Punchr, error) {
+	execPath, err := os.Executable()
 	if err != nil {
-		log.WithError(err).Warnln("error loading api key")
+		return nil, errors.Wrap(err, "determine executable path")
+	}
+
+	apiKeyURI := storage.NewFileURI(path.Join(path.Dir(execPath), "api-key.txt"))
+
+	apiKey, err := loadApiKey(apiKeyURI)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.WithError(err).Warnln("Error loading API Key")
 	}
 
 	return &Punchr{
 		app:            app,
-		isHolePunching: false,
+		isHolePunching: &atomic.Bool{},
 		apiKey:         apiKey,
-	}
+		execPath:       execPath,
+		apiKeyURI:      apiKeyURI,
+	}, nil
 }
 
 func (p *Punchr) ShowApiKeyDialog() {
 	window := p.app.NewWindow("Punchr")
 	window.Resize(fyne.NewSize(300, 100))
+
 	entry := widget.NewEntry()
 	entry.SetPlaceHolder("Please enter your API-Key")
 	entry.SetText(p.apiKey)
+
 	btn := widget.NewButton("Save", func() {
 		p.SaveApiKey(entry.Text)
 		menuItemToggle.Disabled = false
@@ -144,15 +165,17 @@ func (p *Punchr) ShowApiKeyDialog() {
 			btn.Enable()
 		}
 	}
+
 	if p.apiKey == "" {
 		btn.Disable()
 	}
+
 	window.SetContent(container.New(layout.NewVBoxLayout(), entry, btn))
 	window.Show()
 }
 
 func (p *Punchr) SaveApiKey(apiKey string) {
-	rwc, err := storage.Writer(apiKeyURI)
+	rwc, err := storage.Writer(p.apiKeyURI)
 	if err != nil {
 		log.WithError(err).Warnln("error opening storage writer")
 		return
@@ -169,31 +192,57 @@ func (p *Punchr) SaveApiKey(apiKey string) {
 }
 
 func (p *Punchr) StartHolePunching() {
+	if p.isHolePunching.Swap(true) {
+		return
+	}
+
 	desk := p.app.(desktop.App)
 
-	p.isHolePunching = true
 	desk.SetSystemTrayIcon(gloveActiveEmoji)
-	menuItemStatus.Label = "🟢 Running..."
 	menuItemToggle.Label = "Stop Hole Punching"
-	sysTrayMenu.Refresh()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.hpCtx = ctx
 	p.hpCtxCancel = cancel
 
-	err := client.App.RunContext(p.hpCtx, []string{"punchrclient", "--api-key", p.apiKey})
-	if err != nil && p.hpCtx.Err() != context.Canceled {
-		menuItemStatus.Label = "Error: " + err.Error()
-	} else {
-		menuItemStatus.Label = "API-Key: " + p.apiKey
+LOOP:
+	for {
+		menuItemStatus.Label = "🟢 Running..."
+		sysTrayMenu.Refresh()
+
+		err := client.App.RunContext(p.hpCtx, []string{
+			"punchrclient",
+			"--api-key", p.apiKey,
+			"--key-file", path.Join(path.Dir(p.execPath), "punchrclient.keys"),
+			"telemetry-host", "",
+			"telemetry-port", "",
+		})
+
+		if err == nil || errors.Is(p.hpCtx.Err(), context.Canceled) {
+			menuItemStatus.Label = "API-Key: " + p.apiKey
+			break
+		}
+
+		menuItemStatus.Label = "🟠 Retrying: " + err.Error()
+		sysTrayMenu.Refresh()
+
+		select {
+		case <-time.After(10 * time.Second):
+			continue
+		case <-p.hpCtx.Done():
+			menuItemStatus.Label = "🔴 Error: " + err.Error()
+			break LOOP
+		}
 	}
+
 	p.hpCtx = nil
 	p.hpCtxCancel = nil
 
-	p.isHolePunching = false
 	desk.SetSystemTrayIcon(gloveInactiveEmoji)
 	menuItemToggle.Label = "Start Hole Punching"
 	sysTrayMenu.Refresh()
+
+	p.isHolePunching.Swap(false)
 }
 
 func (p *Punchr) StopHolePunching() {
@@ -202,7 +251,7 @@ func (p *Punchr) StopHolePunching() {
 	}
 }
 
-func loadApiKey() (string, error) {
+func loadApiKey(apiKeyURI fyne.URI) (string, error) {
 	r, err := storage.Reader(apiKeyURI)
 	if err != nil {
 		return "", errors.Wrap(err, "storage reader")

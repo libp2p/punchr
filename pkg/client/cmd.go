@@ -171,6 +171,9 @@ func RootAction(c *cli.Context) error {
 // serveTelemetry starts an HTTP server for the prometheus and pprof handler.
 func serveTelemetry(c *cli.Context) {
 	addr := fmt.Sprintf("%s:%s", c.String("telemetry-host"), c.String("telemetry-port"))
+	if addr == ":" {
+		return
+	}
 	log.WithField("addr", addr).Debugln("Starting prometheus endpoint")
 
 	mux := http.NewServeMux()

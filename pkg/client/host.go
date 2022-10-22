@@ -125,7 +125,7 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 	errCount := 0
 	var lastErr error
 	for _, bp := range h.bpAddrInfos {
-		log.WithField("remoteID", util.FmtPeerID(bp.ID)).Info("Connecting to bootstrap peer...")
+		log.WithField("remoteID", util.FmtPeerID(bp.ID)).WithField("hostID", util.FmtPeerID(h.ID())).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
 			log.Warn("Error connecting to bootstrap peer ", bp)
 			errCount++
