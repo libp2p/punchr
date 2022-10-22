@@ -100,7 +100,7 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 	}
 
 	if len(dbHosts) == 0 {
-		return nil, errors.Wrap(err, "please restart the client")
+		return nil, fmt.Errorf("not registered, please restart the client")
 	}
 
 	dbHostIDs := make([]string, len(dbHosts))
