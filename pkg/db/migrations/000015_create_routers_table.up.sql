@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE routers
 (
     id         INT GENERATED ALWAYS AS IDENTITY,
-    client_id  INT         NOT NULL,
+    client_id  BIGINT      NOT NULL,
     html       TEXT        NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,

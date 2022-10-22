@@ -24,7 +24,7 @@ import (
 // Router is an object representing the database table.
 type Router struct {
 	ID        int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	ClientID  int       `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
+	ClientID  int64     `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
 	HTML      string    `boil:"html" json:"html" toml:"html" yaml:"html"`
 	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
@@ -65,13 +65,13 @@ var RouterTableColumns = struct {
 
 var RouterWhere = struct {
 	ID        whereHelperint
-	ClientID  whereHelperint
+	ClientID  whereHelperint64
 	HTML      whereHelperstring
 	UpdatedAt whereHelpertime_Time
 	CreatedAt whereHelpertime_Time
 }{
 	ID:        whereHelperint{field: "\"routers\".\"id\""},
-	ClientID:  whereHelperint{field: "\"routers\".\"client_id\""},
+	ClientID:  whereHelperint64{field: "\"routers\".\"client_id\""},
 	HTML:      whereHelperstring{field: "\"routers\".\"html\""},
 	UpdatedAt: whereHelpertime_Time{field: "\"routers\".\"updated_at\""},
 	CreatedAt: whereHelpertime_Time{field: "\"routers\".\"created_at\""},

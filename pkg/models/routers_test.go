@@ -677,7 +677,7 @@ func testRoutersSelect(t *testing.T) {
 }
 
 var (
-	routerDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `integer`, `HTML`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	routerDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `HTML`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_             = bytes.MinRead
 )
 

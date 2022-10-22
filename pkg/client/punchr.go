@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"context"
@@ -60,8 +60,9 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 		return nil, errors.Wrap(err, "failed to dial")
 	}
 
+	i := c.Int("host-count")
 	return &Punchr{
-		hosts:              make([]*Host, c.Int("host-count")),
+		hosts:              make([]*Host, i),
 		apiKey:             c.String("api-key"),
 		privKeyFile:        c.String("key-file"),
 		client:             pb.NewPunchrServiceClient(conn),
