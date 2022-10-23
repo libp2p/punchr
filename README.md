@@ -6,7 +6,7 @@
 
 > **Note**
 >
-> We are running a hole punching week from the **5th to the 12th of December 2022**. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project.
+> We are running a hole punching week from the **5th to the 12th of December 2022**. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project. Here you can find the [download links](https://github.com/dennis-tra/punchr/releases/tag/v0.5.0).
 
 This repo contains components to measure [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
@@ -222,7 +222,10 @@ Resource requirements:
 
 # Install
 
-Head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary or compile it yourself. 
+Head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary or compile it yourself.
+
+- For MacOS there is a system tray application that you can [download here](https://github.com/dennis-tra/punchr/releases/download/v0.5.0/Punchr.dmg).
+
 Run `make build` and find the executables in the `dist` folder. When running the honeypot or server the database migrations folder `./migrations` needs to be in the working directory of either process.
 
 The honeypot listens on port `10000`, the server on port `11000` and clients on `12000`. All components expose prometheus and pprof telemetry on `10001`, `11001`, and `12001` respectively.
