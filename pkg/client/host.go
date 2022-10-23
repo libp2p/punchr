@@ -229,10 +229,14 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 			if _, found := deduplicate[conn.RemoteMultiaddr().String()]; found {
 				continue
 			}
+
+			if !util.IsRelayedMaddr(conn.RemoteMultiaddr()) {
+				hpState.HasDirectConns = true
+			}
+
 			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
 			deduplicate[conn.RemoteMultiaddr().String()] = struct{}{}
 		}
-		hpState.HasDirectConns = h.hasDirectConnToPeer(addrInfo.ID)
 	}()
 
 	// connect to the remote peer via relay
@@ -392,16 +396,6 @@ func (h *Host) logAddrInfo(addrInfo peer.AddrInfo) {
 	for i, maddr := range addrInfo.Addrs {
 		log.Infoln("  ["+strconv.Itoa(i)+"]", maddr.String())
 	}
-}
-
-// hasDirectConnToPeer returns true if the libp2p host has a direct (non-relay) connection to the given peer.
-func (h *Host) hasDirectConnToPeer(pid peer.ID) bool {
-	for _, conn := range h.Network().ConnsToPeer(pid) {
-		if !util.IsRelayedMaddr(conn.RemoteMultiaddr()) {
-			return true
-		}
-	}
-	return false
 }
 
 // prunePeer closes all connections to the given peer and removes all information about it from the peer store.
