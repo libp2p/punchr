@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -55,4 +56,14 @@ func ContainsPublicAddr(addrs []ma.Multiaddr) bool {
 		return true
 	}
 	return false
+}
+
+func ExtractRelayMaddr(maddr ma.Multiaddr) (*peer.AddrInfo, error) {
+	circProt := ma.ProtocolWithCode(ma.P_CIRCUIT)
+	circComp, err := ma.NewComponent(circProt.Name, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "new circuit component")
+	}
+
+	return peer.AddrInfoFromP2pAddr(maddr.Decapsulate(circComp))
 }

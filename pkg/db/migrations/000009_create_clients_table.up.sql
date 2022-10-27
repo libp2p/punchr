@@ -7,7 +7,8 @@ CREATE TABLE clients
     peer_id          BIGINT NOT NULL,
     authorization_id INT    NOT NULL,
 
-    CONSTRAINT fk_clients_client_id FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
+    CONSTRAINT uq_clients_id_peer_id UNIQUE (id, peer_id),
+    CONSTRAINT fk_clients_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
     CONSTRAINT fk_clients_authorization_id FOREIGN KEY (authorization_id) REFERENCES authorizations (id) ON DELETE CASCADE,
 
     PRIMARY KEY (id)

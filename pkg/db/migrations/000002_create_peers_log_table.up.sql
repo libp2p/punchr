@@ -20,13 +20,11 @@ BEGIN
     IF OLD.agent_version != NEW.agent_version THEN
         INSERT INTO peer_logs (peer_id, field, old, new, created_at)
         VALUES (NEW.id, 'agent_version', OLD.agent_version, NEW.agent_version, NOW());
-        RETURN NEW;
     END IF;
 
     IF OLD.protocols != NEW.protocols THEN
         INSERT INTO peer_logs (peer_id, field, old, new, created_at)
         VALUES (NEW.id, 'protocols', array_to_string(OLD.protocols, ','), array_to_string(NEW.protocols, ','), NOW());
-        RETURN NEW;
     END IF;
 
     RETURN NEW;

@@ -125,10 +125,7 @@ message TrackHolePunchRequest {
   repeated int32 protocols = 15;
 
   // Information about the relays
-  repeated RelayInfo relay_info = 16;
-
-  // rtt measurement for the remote peer after the hole punch
-  required float rtt = 17;
+  repeated LatencyMeasurement latency_measurements = 16;
 }
 
 message TrackHolePunchResponse {}
@@ -188,22 +185,22 @@ enum HolePunchAttemptOutcome {
 }
 
 
-message RelayInfo {
-  // The relay peer ID
-  required bytes relay_id = 1;
+message LatencyMeasurement {
+  // The remote peer ID
+  required bytes remote_id = 1;
 
-  // The relay agent_version
+  // The remote's agent_version
   required string agent_version = 2;
 
-  // The relay protocols
+  // The remote's protocols
   repeated string protocols = 3;
 
-  // The relay multi address
-  repeated bytes relay_multi_addresses = 4;
+  // The used multi address to run the ping stream over
+  required bytes multi_address = 4;
 
-  // rtt measurement to the relay
-  required float rtt = 5;
+  // rtt measurements to the remote peer
+  repeated float rtts = 5;
 
-  // estimated rtt from the remote peer to the relay
-  required float estimated_remote_rtt = 6;
+  // rtt measurement errors to the remote peer
+  repeated string rtt_errs = 6;
 }

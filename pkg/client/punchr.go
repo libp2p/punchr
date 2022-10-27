@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/urfave/cli/v2"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,9 +13,10 @@ import (
 
 	"github.com/jackpal/gateway"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -231,6 +230,10 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED
 		}
 
+		if hpState.HasDirectConns {
+			hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-h.MeasurePing(ctx, addrInfo.ID, ToRemoteAfterHolePunch))
+		}
+
 		if !p.disableRouterCheck {
 			// Check if the multi addresses have changed - if that's the case we have switched networks
 			for _, maddr := range h.Addrs() {
@@ -254,27 +257,9 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 				break
 			}
 		}
-		if hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS || hpState.Outcome == pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED {
-			hadError := false
-			for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
-				_, _, err := ExtractRelayMaddr(conn.RemoteMultiaddr())
-				if err != nil {
-					continue
-				} else {
-					err := conn.Close()
-					if err != nil {
-						log.WithError(err).Warn("Could not close relay connection")
-						hadError = true
-					}
-				}
-			}
-			if !hadError {
-				res := <-ping.Ping(ctx, h, addrInfo.ID)
-				if res.Error == nil {
-					hpState.markMeasurement(ToRemoteAfterHolePunch, addrInfo.ID, res.RTT)
-				}
-			}
-		}
+
+		relayLatencies := h.PingRelays(ctx, extractRelayInfo(*addrInfo))
+		hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, relayLatencies...)
 
 		// Tell the server about the hole punch outcome
 		if err = p.TrackHolePunchResult(ctx, hpState); err != nil {

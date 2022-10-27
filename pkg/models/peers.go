@@ -25,52 +25,47 @@ import (
 
 // Peer is an object representing the database table.
 type Peer struct {
-	ID            int64             `boil:"id" json:"id" toml:"id" yaml:"id"`
-	MultiHash     string            `boil:"multi_hash" json:"multi_hash" toml:"multi_hash" yaml:"multi_hash"`
-	AgentVersion  null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
-	Protocols     types.StringArray `boil:"protocols" json:"protocols,omitempty" toml:"protocols" yaml:"protocols,omitempty"`
-	SupportsDcutr bool              `boil:"supports_dcutr" json:"supports_dcutr" toml:"supports_dcutr" yaml:"supports_dcutr"`
-	UpdatedAt     time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt     time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID           int64             `boil:"id" json:"id" toml:"id" yaml:"id"`
+	MultiHash    string            `boil:"multi_hash" json:"multi_hash" toml:"multi_hash" yaml:"multi_hash"`
+	AgentVersion null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
+	Protocols    types.StringArray `boil:"protocols" json:"protocols,omitempty" toml:"protocols" yaml:"protocols,omitempty"`
+	UpdatedAt    time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt    time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PeerColumns = struct {
-	ID            string
-	MultiHash     string
-	AgentVersion  string
-	Protocols     string
-	SupportsDcutr string
-	UpdatedAt     string
-	CreatedAt     string
+	ID           string
+	MultiHash    string
+	AgentVersion string
+	Protocols    string
+	UpdatedAt    string
+	CreatedAt    string
 }{
-	ID:            "id",
-	MultiHash:     "multi_hash",
-	AgentVersion:  "agent_version",
-	Protocols:     "protocols",
-	SupportsDcutr: "supports_dcutr",
-	UpdatedAt:     "updated_at",
-	CreatedAt:     "created_at",
+	ID:           "id",
+	MultiHash:    "multi_hash",
+	AgentVersion: "agent_version",
+	Protocols:    "protocols",
+	UpdatedAt:    "updated_at",
+	CreatedAt:    "created_at",
 }
 
 var PeerTableColumns = struct {
-	ID            string
-	MultiHash     string
-	AgentVersion  string
-	Protocols     string
-	SupportsDcutr string
-	UpdatedAt     string
-	CreatedAt     string
+	ID           string
+	MultiHash    string
+	AgentVersion string
+	Protocols    string
+	UpdatedAt    string
+	CreatedAt    string
 }{
-	ID:            "peers.id",
-	MultiHash:     "peers.multi_hash",
-	AgentVersion:  "peers.agent_version",
-	Protocols:     "peers.protocols",
-	SupportsDcutr: "peers.supports_dcutr",
-	UpdatedAt:     "peers.updated_at",
-	CreatedAt:     "peers.created_at",
+	ID:           "peers.id",
+	MultiHash:    "peers.multi_hash",
+	AgentVersion: "peers.agent_version",
+	Protocols:    "peers.protocols",
+	UpdatedAt:    "peers.updated_at",
+	CreatedAt:    "peers.created_at",
 }
 
 // Generated where
@@ -102,21 +97,19 @@ func (w whereHelpertypes_StringArray) IsNotNull() qm.QueryMod {
 }
 
 var PeerWhere = struct {
-	ID            whereHelperint64
-	MultiHash     whereHelperstring
-	AgentVersion  whereHelpernull_String
-	Protocols     whereHelpertypes_StringArray
-	SupportsDcutr whereHelperbool
-	UpdatedAt     whereHelpertime_Time
-	CreatedAt     whereHelpertime_Time
+	ID           whereHelperint64
+	MultiHash    whereHelperstring
+	AgentVersion whereHelpernull_String
+	Protocols    whereHelpertypes_StringArray
+	UpdatedAt    whereHelpertime_Time
+	CreatedAt    whereHelpertime_Time
 }{
-	ID:            whereHelperint64{field: "\"peers\".\"id\""},
-	MultiHash:     whereHelperstring{field: "\"peers\".\"multi_hash\""},
-	AgentVersion:  whereHelpernull_String{field: "\"peers\".\"agent_version\""},
-	Protocols:     whereHelpertypes_StringArray{field: "\"peers\".\"protocols\""},
-	SupportsDcutr: whereHelperbool{field: "\"peers\".\"supports_dcutr\""},
-	UpdatedAt:     whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
-	CreatedAt:     whereHelpertime_Time{field: "\"peers\".\"created_at\""},
+	ID:           whereHelperint64{field: "\"peers\".\"id\""},
+	MultiHash:    whereHelperstring{field: "\"peers\".\"multi_hash\""},
+	AgentVersion: whereHelpernull_String{field: "\"peers\".\"agent_version\""},
+	Protocols:    whereHelpertypes_StringArray{field: "\"peers\".\"protocols\""},
+	UpdatedAt:    whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
+	CreatedAt:    whereHelpertime_Time{field: "\"peers\".\"created_at\""},
 }
 
 // PeerRels is where relationship names are stored.
@@ -124,29 +117,29 @@ var PeerRels = struct {
 	Clients                string
 	LocalConnectionEvents  string
 	RemoteConnectionEvents string
-	ClientHolePunchResults string
+	LocalHolePunchResults  string
 	RemoteHolePunchResults string
+	NetworkInformations    string
 	PeerLogs               string
-	ClientRouters          string
 }{
 	Clients:                "Clients",
 	LocalConnectionEvents:  "LocalConnectionEvents",
 	RemoteConnectionEvents: "RemoteConnectionEvents",
-	ClientHolePunchResults: "ClientHolePunchResults",
+	LocalHolePunchResults:  "LocalHolePunchResults",
 	RemoteHolePunchResults: "RemoteHolePunchResults",
+	NetworkInformations:    "NetworkInformations",
 	PeerLogs:               "PeerLogs",
-	ClientRouters:          "ClientRouters",
 }
 
 // peerR is where relationships are stored.
 type peerR struct {
-	Clients                ClientSlice          `boil:"Clients" json:"Clients" toml:"Clients" yaml:"Clients"`
-	LocalConnectionEvents  ConnectionEventSlice `boil:"LocalConnectionEvents" json:"LocalConnectionEvents" toml:"LocalConnectionEvents" yaml:"LocalConnectionEvents"`
-	RemoteConnectionEvents ConnectionEventSlice `boil:"RemoteConnectionEvents" json:"RemoteConnectionEvents" toml:"RemoteConnectionEvents" yaml:"RemoteConnectionEvents"`
-	ClientHolePunchResults HolePunchResultSlice `boil:"ClientHolePunchResults" json:"ClientHolePunchResults" toml:"ClientHolePunchResults" yaml:"ClientHolePunchResults"`
-	RemoteHolePunchResults HolePunchResultSlice `boil:"RemoteHolePunchResults" json:"RemoteHolePunchResults" toml:"RemoteHolePunchResults" yaml:"RemoteHolePunchResults"`
-	PeerLogs               PeerLogSlice         `boil:"PeerLogs" json:"PeerLogs" toml:"PeerLogs" yaml:"PeerLogs"`
-	ClientRouters          RouterSlice          `boil:"ClientRouters" json:"ClientRouters" toml:"ClientRouters" yaml:"ClientRouters"`
+	Clients                ClientSlice             `boil:"Clients" json:"Clients" toml:"Clients" yaml:"Clients"`
+	LocalConnectionEvents  ConnectionEventSlice    `boil:"LocalConnectionEvents" json:"LocalConnectionEvents" toml:"LocalConnectionEvents" yaml:"LocalConnectionEvents"`
+	RemoteConnectionEvents ConnectionEventSlice    `boil:"RemoteConnectionEvents" json:"RemoteConnectionEvents" toml:"RemoteConnectionEvents" yaml:"RemoteConnectionEvents"`
+	LocalHolePunchResults  HolePunchResultSlice    `boil:"LocalHolePunchResults" json:"LocalHolePunchResults" toml:"LocalHolePunchResults" yaml:"LocalHolePunchResults"`
+	RemoteHolePunchResults HolePunchResultSlice    `boil:"RemoteHolePunchResults" json:"RemoteHolePunchResults" toml:"RemoteHolePunchResults" yaml:"RemoteHolePunchResults"`
+	NetworkInformations    NetworkInformationSlice `boil:"NetworkInformations" json:"NetworkInformations" toml:"NetworkInformations" yaml:"NetworkInformations"`
+	PeerLogs               PeerLogSlice            `boil:"PeerLogs" json:"PeerLogs" toml:"PeerLogs" yaml:"PeerLogs"`
 }
 
 // NewStruct creates a new relationship struct
@@ -175,11 +168,11 @@ func (r *peerR) GetRemoteConnectionEvents() ConnectionEventSlice {
 	return r.RemoteConnectionEvents
 }
 
-func (r *peerR) GetClientHolePunchResults() HolePunchResultSlice {
+func (r *peerR) GetLocalHolePunchResults() HolePunchResultSlice {
 	if r == nil {
 		return nil
 	}
-	return r.ClientHolePunchResults
+	return r.LocalHolePunchResults
 }
 
 func (r *peerR) GetRemoteHolePunchResults() HolePunchResultSlice {
@@ -189,6 +182,13 @@ func (r *peerR) GetRemoteHolePunchResults() HolePunchResultSlice {
 	return r.RemoteHolePunchResults
 }
 
+func (r *peerR) GetNetworkInformations() NetworkInformationSlice {
+	if r == nil {
+		return nil
+	}
+	return r.NetworkInformations
+}
+
 func (r *peerR) GetPeerLogs() PeerLogSlice {
 	if r == nil {
 		return nil
@@ -196,19 +196,12 @@ func (r *peerR) GetPeerLogs() PeerLogSlice {
 	return r.PeerLogs
 }
 
-func (r *peerR) GetClientRouters() RouterSlice {
-	if r == nil {
-		return nil
-	}
-	return r.ClientRouters
-}
-
 // peerL is where Load methods for each relationship are stored.
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"id", "multi_hash", "agent_version", "protocols", "supports_dcutr", "updated_at", "created_at"}
-	peerColumnsWithoutDefault = []string{"multi_hash", "supports_dcutr", "updated_at", "created_at"}
+	peerAllColumns            = []string{"id", "multi_hash", "agent_version", "protocols", "updated_at", "created_at"}
+	peerColumnsWithoutDefault = []string{"multi_hash", "updated_at", "created_at"}
 	peerColumnsWithDefault    = []string{"id", "agent_version", "protocols"}
 	peerPrimaryKeyColumns     = []string{"id"}
 	peerGeneratedColumns      = []string{"id"}
@@ -534,15 +527,15 @@ func (o *Peer) RemoteConnectionEvents(mods ...qm.QueryMod) connectionEventQuery 
 	return ConnectionEvents(queryMods...)
 }
 
-// ClientHolePunchResults retrieves all the hole_punch_result's HolePunchResults with an executor via client_id column.
-func (o *Peer) ClientHolePunchResults(mods ...qm.QueryMod) holePunchResultQuery {
+// LocalHolePunchResults retrieves all the hole_punch_result's HolePunchResults with an executor via local_id column.
+func (o *Peer) LocalHolePunchResults(mods ...qm.QueryMod) holePunchResultQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
 	}
 
 	queryMods = append(queryMods,
-		qm.Where("\"hole_punch_results\".\"client_id\"=?", o.ID),
+		qm.Where("\"hole_punch_results\".\"local_id\"=?", o.ID),
 	)
 
 	return HolePunchResults(queryMods...)
@@ -562,6 +555,20 @@ func (o *Peer) RemoteHolePunchResults(mods ...qm.QueryMod) holePunchResultQuery 
 	return HolePunchResults(queryMods...)
 }
 
+// NetworkInformations retrieves all the network_information's NetworkInformations with an executor.
+func (o *Peer) NetworkInformations(mods ...qm.QueryMod) networkInformationQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"network_information\".\"peer_id\"=?", o.ID),
+	)
+
+	return NetworkInformations(queryMods...)
+}
+
 // PeerLogs retrieves all the peer_log's PeerLogs with an executor.
 func (o *Peer) PeerLogs(mods ...qm.QueryMod) peerLogQuery {
 	var queryMods []qm.QueryMod
@@ -574,20 +581,6 @@ func (o *Peer) PeerLogs(mods ...qm.QueryMod) peerLogQuery {
 	)
 
 	return PeerLogs(queryMods...)
-}
-
-// ClientRouters retrieves all the router's Routers with an executor via client_id column.
-func (o *Peer) ClientRouters(mods ...qm.QueryMod) routerQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"routers\".\"client_id\"=?", o.ID),
-	)
-
-	return Routers(queryMods...)
 }
 
 // LoadClients allows an eager lookup of values, cached into the
@@ -932,9 +925,9 @@ func (peerL) LoadRemoteConnectionEvents(ctx context.Context, e boil.ContextExecu
 	return nil
 }
 
-// LoadClientHolePunchResults allows an eager lookup of values, cached into the
+// LoadLocalHolePunchResults allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (peerL) LoadClientHolePunchResults(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+func (peerL) LoadLocalHolePunchResults(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
 	var slice []*Peer
 	var object *Peer
 
@@ -989,7 +982,7 @@ func (peerL) LoadClientHolePunchResults(ctx context.Context, e boil.ContextExecu
 
 	query := NewQuery(
 		qm.From(`hole_punch_results`),
-		qm.WhereIn(`hole_punch_results.client_id in ?`, args...),
+		qm.WhereIn(`hole_punch_results.local_id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -1020,24 +1013,24 @@ func (peerL) LoadClientHolePunchResults(ctx context.Context, e boil.ContextExecu
 		}
 	}
 	if singular {
-		object.R.ClientHolePunchResults = resultSlice
+		object.R.LocalHolePunchResults = resultSlice
 		for _, foreign := range resultSlice {
 			if foreign.R == nil {
 				foreign.R = &holePunchResultR{}
 			}
-			foreign.R.Client = object
+			foreign.R.Local = object
 		}
 		return nil
 	}
 
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == foreign.ClientID {
-				local.R.ClientHolePunchResults = append(local.R.ClientHolePunchResults, foreign)
+			if local.ID == foreign.LocalID {
+				local.R.LocalHolePunchResults = append(local.R.LocalHolePunchResults, foreign)
 				if foreign.R == nil {
 					foreign.R = &holePunchResultR{}
 				}
-				foreign.R.Client = local
+				foreign.R.Local = local
 				break
 			}
 		}
@@ -1160,6 +1153,120 @@ func (peerL) LoadRemoteHolePunchResults(ctx context.Context, e boil.ContextExecu
 	return nil
 }
 
+// LoadNetworkInformations allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (peerL) LoadNetworkInformations(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+	var slice []*Peer
+	var object *Peer
+
+	if singular {
+		var ok bool
+		object, ok = maybePeer.(*Peer)
+		if !ok {
+			object = new(Peer)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePeer)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePeer))
+			}
+		}
+	} else {
+		s, ok := maybePeer.(*[]*Peer)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePeer)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePeer))
+			}
+		}
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &peerR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &peerR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`network_information`),
+		qm.WhereIn(`network_information.peer_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load network_information")
+	}
+
+	var resultSlice []*NetworkInformation
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice network_information")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on network_information")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for network_information")
+	}
+
+	if len(networkInformationAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.NetworkInformations = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &networkInformationR{}
+			}
+			foreign.R.Peer = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.PeerID {
+				local.R.NetworkInformations = append(local.R.NetworkInformations, foreign)
+				if foreign.R == nil {
+					foreign.R = &networkInformationR{}
+				}
+				foreign.R.Peer = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadPeerLogs allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (peerL) LoadPeerLogs(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
@@ -1266,120 +1373,6 @@ func (peerL) LoadPeerLogs(ctx context.Context, e boil.ContextExecutor, singular 
 					foreign.R = &peerLogR{}
 				}
 				foreign.R.Peer = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// LoadClientRouters allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (peerL) LoadClientRouters(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
-	var slice []*Peer
-	var object *Peer
-
-	if singular {
-		var ok bool
-		object, ok = maybePeer.(*Peer)
-		if !ok {
-			object = new(Peer)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybePeer)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePeer))
-			}
-		}
-	} else {
-		s, ok := maybePeer.(*[]*Peer)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybePeer)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePeer))
-			}
-		}
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &peerR{}
-		}
-		args = append(args, object.ID)
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &peerR{}
-			}
-
-			for _, a := range args {
-				if a == obj.ID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.ID)
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`routers`),
-		qm.WhereIn(`routers.client_id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load routers")
-	}
-
-	var resultSlice []*Router
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice routers")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on routers")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for routers")
-	}
-
-	if len(routerAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-	if singular {
-		object.R.ClientRouters = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &routerR{}
-			}
-			foreign.R.Client = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if local.ID == foreign.ClientID {
-				local.R.ClientRouters = append(local.R.ClientRouters, foreign)
-				if foreign.R == nil {
-					foreign.R = &routerR{}
-				}
-				foreign.R.Client = local
 				break
 			}
 		}
@@ -1547,22 +1540,22 @@ func (o *Peer) AddRemoteConnectionEvents(ctx context.Context, exec boil.ContextE
 	return nil
 }
 
-// AddClientHolePunchResults adds the given related objects to the existing relationships
+// AddLocalHolePunchResults adds the given related objects to the existing relationships
 // of the peer, optionally inserting them as new records.
-// Appends related to o.R.ClientHolePunchResults.
-// Sets related.R.Client appropriately.
-func (o *Peer) AddClientHolePunchResults(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResult) error {
+// Appends related to o.R.LocalHolePunchResults.
+// Sets related.R.Local appropriately.
+func (o *Peer) AddLocalHolePunchResults(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*HolePunchResult) error {
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.ClientID = o.ID
+			rel.LocalID = o.ID
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
 		} else {
 			updateQuery := fmt.Sprintf(
 				"UPDATE \"hole_punch_results\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"client_id"}),
+				strmangle.SetParamNames("\"", "\"", 1, []string{"local_id"}),
 				strmangle.WhereClause("\"", "\"", 2, holePunchResultPrimaryKeyColumns),
 			)
 			values := []interface{}{o.ID, rel.ID}
@@ -1576,25 +1569,25 @@ func (o *Peer) AddClientHolePunchResults(ctx context.Context, exec boil.ContextE
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.ClientID = o.ID
+			rel.LocalID = o.ID
 		}
 	}
 
 	if o.R == nil {
 		o.R = &peerR{
-			ClientHolePunchResults: related,
+			LocalHolePunchResults: related,
 		}
 	} else {
-		o.R.ClientHolePunchResults = append(o.R.ClientHolePunchResults, related...)
+		o.R.LocalHolePunchResults = append(o.R.LocalHolePunchResults, related...)
 	}
 
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &holePunchResultR{
-				Client: o,
+				Local: o,
 			}
 		} else {
-			rel.R.Client = o
+			rel.R.Local = o
 		}
 	}
 	return nil
@@ -1653,6 +1646,59 @@ func (o *Peer) AddRemoteHolePunchResults(ctx context.Context, exec boil.ContextE
 	return nil
 }
 
+// AddNetworkInformations adds the given related objects to the existing relationships
+// of the peer, optionally inserting them as new records.
+// Appends related to o.R.NetworkInformations.
+// Sets related.R.Peer appropriately.
+func (o *Peer) AddNetworkInformations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*NetworkInformation) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PeerID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"network_information\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
+				strmangle.WhereClause("\"", "\"", 2, networkInformationPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.PeerID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &peerR{
+			NetworkInformations: related,
+		}
+	} else {
+		o.R.NetworkInformations = append(o.R.NetworkInformations, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &networkInformationR{
+				Peer: o,
+			}
+		} else {
+			rel.R.Peer = o
+		}
+	}
+	return nil
+}
+
 // AddPeerLogs adds the given related objects to the existing relationships
 // of the peer, optionally inserting them as new records.
 // Appends related to o.R.PeerLogs.
@@ -1701,59 +1747,6 @@ func (o *Peer) AddPeerLogs(ctx context.Context, exec boil.ContextExecutor, inser
 			}
 		} else {
 			rel.R.Peer = o
-		}
-	}
-	return nil
-}
-
-// AddClientRouters adds the given related objects to the existing relationships
-// of the peer, optionally inserting them as new records.
-// Appends related to o.R.ClientRouters.
-// Sets related.R.Client appropriately.
-func (o *Peer) AddClientRouters(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Router) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			rel.ClientID = o.ID
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"routers\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"client_id"}),
-				strmangle.WhereClause("\"", "\"", 2, routerPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.ID}
-
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			rel.ClientID = o.ID
-		}
-	}
-
-	if o.R == nil {
-		o.R = &peerR{
-			ClientRouters: related,
-		}
-	} else {
-		o.R.ClientRouters = append(o.R.ClientRouters, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &routerR{
-				Client: o,
-			}
-		} else {
-			rel.R.Client = o
 		}
 	}
 	return nil

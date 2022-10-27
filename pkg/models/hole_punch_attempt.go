@@ -714,7 +714,7 @@ func (holePunchAttemptL) LoadMultiAddresses(ctx context.Context, e boil.ContextE
 	}
 
 	query := NewQuery(
-		qm.Select("\"multi_addresses\".\"id\", \"multi_addresses\".\"maddr\", \"multi_addresses\".\"country\", \"multi_addresses\".\"continent\", \"multi_addresses\".\"asn\", \"multi_addresses\".\"is_public\", \"multi_addresses\".\"is_relay\", \"multi_addresses\".\"ip_address_count\", \"multi_addresses\".\"updated_at\", \"multi_addresses\".\"created_at\", \"a\".\"hole_punch_attempt\""),
+		qm.Select("\"multi_addresses\".\"id\", \"multi_addresses\".\"asn\", \"multi_addresses\".\"is_cloud\", \"multi_addresses\".\"is_relay\", \"multi_addresses\".\"is_public\", \"multi_addresses\".\"addr\", \"multi_addresses\".\"has_many_addrs\", \"multi_addresses\".\"resolved\", \"multi_addresses\".\"country\", \"multi_addresses\".\"continent\", \"multi_addresses\".\"maddr\", \"multi_addresses\".\"updated_at\", \"multi_addresses\".\"created_at\", \"a\".\"hole_punch_attempt\""),
 		qm.From("\"multi_addresses\""),
 		qm.InnerJoin("\"hole_punch_attempt_x_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
 		qm.WhereIn("\"a\".\"hole_punch_attempt\" in ?", args...),
@@ -735,7 +735,7 @@ func (holePunchAttemptL) LoadMultiAddresses(ctx context.Context, e boil.ContextE
 		one := new(MultiAddress)
 		var localJoinCol int
 
-		err = results.Scan(&one.ID, &one.Maddr, &one.Country, &one.Continent, &one.Asn, &one.IsPublic, &one.IsRelay, &one.IPAddressCount, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
+		err = results.Scan(&one.ID, &one.Asn, &one.IsCloud, &one.IsRelay, &one.IsPublic, &one.Addr, &one.HasManyAddrs, &one.Resolved, &one.Country, &one.Continent, &one.Maddr, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for multi_addresses")
 		}

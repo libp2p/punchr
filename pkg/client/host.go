@@ -3,8 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p/p2p/protocol/ping"
 	"sort"
 	"strconv"
 	"sync"
@@ -29,6 +27,7 @@ import (
 var (
 	CommunicationTimeout = 15 * time.Second
 	RetryCount           = 3
+	PingDuration         = 10 * time.Second
 )
 
 // Host holds information of the honeypot libp2p host.
@@ -135,9 +134,9 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 	errCount := 0
 	var lastErr error
 	for _, bp := range h.bpAddrInfos {
-		log.WithField("remoteID", util.FmtPeerID(bp.ID)).WithField("hostID", util.FmtPeerID(h.ID())).Info("Connecting to bootstrap peer...")
+		h.logEntry(bp.ID).WithField("hostID", util.FmtPeerID(h.ID())).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
-			log.WithError(err).Debugln("Error connecting to bootstrap peer ", bp)
+			h.logEntry(bp.ID).WithError(err).Debugln("Error connecting to bootstrap peer ", bp)
 			errCount++
 			lastErr = errors.Wrap(err, "connecting to bootstrap peer")
 		}
@@ -216,6 +215,36 @@ func (h *Host) Close() error {
 	return h.Host.Close()
 }
 
+func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType MeasurementType) <-chan LatencyMeasurement {
+	resultsChan := make(chan LatencyMeasurement)
+
+	go func() {
+		tctx, cancel := context.WithTimeout(ctx, PingDuration)
+		rChan, stream := Ping(tctx, h.Host, pid)
+
+		lm := LatencyMeasurement{
+			remoteID: pid,
+			mType:    mType,
+			conn:     stream.Conn().RemoteMultiaddr(),
+			rtts:     []time.Duration{},
+		}
+
+		lm.agentVersion = h.GetAgentVersion(pid)
+		lm.protocols = h.GetProtocols(pid)
+
+		for result := range rChan {
+			lm.rtts = append(lm.rtts, result.RTT)
+			lm.rttErrs = append(lm.rttErrs, result.Error)
+		}
+		cancel()
+
+		resultsChan <- lm
+		close(resultsChan)
+	}()
+
+	return resultsChan
+}
+
 func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunchState {
 	// we received a new peer to hole punch -> log its information
 	h.logAddrInfo(addrInfo)
@@ -234,31 +263,11 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 
 	// Track open connections after the hole punch
 	defer func() {
-		deduplicate := map[string]struct{}{}
 		for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
-			if _, found := deduplicate[conn.RemoteMultiaddr().String()]; found {
-				continue
-			}
-
 			if !util.IsRelayedMaddr(conn.RemoteMultiaddr()) {
 				hpState.HasDirectConns = true
 			}
-
-			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
-			deduplicate[conn.RemoteMultiaddr().String()] = struct{}{}
-		}
-	}()
-
-	// Wait for pings to finish
-	defer func() {
-		for _, ping := range hpState.Pings {
-			res := <-ping.Result
-			if res.Error == nil {
-				hpState.markMeasurement(ping.Type, ping.RemoteID, res.RTT)
-			}
-		}
-		for relays := range hpState.Relays {
-			hpState.estimateRtt(relays)
+			hpState.OpenMaddrsAfter = append(hpState.OpenMaddrsAfter, conn.RemoteMultiaddr())
 		}
 	}()
 
@@ -274,35 +283,14 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	hpState.ConnectEndedAt = time.Now()
 	h.logEntry(addrInfo.ID).Infoln("Connected!")
 
-	//extract relay address
-	hpState.Relays = ExtractRelayInfo(addrInfo)
-	for relay := range hpState.Relays {
-		if h.Network().Connectedness(relay) == network.Connected {
-			hpState.Relays[relay].RelayAgentVersion = h.GetAgentVersion(relay)
-			hpState.Relays[relay].RelayProtocols = h.GetProtocols(relay)
-			hpState.Pings = append(hpState.Pings, &PingMeasurement{
-				RemoteID: relay,
-				Type:     ToRelay,
-				Result:   ping.Ping(ctx, h.Host, relay),
-			})
-		}
-	}
-	relays := make([]peer.ID, 0)
 	for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
-		relayId, _, err := ExtractRelayMaddr(conn.RemoteMultiaddr())
-		if err != nil {
-			continue
-		} else {
-			relays = append(relays, relayId)
-		}
+		hpState.OpenMaddrsBefore = append(hpState.OpenMaddrsBefore, conn.RemoteMultiaddr())
 	}
-	if len(relays) == 1 {
-		hpState.Pings = append(hpState.Pings, &PingMeasurement{
-			RemoteID: relays[0],
-			Type:     ToRemoteThroughRelay,
-			Result:   ping.Ping(ctx, h.Host, addrInfo.ID),
-		})
-	}
+
+	relayedPingChan := h.MeasurePing(ctx, addrInfo.ID, ToRemoteThroughRelay)
+	defer func() {
+		hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-relayedPingChan)
+	}()
 
 	// we were able to connect to the remote peer.
 	for i := 0; i < RetryCount; i++ {
@@ -355,6 +343,31 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	hpState.Error = fmt.Sprintf("none of the %d attempts succeeded", RetryCount)
 
 	return hpState
+}
+
+type LatencyMeasurement struct {
+	remoteID     peer.ID
+	agentVersion *string
+	protocols    []string
+	mType        MeasurementType
+	conn         multiaddr.Multiaddr
+	rtts         []time.Duration
+	rttErrs      []error
+}
+
+func (h *Host) PingRelays(ctx context.Context, addrInfo map[peer.ID]*peer.AddrInfo) []LatencyMeasurement {
+	var lats []LatencyMeasurement
+
+	for relayID, ri := range addrInfo {
+		if err := h.Connect(ctx, *ri); err != nil {
+			h.logEntry(relayID).WithError(err).WithField("maddrs", ri.Addrs).Info("Could not connect to relay peer")
+			continue
+		}
+
+		lats = append(lats, <-h.MeasurePing(ctx, relayID, ToRelay))
+	}
+
+	return lats
 }
 
 func (hps HolePunchState) TrackHolePunch(ctx context.Context, remoteID peer.ID, evtChan <-chan *holepunch.Event) HolePunchAttempt {

@@ -24,9 +24,9 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("MultiAddressesSets", testMultiAddressesSetsUpsert)
 
+	t.Run("NetworkInformations", testNetworkInformationsUpsert)
+
 	t.Run("PeerLogs", testPeerLogsUpsert)
 
 	t.Run("Peers", testPeersUpsert)
-
-	t.Run("Routers", testRoutersUpsert)
 }

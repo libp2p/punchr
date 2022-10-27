@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP INDEX IF EXISTS idx_clients_peer_id;
+DROP TABLE IF EXISTS clients;
+
+COMMIT;

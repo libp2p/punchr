@@ -3,12 +3,12 @@ package client
 import (
 	"sync"
 
-	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
+	"github.com/pkg/errors"
 )
 
 type ResourceManager struct {
@@ -21,25 +21,13 @@ type ResourceManager struct {
 var _ network.ResourceManager = (*ResourceManager)(nil)
 
 func NewResourceManager() (*ResourceManager, error) {
-	// Start with the default scaling limits.
-	scalingLimits := rcmgr.DefaultLimits
-
-	// Add limits around included libp2p protocols
-	libp2p.SetDefaultServiceLimits(&scalingLimits)
-
-	// Turn the scaling limits into a static set of limits using `.AutoScale`. This
-	// scales the limits proportional to your system memory.
-	limits := scalingLimits.AutoScale()
-
-	// The resource manager expects a limiter, se we create one from our limits.
-	limiter := rcmgr.NewFixedLimiter(limits)
-
-	mgr, err := rcmgr.NewResourceManager(limiter)
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+	rm, err := rcmgr.NewResourceManager(limiter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "new resource manager")
 	}
 
-	return &ResourceManager{ResourceManager: mgr, notifiees: map[peer.ID]chan struct{}{}}, nil
+	return &ResourceManager{ResourceManager: rm, notifiees: map[peer.ID]chan struct{}{}}, nil
 }
 
 func (r *ResourceManager) Register(pid peer.ID) <-chan struct{} {

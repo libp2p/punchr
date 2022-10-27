@@ -800,57 +800,6 @@ func testHolePunchResultToManyAddOpHolePunchResultsXMultiAddresses(t *testing.T)
 		}
 	}
 }
-func testHolePunchResultToOnePeerUsingClient(t *testing.T) {
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var local HolePunchResult
-	var foreign Peer
-
-	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, holePunchResultDBTypes, false, holePunchResultColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize HolePunchResult struct: %s", err)
-	}
-	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Peer struct: %s", err)
-	}
-
-	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	local.ClientID = foreign.ID
-	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	check, err := local.Client().One(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if check.ID != foreign.ID {
-		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
-	}
-
-	slice := HolePunchResultSlice{&local}
-	if err = local.L.LoadClient(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.Client == nil {
-		t.Error("struct should have been eager loaded")
-	}
-
-	local.R.Client = nil
-	if err = local.L.LoadClient(ctx, tx, true, &local, nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.Client == nil {
-		t.Error("struct should have been eager loaded")
-	}
-}
-
 func testHolePunchResultToOneMultiAddressesSetUsingListenMultiAddressesSet(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -898,6 +847,57 @@ func testHolePunchResultToOneMultiAddressesSetUsingListenMultiAddressesSet(t *te
 		t.Fatal(err)
 	}
 	if local.R.ListenMultiAddressesSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testHolePunchResultToOnePeerUsingLocal(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local HolePunchResult
+	var foreign Peer
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, holePunchResultDBTypes, false, holePunchResultColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize HolePunchResult struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Peer struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	local.LocalID = foreign.ID
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.Local().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if check.ID != foreign.ID {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := HolePunchResultSlice{&local}
+	if err = local.L.LoadLocal(ctx, tx, false, (*[]*HolePunchResult)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Local == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.Local = nil
+	if err = local.L.LoadLocal(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Local == nil {
 		t.Error("struct should have been eager loaded")
 	}
 }
@@ -953,63 +953,6 @@ func testHolePunchResultToOnePeerUsingRemote(t *testing.T) {
 	}
 }
 
-func testHolePunchResultToOneSetOpPeerUsingClient(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a HolePunchResult
-	var b, c Peer
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	for i, x := range []*Peer{&b, &c} {
-		err = a.SetClient(ctx, tx, i != 0, x)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if a.R.Client != x {
-			t.Error("relationship struct not set to correct value")
-		}
-
-		if x.R.ClientHolePunchResults[0] != &a {
-			t.Error("failed to append to foreign relationship struct")
-		}
-		if a.ClientID != x.ID {
-			t.Error("foreign key was wrong value", a.ClientID)
-		}
-
-		zero := reflect.Zero(reflect.TypeOf(a.ClientID))
-		reflect.Indirect(reflect.ValueOf(&a.ClientID)).Set(zero)
-
-		if err = a.Reload(ctx, tx); err != nil {
-			t.Fatal("failed to reload", err)
-		}
-
-		if a.ClientID != x.ID {
-			t.Error("foreign key was wrong value", a.ClientID, x.ID)
-		}
-	}
-}
 func testHolePunchResultToOneSetOpMultiAddressesSetUsingListenMultiAddressesSet(t *testing.T) {
 	var err error
 
@@ -1064,6 +1007,63 @@ func testHolePunchResultToOneSetOpMultiAddressesSetUsingListenMultiAddressesSet(
 
 		if a.ListenMultiAddressesSetID != x.ID {
 			t.Error("foreign key was wrong value", a.ListenMultiAddressesSetID, x.ID)
+		}
+	}
+}
+func testHolePunchResultToOneSetOpPeerUsingLocal(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a HolePunchResult
+	var b, c Peer
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, holePunchResultDBTypes, false, strmangle.SetComplement(holePunchResultPrimaryKeyColumns, holePunchResultColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*Peer{&b, &c} {
+		err = a.SetLocal(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.Local != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.LocalHolePunchResults[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if a.LocalID != x.ID {
+			t.Error("foreign key was wrong value", a.LocalID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.LocalID))
+		reflect.Indirect(reflect.ValueOf(&a.LocalID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if a.LocalID != x.ID {
+			t.Error("foreign key was wrong value", a.LocalID, x.ID)
 		}
 	}
 }
@@ -1199,7 +1199,7 @@ func testHolePunchResultsSelect(t *testing.T) {
 }
 
 var (
-	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `ClientID`: `bigint`, `RemoteID`: `bigint`, `ConnectStartedAt`: `timestamp with time zone`, `ConnectEndedAt`: `timestamp with time zone`, `HasDirectConns`: `boolean`, `Error`: `text`, `Outcome`: `enum.hole_punch_outcome('UNKNOWN','NO_CONNECTION','NO_STREAM','CONNECTION_REVERSED','CANCELLED','FAILED','SUCCESS')`, `EndedAt`: `timestamp with time zone`, `Filters`: `ARRAYinteger`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ListenMultiAddressesSetID`: `integer`}
+	holePunchResultDBTypes = map[string]string{`ID`: `integer`, `LocalID`: `bigint`, `RemoteID`: `bigint`, `ConnectStartedAt`: `timestamp with time zone`, `ConnectEndedAt`: `timestamp with time zone`, `HasDirectConns`: `boolean`, `Error`: `text`, `Outcome`: `enum.hole_punch_outcome('UNKNOWN','NO_CONNECTION','NO_STREAM','CONNECTION_REVERSED','CANCELLED','FAILED','SUCCESS')`, `EndedAt`: `timestamp with time zone`, `ProtocolFilters`: `ARRAYinteger`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ListenMultiAddressesSetID`: `integer`}
 	_                      = bytes.MinRead
 )
 

@@ -15,10 +15,9 @@ var TableNames = struct {
 	IPAddresses                     string
 	MultiAddresses                  string
 	MultiAddressesSets              string
-	MultiAddressesXIPAddresses      string
+	NetworkInformation              string
 	PeerLogs                        string
 	Peers                           string
-	Routers                         string
 }{
 	Authorizations:                  "authorizations",
 	Clients:                         "clients",
@@ -31,8 +30,7 @@ var TableNames = struct {
 	IPAddresses:                     "ip_addresses",
 	MultiAddresses:                  "multi_addresses",
 	MultiAddressesSets:              "multi_addresses_sets",
-	MultiAddressesXIPAddresses:      "multi_addresses_x_ip_addresses",
+	NetworkInformation:              "network_information",
 	PeerLogs:                        "peer_logs",
 	Peers:                           "peers",
-	Routers:                         "routers",
 }
