@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
-
-	manet "github.com/multiformats/go-multiaddr/net"
 
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +31,7 @@ func (h *Host) Connected(_ network.Network, conn network.Conn) {
 
 	if err := h.handleNewConnection(conn); err != nil {
 		log.WithError(err).Warnln("An error occurred while handling the new connection")
-		handledConns.With(prometheus.Labels{"supports_dcutr": "", "listens_on_relay": "", "status": "error"}).Inc()
+		handledConns.With(prometheus.Labels{"status": "error"}).Inc()
 	}
 }
 
@@ -65,8 +63,6 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 			return nil
 		}
 	}
-
-	log.Infoln("OK ", maddrs)
 
 	// It can happen that the `conn.RemoteMultiaddr()` is not part of the peer store maddrs.
 	found := false
@@ -102,7 +98,6 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	// Determine if there is at least one relay multi address and determine the database
 	// TODO: redundant with above
 	var connMaddrID int64
-	var hasRelayMaddr bool
 	var advertisedMaddrs []*models.MultiAddress
 	for _, dbMaddr := range dbMaddrs {
 		if dbMaddr.Maddr == conn.RemoteMultiaddr().String() {
@@ -110,20 +105,14 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		} else {
 			advertisedMaddrs = append(advertisedMaddrs, dbMaddr)
 		}
-		if dbMaddr.IsRelay {
-			hasRelayMaddr = true
-		}
 	}
 
 	// Save this connection event
 	dbConnEvt := &models.ConnectionEvent{
-		LocalID:                    h.DBPeer.ID,
-		RemoteID:                   dbPeer.ID,
-		ConnectionMultiAddressID:   connMaddrID,
-		Direction:                  db.MapNetDirection(conn),
-		ListensOnRelayMultiAddress: hasRelayMaddr,
-		SupportsDcutr:              dbPeer.SupportsDcutr,
-		OpenedAt:                   conn.Stat().Opened,
+		LocalID:                  h.DBPeer.ID,
+		RemoteID:                 dbPeer.ID,
+		ConnectionMultiAddressID: connMaddrID,
+		OpenedAt:                 conn.Stat().Opened,
 	}
 	if err = dbConnEvt.Insert(h.ctx, txn, boil.Infer()); err != nil {
 		return errors.Wrap(err, "insert connection event")
@@ -138,11 +127,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		return errors.Wrap(err, "commit txn")
 	}
 
-	handledConns.With(prometheus.Labels{
-		"supports_dcutr":   strconv.FormatBool(dbConnEvt.SupportsDcutr),
-		"listens_on_relay": strconv.FormatBool(dbConnEvt.ListensOnRelayMultiAddress),
-		"status":           "ok",
-	}).Inc()
+	handledConns.With(prometheus.Labels{"status": "ok"}).Inc()
 
 	return nil
 }

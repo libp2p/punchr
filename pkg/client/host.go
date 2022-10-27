@@ -37,7 +37,15 @@ type Host struct {
 	bpAddrInfos          []peer.AddrInfo
 	rcmgr                *ResourceManager
 	maddrs               map[string]struct{}
+
+	protocolFiltersLk sync.RWMutex
+	protocolFilters   []int32
 }
+
+var (
+	_ holepunch.EventTracer = (*Host)(nil)
+	_ holepunch.AddrFilter  = (*Host)(nil)
+)
 
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
@@ -82,7 +90,7 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic"),
 		libp2p.ListenAddrStrings("/ip6/::/tcp/0"),
 		libp2p.ListenAddrStrings("/ip6/::/udp/0/quic"),
-		libp2p.EnableHolePunching(holepunch.WithTracer(h)),
+		libp2p.EnableHolePunching(holepunch.WithTracer(h), holepunch.WithAddrFilter(h)),
 		libp2p.ResourceManager(rcmgr),
 	)
 	if err != nil {
@@ -127,7 +135,7 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 	for _, bp := range h.bpAddrInfos {
 		log.WithField("remoteID", util.FmtPeerID(bp.ID)).WithField("hostID", util.FmtPeerID(h.ID())).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
-			log.Warn("Error connecting to bootstrap peer ", bp)
+			log.WithError(err).Debugln("Error connecting to bootstrap peer ", bp)
 			errCount++
 			lastErr = errors.Wrap(err, "connecting to bootstrap peer")
 		}
@@ -416,4 +424,45 @@ func (h *Host) Trace(evt *holepunch.Event) {
 	}
 
 	val.(chan *holepunch.Event) <- evt
+}
+
+func (h *Host) FilterLocal(remoteID peer.ID, maddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+	return h.filter(remoteID, maddrs)
+}
+
+func (h *Host) FilterRemote(remoteID peer.ID, maddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+	return h.filter(remoteID, maddrs)
+}
+
+func (h *Host) filter(remoteID peer.ID, maddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+	h.protocolFiltersLk.RLock()
+	defer h.protocolFiltersLk.RUnlock()
+
+	result := make([]multiaddr.Multiaddr, 0, len(maddrs))
+	for _, maddr := range maddrs {
+		if util.IsRelayedMaddr(maddr) {
+			continue
+		}
+
+		// If there's no filter -> add all maddrs
+		if len(h.protocolFilters) == 0 {
+			result = append(result, maddr)
+			continue
+		}
+
+		// If there's a filter -> only add those that match all protocols
+		matchesAllFilters := true
+		for _, p := range h.protocolFilters {
+			if _, err := maddr.ValueForProtocol(int(p)); err != nil {
+				matchesAllFilters = false
+				break
+			}
+		}
+
+		if matchesAllFilters {
+			result = append(result, maddr)
+		}
+	}
+
+	return result
 }

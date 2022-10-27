@@ -1205,7 +1205,7 @@ func testConnectionEventsSelect(t *testing.T) {
 }
 
 var (
-	connectionEventDBTypes = map[string]string{`ID`: `integer`, `LocalID`: `bigint`, `RemoteID`: `bigint`, `ConnectionMultiAddressID`: `bigint`, `Direction`: `enum.connection_direction('UNKNOWN','OUTBOUND','INBOUND')`, `ListensOnRelayMultiAddress`: `boolean`, `SupportsDcutr`: `boolean`, `OpenedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	connectionEventDBTypes = map[string]string{`ID`: `integer`, `LocalID`: `bigint`, `RemoteID`: `bigint`, `ConnectionMultiAddressID`: `bigint`, `OpenedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                      = bytes.MinRead
 )
 

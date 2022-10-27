@@ -15,6 +15,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -28,6 +29,15 @@ var (
 	version = "dev" // set via goreleaser
 	commit  = ""    // set via goreleaser
 )
+
+var allocationQueryDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Name: "db_allocation_query_duration_seconds",
+	Help: "Histogram of database query times for client allocations",
+}, []string{"type", "success"})
+
+func init() {
+	prometheus.MustRegister(allocationQueryDurationHistogram)
+}
 
 func main() {
 	shortCommit := commit

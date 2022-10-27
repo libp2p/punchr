@@ -16,7 +16,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -285,16 +284,4 @@ func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecuto
 	}
 
 	return dbIPAddresses, util.Unique(countries), util.Unique(continents), util.Unique(asns), nil
-}
-
-// MapNetDirection maps the connection direction the corresponding database types.
-func MapNetDirection(conn network.Conn) string {
-	switch conn.Stat().Direction {
-	case network.DirInbound:
-		return models.ConnectionDirectionINBOUND
-	case network.DirOutbound:
-		return models.ConnectionDirectionOUTBOUND
-	default:
-		return models.ConnectionDirectionUNKNOWN
-	}
 }

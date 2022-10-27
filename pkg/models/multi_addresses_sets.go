@@ -54,27 +54,6 @@ var MultiAddressesSetTableColumns = struct {
 
 // Generated where
 
-type whereHelpertypes_Int64Array struct{ field string }
-
-func (w whereHelpertypes_Int64Array) EQ(x types.Int64Array) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.EQ, x)
-}
-func (w whereHelpertypes_Int64Array) NEQ(x types.Int64Array) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.NEQ, x)
-}
-func (w whereHelpertypes_Int64Array) LT(x types.Int64Array) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpertypes_Int64Array) LTE(x types.Int64Array) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpertypes_Int64Array) GT(x types.Int64Array) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpertypes_Int64Array) GTE(x types.Int64Array) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 type whereHelper__byte struct{ field string }
 
 func (w whereHelper__byte) EQ(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }

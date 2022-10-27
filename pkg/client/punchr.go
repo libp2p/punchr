@@ -197,7 +197,12 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		h := p.hosts[i]
 
 		// Request peer to hole punch
-		addrInfo, err := p.RequestAddrInfo(ctx, h.ID())
+		addrInfo, protocols, err := p.RequestAddrInfo(ctx, h.ID())
+
+		h.protocolFiltersLk.Lock()
+		h.protocolFilters = protocols
+		h.protocolFiltersLk.Unlock()
+
 		if addrInfo == nil {
 			if err != nil {
 				log.WithError(err).Warnln("Error requesting addr info")
@@ -261,20 +266,20 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 }
 
 // RequestAddrInfo calls the hole punching server for a new peer + multi address to hole punch.
-func (p Punchr) RequestAddrInfo(ctx context.Context, clientID peer.ID) (*peer.AddrInfo, error) {
+func (p Punchr) RequestAddrInfo(ctx context.Context, clientID peer.ID) (*peer.AddrInfo, []int32, error) {
 	log.Infoln("Requesting peer to hole punch from server...")
 
 	// Marshal client ID
 	hostID, err := clientID.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "marshal client id")
+		return nil, nil, errors.Wrap(err, "marshal client id")
 	}
 
 	allHostIDs := [][]byte{}
 	for _, h := range p.hosts {
 		marshalled, err := h.ID().Marshal()
 		if err != nil {
-			return nil, errors.Wrap(err, "marshal client id")
+			return nil, nil, errors.Wrap(err, "marshal client id")
 		}
 		allHostIDs = append(allHostIDs, marshalled)
 	}
@@ -289,32 +294,32 @@ func (p Punchr) RequestAddrInfo(ctx context.Context, clientID peer.ID) (*peer.Ad
 	res, err := p.client.GetAddrInfo(ctx, req)
 	if st, ok := status.FromError(err); ok && st != nil {
 		if st.Code() == codes.NotFound {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, errors.Wrap(err, "get addr info RPC")
+		return nil, nil, errors.Wrap(err, "get addr info RPC")
 	}
 
-	// If not remote ID is given the server does not have a peer to hole punch
+	// If no remote ID is given the server does not have a peer to hole punch
 	if res.GetRemoteId() == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Parse response
 	remoteID, err := peer.IDFromBytes(res.RemoteId)
 	if err != nil {
-		return nil, errors.Wrap(err, "peer ID from bytes")
+		return nil, nil, errors.Wrap(err, "peer ID from bytes")
 	}
 
 	maddrs := make([]multiaddr.Multiaddr, len(res.MultiAddresses))
 	for i, maddrBytes := range res.MultiAddresses {
 		maddr, err := multiaddr.NewMultiaddrBytes(maddrBytes)
 		if err != nil {
-			return nil, errors.Wrap(err, "multi address from bytes")
+			return nil, nil, errors.Wrap(err, "multi address from bytes")
 		}
 		maddrs[i] = maddr
 	}
 
-	return &peer.AddrInfo{ID: remoteID, Addrs: maddrs}, nil
+	return &peer.AddrInfo{ID: remoteID, Addrs: maddrs}, res.Protocols, nil
 }
 
 func (p Punchr) TrackHolePunchResult(ctx context.Context, hps *HolePunchState) error {

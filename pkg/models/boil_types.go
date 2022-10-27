@@ -51,21 +51,6 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	return str
 }
 
-// Enum values for ConnectionDirection
-const (
-	ConnectionDirectionUNKNOWN  string = "UNKNOWN"
-	ConnectionDirectionOUTBOUND string = "OUTBOUND"
-	ConnectionDirectionINBOUND  string = "INBOUND"
-)
-
-func AllConnectionDirection() []string {
-	return []string{
-		ConnectionDirectionUNKNOWN,
-		ConnectionDirectionOUTBOUND,
-		ConnectionDirectionINBOUND,
-	}
-}
-
 // Enum values for HolePunchAttemptOutcome
 const (
 	HolePunchAttemptOutcomeUNKNOWN        string = "UNKNOWN"

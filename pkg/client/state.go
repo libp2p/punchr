@@ -39,7 +39,8 @@ type HolePunchState struct {
 	EndedAt time.Time
 
 	// The login page of the router
-	RouterHTML string
+	RouterHTML      string
+	ProtocolFilters []int
 }
 
 func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr) *HolePunchState {
@@ -206,7 +207,7 @@ func (hpa *HolePunchAttempt) handleDirectDialEvt(event *holepunch.Event, evt *ho
 }
 
 func (hpa *HolePunchAttempt) handleHolePunchTimeout() {
-	hpa.logEntry().Infoln("no hole punch event after %s", CommunicationTimeout)
+	hpa.logEntry().Infoln("no hole punch event after", CommunicationTimeout)
 	hpa.Outcome = pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_TIMEOUT
 	hpa.EndedAt = time.Now()
 	hpa.ElapsedTime = hpa.EndedAt.Sub(hpa.OpenedAt)

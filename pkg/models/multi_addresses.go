@@ -709,7 +709,7 @@ func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExe
 	}
 
 	query := NewQuery(
-		qm.Select("\"connection_events\".\"id\", \"connection_events\".\"local_id\", \"connection_events\".\"remote_id\", \"connection_events\".\"connection_multi_address_id\", \"connection_events\".\"direction\", \"connection_events\".\"listens_on_relay_multi_address\", \"connection_events\".\"supports_dcutr\", \"connection_events\".\"opened_at\", \"connection_events\".\"created_at\", \"a\".\"multi_address_id\""),
+		qm.Select("\"connection_events\".\"id\", \"connection_events\".\"local_id\", \"connection_events\".\"remote_id\", \"connection_events\".\"connection_multi_address_id\", \"connection_events\".\"opened_at\", \"connection_events\".\"created_at\", \"a\".\"multi_address_id\""),
 		qm.From("\"connection_events\""),
 		qm.InnerJoin("\"connection_events_x_multi_addresses\" as \"a\" on \"connection_events\".\"id\" = \"a\".\"connection_event_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
@@ -730,7 +730,7 @@ func (multiAddressL) LoadConnectionEvents(ctx context.Context, e boil.ContextExe
 		one := new(ConnectionEvent)
 		var localJoinCol int64
 
-		err = results.Scan(&one.ID, &one.LocalID, &one.RemoteID, &one.ConnectionMultiAddressID, &one.Direction, &one.ListensOnRelayMultiAddress, &one.SupportsDcutr, &one.OpenedAt, &one.CreatedAt, &localJoinCol)
+		err = results.Scan(&one.ID, &one.LocalID, &one.RemoteID, &one.ConnectionMultiAddressID, &one.OpenedAt, &one.CreatedAt, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for connection_events")
 		}

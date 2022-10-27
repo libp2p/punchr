@@ -12,9 +12,6 @@ CREATE TABLE connection_events
     local_id                       BIGINT               NOT NULL,
     remote_id                      BIGINT               NOT NULL,
     connection_multi_address_id    BIGINT               NOT NULL,
-    direction                      connection_direction NOT NULL,
-    listens_on_relay_multi_address BOOLEAN              NOT NULL,
-    supports_dcutr                 BOOLEAN              NOT NULL,
     opened_at                      TIMESTAMPTZ          NOT NULL,
     created_at                     TIMESTAMPTZ          NOT NULL,
 

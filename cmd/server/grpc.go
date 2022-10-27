@@ -118,6 +118,19 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 		return nil, err
 	}
 
+	r := rand.Float32()
+	if r < 0.15 {
+		resp.Protocols = []int32{multiaddr.P_IP4, multiaddr.P_TCP}
+	} else if r < 0.3 {
+		resp.Protocols = []int32{multiaddr.P_IP4, multiaddr.P_QUIC}
+	} else if r < 0.45 {
+		resp.Protocols = []int32{multiaddr.P_IP6, multiaddr.P_TCP}
+	} else if r < 0.6 {
+		resp.Protocols = []int32{multiaddr.P_IP6, multiaddr.P_QUIC}
+	} else {
+		resp.Protocols = []int32{}
+	}
+
 	return resp, nil
 }
 

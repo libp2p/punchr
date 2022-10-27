@@ -45,6 +45,7 @@ message GetAddrInfoRequest {
 message GetAddrInfoResponse {
   required bytes remote_id = 1;
   repeated bytes multi_addresses = 2;
+  repeated int32 protocols = 3;
 }
 
 enum HolePunchOutcome {
@@ -119,6 +120,9 @@ message TrackHolePunchRequest {
 
   // The HTML login page of the router if it has changed
   optional string router_login_html = 14;
+
+  // Protocols filtered by
+  repeated int32 protocols = 15;
 }
 
 message TrackHolePunchResponse {}

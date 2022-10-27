@@ -21,6 +21,7 @@ CREATE TABLE hole_punch_results
     error              TEXT,
     outcome            hole_punch_outcome NOT NULL,
     ended_at           TIMESTAMPTZ        NOT NULL,
+    filters            INT[]              NOT NULL,
     updated_at         TIMESTAMPTZ        NOT NULL,
     created_at         TIMESTAMPTZ        NOT NULL,
 

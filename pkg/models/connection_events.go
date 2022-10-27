@@ -23,95 +23,65 @@ import (
 
 // ConnectionEvent is an object representing the database table.
 type ConnectionEvent struct {
-	ID                         int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	LocalID                    int64     `boil:"local_id" json:"local_id" toml:"local_id" yaml:"local_id"`
-	RemoteID                   int64     `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
-	ConnectionMultiAddressID   int64     `boil:"connection_multi_address_id" json:"connection_multi_address_id" toml:"connection_multi_address_id" yaml:"connection_multi_address_id"`
-	Direction                  string    `boil:"direction" json:"direction" toml:"direction" yaml:"direction"`
-	ListensOnRelayMultiAddress bool      `boil:"listens_on_relay_multi_address" json:"listens_on_relay_multi_address" toml:"listens_on_relay_multi_address" yaml:"listens_on_relay_multi_address"`
-	SupportsDcutr              bool      `boil:"supports_dcutr" json:"supports_dcutr" toml:"supports_dcutr" yaml:"supports_dcutr"`
-	OpenedAt                   time.Time `boil:"opened_at" json:"opened_at" toml:"opened_at" yaml:"opened_at"`
-	CreatedAt                  time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID                       int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	LocalID                  int64     `boil:"local_id" json:"local_id" toml:"local_id" yaml:"local_id"`
+	RemoteID                 int64     `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
+	ConnectionMultiAddressID int64     `boil:"connection_multi_address_id" json:"connection_multi_address_id" toml:"connection_multi_address_id" yaml:"connection_multi_address_id"`
+	OpenedAt                 time.Time `boil:"opened_at" json:"opened_at" toml:"opened_at" yaml:"opened_at"`
+	CreatedAt                time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *connectionEventR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L connectionEventL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var ConnectionEventColumns = struct {
-	ID                         string
-	LocalID                    string
-	RemoteID                   string
-	ConnectionMultiAddressID   string
-	Direction                  string
-	ListensOnRelayMultiAddress string
-	SupportsDcutr              string
-	OpenedAt                   string
-	CreatedAt                  string
+	ID                       string
+	LocalID                  string
+	RemoteID                 string
+	ConnectionMultiAddressID string
+	OpenedAt                 string
+	CreatedAt                string
 }{
-	ID:                         "id",
-	LocalID:                    "local_id",
-	RemoteID:                   "remote_id",
-	ConnectionMultiAddressID:   "connection_multi_address_id",
-	Direction:                  "direction",
-	ListensOnRelayMultiAddress: "listens_on_relay_multi_address",
-	SupportsDcutr:              "supports_dcutr",
-	OpenedAt:                   "opened_at",
-	CreatedAt:                  "created_at",
+	ID:                       "id",
+	LocalID:                  "local_id",
+	RemoteID:                 "remote_id",
+	ConnectionMultiAddressID: "connection_multi_address_id",
+	OpenedAt:                 "opened_at",
+	CreatedAt:                "created_at",
 }
 
 var ConnectionEventTableColumns = struct {
-	ID                         string
-	LocalID                    string
-	RemoteID                   string
-	ConnectionMultiAddressID   string
-	Direction                  string
-	ListensOnRelayMultiAddress string
-	SupportsDcutr              string
-	OpenedAt                   string
-	CreatedAt                  string
+	ID                       string
+	LocalID                  string
+	RemoteID                 string
+	ConnectionMultiAddressID string
+	OpenedAt                 string
+	CreatedAt                string
 }{
-	ID:                         "connection_events.id",
-	LocalID:                    "connection_events.local_id",
-	RemoteID:                   "connection_events.remote_id",
-	ConnectionMultiAddressID:   "connection_events.connection_multi_address_id",
-	Direction:                  "connection_events.direction",
-	ListensOnRelayMultiAddress: "connection_events.listens_on_relay_multi_address",
-	SupportsDcutr:              "connection_events.supports_dcutr",
-	OpenedAt:                   "connection_events.opened_at",
-	CreatedAt:                  "connection_events.created_at",
+	ID:                       "connection_events.id",
+	LocalID:                  "connection_events.local_id",
+	RemoteID:                 "connection_events.remote_id",
+	ConnectionMultiAddressID: "connection_events.connection_multi_address_id",
+	OpenedAt:                 "connection_events.opened_at",
+	CreatedAt:                "connection_events.created_at",
 }
 
 // Generated where
 
-type whereHelperbool struct{ field string }
-
-func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-
 var ConnectionEventWhere = struct {
-	ID                         whereHelperint
-	LocalID                    whereHelperint64
-	RemoteID                   whereHelperint64
-	ConnectionMultiAddressID   whereHelperint64
-	Direction                  whereHelperstring
-	ListensOnRelayMultiAddress whereHelperbool
-	SupportsDcutr              whereHelperbool
-	OpenedAt                   whereHelpertime_Time
-	CreatedAt                  whereHelpertime_Time
+	ID                       whereHelperint
+	LocalID                  whereHelperint64
+	RemoteID                 whereHelperint64
+	ConnectionMultiAddressID whereHelperint64
+	OpenedAt                 whereHelpertime_Time
+	CreatedAt                whereHelpertime_Time
 }{
-	ID:                         whereHelperint{field: "\"connection_events\".\"id\""},
-	LocalID:                    whereHelperint64{field: "\"connection_events\".\"local_id\""},
-	RemoteID:                   whereHelperint64{field: "\"connection_events\".\"remote_id\""},
-	ConnectionMultiAddressID:   whereHelperint64{field: "\"connection_events\".\"connection_multi_address_id\""},
-	Direction:                  whereHelperstring{field: "\"connection_events\".\"direction\""},
-	ListensOnRelayMultiAddress: whereHelperbool{field: "\"connection_events\".\"listens_on_relay_multi_address\""},
-	SupportsDcutr:              whereHelperbool{field: "\"connection_events\".\"supports_dcutr\""},
-	OpenedAt:                   whereHelpertime_Time{field: "\"connection_events\".\"opened_at\""},
-	CreatedAt:                  whereHelpertime_Time{field: "\"connection_events\".\"created_at\""},
+	ID:                       whereHelperint{field: "\"connection_events\".\"id\""},
+	LocalID:                  whereHelperint64{field: "\"connection_events\".\"local_id\""},
+	RemoteID:                 whereHelperint64{field: "\"connection_events\".\"remote_id\""},
+	ConnectionMultiAddressID: whereHelperint64{field: "\"connection_events\".\"connection_multi_address_id\""},
+	OpenedAt:                 whereHelpertime_Time{field: "\"connection_events\".\"opened_at\""},
+	CreatedAt:                whereHelpertime_Time{field: "\"connection_events\".\"created_at\""},
 }
 
 // ConnectionEventRels is where relationship names are stored.
@@ -172,8 +142,8 @@ func (r *connectionEventR) GetMultiAddresses() MultiAddressSlice {
 type connectionEventL struct{}
 
 var (
-	connectionEventAllColumns            = []string{"id", "local_id", "remote_id", "connection_multi_address_id", "direction", "listens_on_relay_multi_address", "supports_dcutr", "opened_at", "created_at"}
-	connectionEventColumnsWithoutDefault = []string{"local_id", "remote_id", "connection_multi_address_id", "direction", "listens_on_relay_multi_address", "supports_dcutr", "opened_at", "created_at"}
+	connectionEventAllColumns            = []string{"id", "local_id", "remote_id", "connection_multi_address_id", "opened_at", "created_at"}
+	connectionEventColumnsWithoutDefault = []string{"local_id", "remote_id", "connection_multi_address_id", "opened_at", "created_at"}
 	connectionEventColumnsWithDefault    = []string{"id"}
 	connectionEventPrimaryKeyColumns     = []string{"id"}
 	connectionEventGeneratedColumns      = []string{"id"}
