@@ -3,21 +3,21 @@ BEGIN;
 CREATE TABLE connection_events
 (
     -- A unique ID of this connection event
-    id               INT GENERATED ALWAYS AS IDENTITY,
+    id                    INT GENERATED ALWAYS AS IDENTITY,
     -- The local peer ID of the honeypot
-    local_id         BIGINT      NOT NULL,
+    local_id              BIGINT      NOT NULL,
     -- The peer ID of the remote peer
-    remote_id        BIGINT      NOT NULL,
+    remote_id             BIGINT      NOT NULL,
     -- The multi address of the connection
-    multi_address_id BIGINT      NOT NULL,
+    conn_multi_address_id BIGINT      NOT NULL,
     -- When was this connection opened
-    opened_at        TIMESTAMPTZ NOT NULL,
+    opened_at             TIMESTAMPTZ NOT NULL,
     -- When was this event written to the DB
-    created_at       TIMESTAMPTZ NOT NULL,
+    created_at            TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT fk_connection_events_local_id FOREIGN KEY (local_id) REFERENCES peers (id) ON DELETE CASCADE,
     CONSTRAINT fk_connection_events_remote_id FOREIGN KEY (remote_id) REFERENCES peers (id) ON DELETE CASCADE,
-    CONSTRAINT fk_connection_events_multi_address_id FOREIGN KEY (multi_address_id) REFERENCES multi_addresses (id) ON DELETE CASCADE,
+    CONSTRAINT fk_connection_events_multi_address_id FOREIGN KEY (conn_multi_address_id) REFERENCES multi_addresses (id) ON DELETE CASCADE,
 
     PRIMARY KEY (id)
 );

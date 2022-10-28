@@ -677,7 +677,7 @@ func testIPAddressesSelect(t *testing.T) {
 }
 
 var (
-	ipAddressDBTypes = map[string]string{`ID`: `integer`, `MultiAddressID`: `integer`, `Asn`: `integer`, `IsCloud`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Country`: `character`, `Continent`: `character`, `Address`: `inet`}
+	ipAddressDBTypes = map[string]string{`ID`: `integer`, `MultiAddressID`: `bigint`, `Asn`: `integer`, `IsCloud`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Country`: `character`, `Continent`: `character`, `Address`: `inet`}
 	_                = bytes.MinRead
 )
 

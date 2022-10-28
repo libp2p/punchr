@@ -25,7 +25,7 @@ import (
 // IPAddress is an object representing the database table.
 type IPAddress struct {
 	ID             int         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	MultiAddressID int         `boil:"multi_address_id" json:"multi_address_id" toml:"multi_address_id" yaml:"multi_address_id"`
+	MultiAddressID int64       `boil:"multi_address_id" json:"multi_address_id" toml:"multi_address_id" yaml:"multi_address_id"`
 	Asn            null.Int    `boil:"asn" json:"asn,omitempty" toml:"asn" yaml:"asn,omitempty"`
 	IsCloud        null.Int    `boil:"is_cloud" json:"is_cloud,omitempty" toml:"is_cloud" yaml:"is_cloud,omitempty"`
 	UpdatedAt      time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
@@ -124,7 +124,7 @@ func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNo
 
 var IPAddressWhere = struct {
 	ID             whereHelperint
-	MultiAddressID whereHelperint
+	MultiAddressID whereHelperint64
 	Asn            whereHelpernull_Int
 	IsCloud        whereHelpernull_Int
 	UpdatedAt      whereHelpertime_Time
@@ -134,7 +134,7 @@ var IPAddressWhere = struct {
 	Address        whereHelperstring
 }{
 	ID:             whereHelperint{field: "\"ip_addresses\".\"id\""},
-	MultiAddressID: whereHelperint{field: "\"ip_addresses\".\"multi_address_id\""},
+	MultiAddressID: whereHelperint64{field: "\"ip_addresses\".\"multi_address_id\""},
 	Asn:            whereHelpernull_Int{field: "\"ip_addresses\".\"asn\""},
 	IsCloud:        whereHelpernull_Int{field: "\"ip_addresses\".\"is_cloud\""},
 	UpdatedAt:      whereHelpertime_Time{field: "\"ip_addresses\".\"updated_at\""},

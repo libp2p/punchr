@@ -494,7 +494,7 @@ func testMultiAddressesInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testMultiAddressToManyConnectionEvents(t *testing.T) {
+func testMultiAddressToManyConnMultiAddressConnectionEvents(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -519,8 +519,8 @@ func testMultiAddressToManyConnectionEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.MultiAddressID = a.ID
-	c.MultiAddressID = a.ID
+	b.ConnMultiAddressID = a.ID
+	c.ConnMultiAddressID = a.ID
 
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
@@ -529,17 +529,17 @@ func testMultiAddressToManyConnectionEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	check, err := a.ConnectionEvents().All(ctx, tx)
+	check, err := a.ConnMultiAddressConnectionEvents().All(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.MultiAddressID == b.MultiAddressID {
+		if v.ConnMultiAddressID == b.ConnMultiAddressID {
 			bFound = true
 		}
-		if v.MultiAddressID == c.MultiAddressID {
+		if v.ConnMultiAddressID == c.ConnMultiAddressID {
 			cFound = true
 		}
 	}
@@ -552,18 +552,18 @@ func testMultiAddressToManyConnectionEvents(t *testing.T) {
 	}
 
 	slice := MultiAddressSlice{&a}
-	if err = a.L.LoadConnectionEvents(ctx, tx, false, (*[]*MultiAddress)(&slice), nil); err != nil {
+	if err = a.L.LoadConnMultiAddressConnectionEvents(ctx, tx, false, (*[]*MultiAddress)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.ConnectionEvents); got != 2 {
+	if got := len(a.R.ConnMultiAddressConnectionEvents); got != 2 {
 		t.Error("number of eager loaded records wrong, got:", got)
 	}
 
-	a.R.ConnectionEvents = nil
-	if err = a.L.LoadConnectionEvents(ctx, tx, true, &a, nil); err != nil {
+	a.R.ConnMultiAddressConnectionEvents = nil
+	if err = a.L.LoadConnMultiAddressConnectionEvents(ctx, tx, true, &a, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.ConnectionEvents); got != 2 {
+	if got := len(a.R.ConnMultiAddressConnectionEvents); got != 2 {
 		t.Error("number of eager loaded records wrong, got:", got)
 	}
 
@@ -974,7 +974,7 @@ func testMultiAddressToManyLatencyMeasurements(t *testing.T) {
 	}
 }
 
-func testMultiAddressToManyAddOpConnectionEvents(t *testing.T) {
+func testMultiAddressToManyAddOpConnMultiAddressConnectionEvents(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -1011,7 +1011,7 @@ func testMultiAddressToManyAddOpConnectionEvents(t *testing.T) {
 	}
 
 	for i, x := range foreignersSplitByInsertion {
-		err = a.AddConnectionEvents(ctx, tx, i != 0, x...)
+		err = a.AddConnMultiAddressConnectionEvents(ctx, tx, i != 0, x...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1019,28 +1019,28 @@ func testMultiAddressToManyAddOpConnectionEvents(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.MultiAddressID {
-			t.Error("foreign key was wrong value", a.ID, first.MultiAddressID)
+		if a.ID != first.ConnMultiAddressID {
+			t.Error("foreign key was wrong value", a.ID, first.ConnMultiAddressID)
 		}
-		if a.ID != second.MultiAddressID {
-			t.Error("foreign key was wrong value", a.ID, second.MultiAddressID)
+		if a.ID != second.ConnMultiAddressID {
+			t.Error("foreign key was wrong value", a.ID, second.ConnMultiAddressID)
 		}
 
-		if first.R.MultiAddress != &a {
+		if first.R.ConnMultiAddress != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
-		if second.R.MultiAddress != &a {
+		if second.R.ConnMultiAddress != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
 
-		if a.R.ConnectionEvents[i*2] != first {
+		if a.R.ConnMultiAddressConnectionEvents[i*2] != first {
 			t.Error("relationship struct slice not set to correct value")
 		}
-		if a.R.ConnectionEvents[i*2+1] != second {
+		if a.R.ConnMultiAddressConnectionEvents[i*2+1] != second {
 			t.Error("relationship struct slice not set to correct value")
 		}
 
-		count, err := a.ConnectionEvents().Count(ctx, tx)
+		count, err := a.ConnMultiAddressConnectionEvents().Count(ctx, tx)
 		if err != nil {
 			t.Fatal(err)
 		}

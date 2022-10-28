@@ -857,7 +857,7 @@ func testConnectionEventToOnePeerUsingLocal(t *testing.T) {
 	}
 }
 
-func testConnectionEventToOneMultiAddressUsingMultiAddress(t *testing.T) {
+func testConnectionEventToOneMultiAddressUsingConnMultiAddress(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
@@ -877,12 +877,12 @@ func testConnectionEventToOneMultiAddressUsingMultiAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	local.MultiAddressID = foreign.ID
+	local.ConnMultiAddressID = foreign.ID
 	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := local.MultiAddress().One(ctx, tx)
+	check, err := local.ConnMultiAddress().One(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -892,18 +892,18 @@ func testConnectionEventToOneMultiAddressUsingMultiAddress(t *testing.T) {
 	}
 
 	slice := ConnectionEventSlice{&local}
-	if err = local.L.LoadMultiAddress(ctx, tx, false, (*[]*ConnectionEvent)(&slice), nil); err != nil {
+	if err = local.L.LoadConnMultiAddress(ctx, tx, false, (*[]*ConnectionEvent)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.MultiAddress == nil {
+	if local.R.ConnMultiAddress == nil {
 		t.Error("struct should have been eager loaded")
 	}
 
-	local.R.MultiAddress = nil
-	if err = local.L.LoadMultiAddress(ctx, tx, true, &local, nil); err != nil {
+	local.R.ConnMultiAddress = nil
+	if err = local.L.LoadConnMultiAddress(ctx, tx, true, &local, nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.MultiAddress == nil {
+	if local.R.ConnMultiAddress == nil {
 		t.Error("struct should have been eager loaded")
 	}
 }
@@ -1016,7 +1016,7 @@ func testConnectionEventToOneSetOpPeerUsingLocal(t *testing.T) {
 		}
 	}
 }
-func testConnectionEventToOneSetOpMultiAddressUsingMultiAddress(t *testing.T) {
+func testConnectionEventToOneSetOpMultiAddressUsingConnMultiAddress(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -1045,31 +1045,31 @@ func testConnectionEventToOneSetOpMultiAddressUsingMultiAddress(t *testing.T) {
 	}
 
 	for i, x := range []*MultiAddress{&b, &c} {
-		err = a.SetMultiAddress(ctx, tx, i != 0, x)
+		err = a.SetConnMultiAddress(ctx, tx, i != 0, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if a.R.MultiAddress != x {
+		if a.R.ConnMultiAddress != x {
 			t.Error("relationship struct not set to correct value")
 		}
 
-		if x.R.ConnectionEvents[0] != &a {
+		if x.R.ConnMultiAddressConnectionEvents[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
-		if a.MultiAddressID != x.ID {
-			t.Error("foreign key was wrong value", a.MultiAddressID)
+		if a.ConnMultiAddressID != x.ID {
+			t.Error("foreign key was wrong value", a.ConnMultiAddressID)
 		}
 
-		zero := reflect.Zero(reflect.TypeOf(a.MultiAddressID))
-		reflect.Indirect(reflect.ValueOf(&a.MultiAddressID)).Set(zero)
+		zero := reflect.Zero(reflect.TypeOf(a.ConnMultiAddressID))
+		reflect.Indirect(reflect.ValueOf(&a.ConnMultiAddressID)).Set(zero)
 
 		if err = a.Reload(ctx, tx); err != nil {
 			t.Fatal("failed to reload", err)
 		}
 
-		if a.MultiAddressID != x.ID {
-			t.Error("foreign key was wrong value", a.MultiAddressID, x.ID)
+		if a.ConnMultiAddressID != x.ID {
+			t.Error("foreign key was wrong value", a.ConnMultiAddressID, x.ID)
 		}
 	}
 }
@@ -1205,7 +1205,7 @@ func testConnectionEventsSelect(t *testing.T) {
 }
 
 var (
-	connectionEventDBTypes = map[string]string{`ID`: `integer`, `LocalID`: `bigint`, `RemoteID`: `bigint`, `MultiAddressID`: `bigint`, `OpenedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	connectionEventDBTypes = map[string]string{`ID`: `integer`, `LocalID`: `bigint`, `RemoteID`: `bigint`, `ConnMultiAddressID`: `bigint`, `OpenedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                      = bytes.MinRead
 )
 

@@ -23,86 +23,86 @@ import (
 
 // ConnectionEvent is an object representing the database table.
 type ConnectionEvent struct {
-	ID             int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	LocalID        int64     `boil:"local_id" json:"local_id" toml:"local_id" yaml:"local_id"`
-	RemoteID       int64     `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
-	MultiAddressID int64     `boil:"multi_address_id" json:"multi_address_id" toml:"multi_address_id" yaml:"multi_address_id"`
-	OpenedAt       time.Time `boil:"opened_at" json:"opened_at" toml:"opened_at" yaml:"opened_at"`
-	CreatedAt      time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID                 int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	LocalID            int64     `boil:"local_id" json:"local_id" toml:"local_id" yaml:"local_id"`
+	RemoteID           int64     `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
+	ConnMultiAddressID int64     `boil:"conn_multi_address_id" json:"conn_multi_address_id" toml:"conn_multi_address_id" yaml:"conn_multi_address_id"`
+	OpenedAt           time.Time `boil:"opened_at" json:"opened_at" toml:"opened_at" yaml:"opened_at"`
+	CreatedAt          time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *connectionEventR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L connectionEventL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var ConnectionEventColumns = struct {
-	ID             string
-	LocalID        string
-	RemoteID       string
-	MultiAddressID string
-	OpenedAt       string
-	CreatedAt      string
+	ID                 string
+	LocalID            string
+	RemoteID           string
+	ConnMultiAddressID string
+	OpenedAt           string
+	CreatedAt          string
 }{
-	ID:             "id",
-	LocalID:        "local_id",
-	RemoteID:       "remote_id",
-	MultiAddressID: "multi_address_id",
-	OpenedAt:       "opened_at",
-	CreatedAt:      "created_at",
+	ID:                 "id",
+	LocalID:            "local_id",
+	RemoteID:           "remote_id",
+	ConnMultiAddressID: "conn_multi_address_id",
+	OpenedAt:           "opened_at",
+	CreatedAt:          "created_at",
 }
 
 var ConnectionEventTableColumns = struct {
-	ID             string
-	LocalID        string
-	RemoteID       string
-	MultiAddressID string
-	OpenedAt       string
-	CreatedAt      string
+	ID                 string
+	LocalID            string
+	RemoteID           string
+	ConnMultiAddressID string
+	OpenedAt           string
+	CreatedAt          string
 }{
-	ID:             "connection_events.id",
-	LocalID:        "connection_events.local_id",
-	RemoteID:       "connection_events.remote_id",
-	MultiAddressID: "connection_events.multi_address_id",
-	OpenedAt:       "connection_events.opened_at",
-	CreatedAt:      "connection_events.created_at",
+	ID:                 "connection_events.id",
+	LocalID:            "connection_events.local_id",
+	RemoteID:           "connection_events.remote_id",
+	ConnMultiAddressID: "connection_events.conn_multi_address_id",
+	OpenedAt:           "connection_events.opened_at",
+	CreatedAt:          "connection_events.created_at",
 }
 
 // Generated where
 
 var ConnectionEventWhere = struct {
-	ID             whereHelperint
-	LocalID        whereHelperint64
-	RemoteID       whereHelperint64
-	MultiAddressID whereHelperint64
-	OpenedAt       whereHelpertime_Time
-	CreatedAt      whereHelpertime_Time
+	ID                 whereHelperint
+	LocalID            whereHelperint64
+	RemoteID           whereHelperint64
+	ConnMultiAddressID whereHelperint64
+	OpenedAt           whereHelpertime_Time
+	CreatedAt          whereHelpertime_Time
 }{
-	ID:             whereHelperint{field: "\"connection_events\".\"id\""},
-	LocalID:        whereHelperint64{field: "\"connection_events\".\"local_id\""},
-	RemoteID:       whereHelperint64{field: "\"connection_events\".\"remote_id\""},
-	MultiAddressID: whereHelperint64{field: "\"connection_events\".\"multi_address_id\""},
-	OpenedAt:       whereHelpertime_Time{field: "\"connection_events\".\"opened_at\""},
-	CreatedAt:      whereHelpertime_Time{field: "\"connection_events\".\"created_at\""},
+	ID:                 whereHelperint{field: "\"connection_events\".\"id\""},
+	LocalID:            whereHelperint64{field: "\"connection_events\".\"local_id\""},
+	RemoteID:           whereHelperint64{field: "\"connection_events\".\"remote_id\""},
+	ConnMultiAddressID: whereHelperint64{field: "\"connection_events\".\"conn_multi_address_id\""},
+	OpenedAt:           whereHelpertime_Time{field: "\"connection_events\".\"opened_at\""},
+	CreatedAt:          whereHelpertime_Time{field: "\"connection_events\".\"created_at\""},
 }
 
 // ConnectionEventRels is where relationship names are stored.
 var ConnectionEventRels = struct {
-	Local          string
-	MultiAddress   string
-	Remote         string
-	MultiAddresses string
+	Local            string
+	ConnMultiAddress string
+	Remote           string
+	MultiAddresses   string
 }{
-	Local:          "Local",
-	MultiAddress:   "MultiAddress",
-	Remote:         "Remote",
-	MultiAddresses: "MultiAddresses",
+	Local:            "Local",
+	ConnMultiAddress: "ConnMultiAddress",
+	Remote:           "Remote",
+	MultiAddresses:   "MultiAddresses",
 }
 
 // connectionEventR is where relationships are stored.
 type connectionEventR struct {
-	Local          *Peer             `boil:"Local" json:"Local" toml:"Local" yaml:"Local"`
-	MultiAddress   *MultiAddress     `boil:"MultiAddress" json:"MultiAddress" toml:"MultiAddress" yaml:"MultiAddress"`
-	Remote         *Peer             `boil:"Remote" json:"Remote" toml:"Remote" yaml:"Remote"`
-	MultiAddresses MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
+	Local            *Peer             `boil:"Local" json:"Local" toml:"Local" yaml:"Local"`
+	ConnMultiAddress *MultiAddress     `boil:"ConnMultiAddress" json:"ConnMultiAddress" toml:"ConnMultiAddress" yaml:"ConnMultiAddress"`
+	Remote           *Peer             `boil:"Remote" json:"Remote" toml:"Remote" yaml:"Remote"`
+	MultiAddresses   MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
 }
 
 // NewStruct creates a new relationship struct
@@ -117,11 +117,11 @@ func (r *connectionEventR) GetLocal() *Peer {
 	return r.Local
 }
 
-func (r *connectionEventR) GetMultiAddress() *MultiAddress {
+func (r *connectionEventR) GetConnMultiAddress() *MultiAddress {
 	if r == nil {
 		return nil
 	}
-	return r.MultiAddress
+	return r.ConnMultiAddress
 }
 
 func (r *connectionEventR) GetRemote() *Peer {
@@ -142,8 +142,8 @@ func (r *connectionEventR) GetMultiAddresses() MultiAddressSlice {
 type connectionEventL struct{}
 
 var (
-	connectionEventAllColumns            = []string{"id", "local_id", "remote_id", "multi_address_id", "opened_at", "created_at"}
-	connectionEventColumnsWithoutDefault = []string{"local_id", "remote_id", "multi_address_id", "opened_at", "created_at"}
+	connectionEventAllColumns            = []string{"id", "local_id", "remote_id", "conn_multi_address_id", "opened_at", "created_at"}
+	connectionEventColumnsWithoutDefault = []string{"local_id", "remote_id", "conn_multi_address_id", "opened_at", "created_at"}
 	connectionEventColumnsWithDefault    = []string{"id"}
 	connectionEventPrimaryKeyColumns     = []string{"id"}
 	connectionEventGeneratedColumns      = []string{"id"}
@@ -438,10 +438,10 @@ func (o *ConnectionEvent) Local(mods ...qm.QueryMod) peerQuery {
 	return Peers(queryMods...)
 }
 
-// MultiAddress pointed to by the foreign key.
-func (o *ConnectionEvent) MultiAddress(mods ...qm.QueryMod) multiAddressQuery {
+// ConnMultiAddress pointed to by the foreign key.
+func (o *ConnectionEvent) ConnMultiAddress(mods ...qm.QueryMod) multiAddressQuery {
 	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.MultiAddressID),
+		qm.Where("\"id\" = ?", o.ConnMultiAddressID),
 	}
 
 	queryMods = append(queryMods, mods...)
@@ -595,9 +595,9 @@ func (connectionEventL) LoadLocal(ctx context.Context, e boil.ContextExecutor, s
 	return nil
 }
 
-// LoadMultiAddress allows an eager lookup of values, cached into the
+// LoadConnMultiAddress allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for an N-1 relationship.
-func (connectionEventL) LoadMultiAddress(ctx context.Context, e boil.ContextExecutor, singular bool, maybeConnectionEvent interface{}, mods queries.Applicator) error {
+func (connectionEventL) LoadConnMultiAddress(ctx context.Context, e boil.ContextExecutor, singular bool, maybeConnectionEvent interface{}, mods queries.Applicator) error {
 	var slice []*ConnectionEvent
 	var object *ConnectionEvent
 
@@ -628,7 +628,7 @@ func (connectionEventL) LoadMultiAddress(ctx context.Context, e boil.ContextExec
 		if object.R == nil {
 			object.R = &connectionEventR{}
 		}
-		args = append(args, object.MultiAddressID)
+		args = append(args, object.ConnMultiAddressID)
 
 	} else {
 	Outer:
@@ -638,12 +638,12 @@ func (connectionEventL) LoadMultiAddress(ctx context.Context, e boil.ContextExec
 			}
 
 			for _, a := range args {
-				if a == obj.MultiAddressID {
+				if a == obj.ConnMultiAddressID {
 					continue Outer
 				}
 			}
 
-			args = append(args, obj.MultiAddressID)
+			args = append(args, obj.ConnMultiAddressID)
 
 		}
 	}
@@ -691,22 +691,22 @@ func (connectionEventL) LoadMultiAddress(ctx context.Context, e boil.ContextExec
 
 	if singular {
 		foreign := resultSlice[0]
-		object.R.MultiAddress = foreign
+		object.R.ConnMultiAddress = foreign
 		if foreign.R == nil {
 			foreign.R = &multiAddressR{}
 		}
-		foreign.R.ConnectionEvents = append(foreign.R.ConnectionEvents, object)
+		foreign.R.ConnMultiAddressConnectionEvents = append(foreign.R.ConnMultiAddressConnectionEvents, object)
 		return nil
 	}
 
 	for _, local := range slice {
 		for _, foreign := range resultSlice {
-			if local.MultiAddressID == foreign.ID {
-				local.R.MultiAddress = foreign
+			if local.ConnMultiAddressID == foreign.ID {
+				local.R.ConnMultiAddress = foreign
 				if foreign.R == nil {
 					foreign.R = &multiAddressR{}
 				}
-				foreign.R.ConnectionEvents = append(foreign.R.ConnectionEvents, local)
+				foreign.R.ConnMultiAddressConnectionEvents = append(foreign.R.ConnMultiAddressConnectionEvents, local)
 				break
 			}
 		}
@@ -1013,10 +1013,10 @@ func (o *ConnectionEvent) SetLocal(ctx context.Context, exec boil.ContextExecuto
 	return nil
 }
 
-// SetMultiAddress of the connectionEvent to the related item.
-// Sets o.R.MultiAddress to related.
-// Adds o to related.R.ConnectionEvents.
-func (o *ConnectionEvent) SetMultiAddress(ctx context.Context, exec boil.ContextExecutor, insert bool, related *MultiAddress) error {
+// SetConnMultiAddress of the connectionEvent to the related item.
+// Sets o.R.ConnMultiAddress to related.
+// Adds o to related.R.ConnMultiAddressConnectionEvents.
+func (o *ConnectionEvent) SetConnMultiAddress(ctx context.Context, exec boil.ContextExecutor, insert bool, related *MultiAddress) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -1026,7 +1026,7 @@ func (o *ConnectionEvent) SetMultiAddress(ctx context.Context, exec boil.Context
 
 	updateQuery := fmt.Sprintf(
 		"UPDATE \"connection_events\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
+		strmangle.SetParamNames("\"", "\"", 1, []string{"conn_multi_address_id"}),
 		strmangle.WhereClause("\"", "\"", 2, connectionEventPrimaryKeyColumns),
 	)
 	values := []interface{}{related.ID, o.ID}
@@ -1040,21 +1040,21 @@ func (o *ConnectionEvent) SetMultiAddress(ctx context.Context, exec boil.Context
 		return errors.Wrap(err, "failed to update local table")
 	}
 
-	o.MultiAddressID = related.ID
+	o.ConnMultiAddressID = related.ID
 	if o.R == nil {
 		o.R = &connectionEventR{
-			MultiAddress: related,
+			ConnMultiAddress: related,
 		}
 	} else {
-		o.R.MultiAddress = related
+		o.R.ConnMultiAddress = related
 	}
 
 	if related.R == nil {
 		related.R = &multiAddressR{
-			ConnectionEvents: ConnectionEventSlice{o},
+			ConnMultiAddressConnectionEvents: ConnectionEventSlice{o},
 		}
 	} else {
-		related.R.ConnectionEvents = append(related.R.ConnectionEvents, o)
+		related.R.ConnMultiAddressConnectionEvents = append(related.R.ConnMultiAddressConnectionEvents, o)
 	}
 
 	return nil

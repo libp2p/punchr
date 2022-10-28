@@ -5,7 +5,7 @@ CREATE TABLE ip_addresses
     -- A unique id that identifies this ip address.
     id               INT GENERATED ALWAYS AS IDENTITY,
     -- The multi address that this ip address belongs to.
-    multi_address_id INT         NOT NULL,
+    multi_address_id BIGINT      NOT NULL,
     -- The autonomous system number that this ip address belongs to.
     asn              INT,
     -- If NULL this address could not be associated with a cloud provider.
