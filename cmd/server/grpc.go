@@ -152,9 +152,7 @@ FROM connection_events ce
          INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
          INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
          INNER JOIN peers p ON ce.remote_id = p.id
-WHERE ce.listens_on_relay_multi_address = true
-  AND ce.supports_dcutr = true
-  AND ma.is_relay = true
+WHERE ma.is_relay = true
   AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
   AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
           SELECT count(*)
@@ -167,7 +165,7 @@ WHERE ce.listens_on_relay_multi_address = true
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
         WHERE hpr.remote_id = ce.remote_id
-          AND hpr.client_id IN (%s)
+          AND hpr.local_id IN (%s)
           AND hprxma.multi_address_id = ma.id
           AND hprxma.relationship = 'INITIAL'
           AND hpr.created_at > NOW() - '30min'::INTERVAL
@@ -235,9 +233,7 @@ FROM connection_events ce
          INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
          INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
          INNER JOIN peers p ON ce.remote_id = p.id
-WHERE ce.listens_on_relay_multi_address = true
-  AND ce.supports_dcutr = true
-  AND ma.is_relay = true
+WHERE ma.is_relay = true
   AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
   AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
           SELECT count(*)
@@ -250,7 +246,7 @@ WHERE ce.listens_on_relay_multi_address = true
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
         WHERE hpr.remote_id = ce.remote_id
-          AND hpr.client_id IN (%s)
+          AND hpr.local_id IN (%s)
           AND hprxma.multi_address_id = ma.id
           AND hprxma.relationship = 'INITIAL'
           AND hpr.created_at > NOW() - '10min'::INTERVAL
