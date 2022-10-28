@@ -4,16 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"gonum.org/v1/gonum/floats"
-	"gonum.org/v1/gonum/stat"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/dennis-tra/punchr/pkg/db"
-	"github.com/dennis-tra/punchr/pkg/models"
-	"github.com/dennis-tra/punchr/pkg/pb"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -23,8 +18,14 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/types"
+	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/stat"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/dennis-tra/punchr/pkg/db"
+	"github.com/dennis-tra/punchr/pkg/models"
+	"github.com/dennis-tra/punchr/pkg/pb"
 )
 
 type Server struct {
