@@ -121,11 +121,20 @@ message TrackHolePunchRequest {
   // The HTML login page of the router if it has changed
   optional string router_login_html = 14;
 
+  // The error that occurred when looking up the router login page
+  optional string router_login_html_error = 15;
+
+  // Indicates whether the current network supports IPv6
+  optional bool supports_ipv6 = 16;
+
+  // The error that occurred when looking up the support for IPv6
+  optional string supports_ipv6_error = 17;
+
   // Protocols filtered by
-  repeated int32 protocols = 15;
+  repeated int32 protocols = 18;
 
   // Information about the relays
-  repeated LatencyMeasurement latency_measurements = 16;
+  repeated LatencyMeasurement latency_measurements = 19;
 }
 
 message TrackHolePunchResponse {}
@@ -184,6 +193,11 @@ enum HolePunchAttemptOutcome {
   HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS = 6;
 }
 
+enum LatencyMeasurementType {
+  TO_RELAY = 0;
+  TO_REMOTE_THROUGH_RELAY = 1;
+  TO_REMOTE_AFTER_HOLE_PUNCH = 2 ;
+}
 
 message LatencyMeasurement {
   // The remote peer ID
@@ -203,4 +217,7 @@ message LatencyMeasurement {
 
   // rtt measurement errors to the remote peer
   repeated string rtt_errs = 6;
+
+  // the type of latency measurement
+  required LatencyMeasurementType mtype = 7;
 }

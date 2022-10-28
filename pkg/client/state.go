@@ -14,14 +14,6 @@ import (
 	"github.com/dennis-tra/punchr/pkg/util"
 )
 
-type MeasurementType int
-
-const (
-	ToRelay MeasurementType = iota + 1
-	ToRemoteThroughRelay
-	ToRemoteAfterHolePunch
-)
-
 func (lm LatencyMeasurement) toProto() (*pb.LatencyMeasurement, error) {
 	remoteID, err := lm.remoteID.Marshal()
 	if err != nil {
@@ -102,7 +94,13 @@ type HolePunchState struct {
 	EndedAt time.Time
 
 	// The login page of the router
-	RouterHTML      string
+	RouterHTML    string
+	RouterHTMLErr error
+
+	// indicates whether we have IPv6 support
+	IPv6Support    *bool
+	IPv6SupportErr error
+
 	ProtocolFilters []int
 
 	// Remote Peer data
@@ -174,11 +172,6 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		hpAttempts[i] = attempt.ToProto()
 	}
 
-	var routerLoginHTML *string
-	if hps.RouterHTML != "" {
-		routerLoginHTML = &hps.RouterHTML
-	}
-
 	lms := make([]*pb.LatencyMeasurement, len(hps.LatencyMeasurements))
 	for i, lm := range hps.LatencyMeasurements {
 		lms[i], err = lm.toProto()
@@ -197,6 +190,23 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		errStr = &hps.Error
 	}
 
+	var routerLoginHTML *string
+	if hps.RouterHTML != "" {
+		routerLoginHTML = &hps.RouterHTML
+	}
+
+	var routerLoginHtmlError *string
+	if hps.RouterHTMLErr != nil {
+		tmp := hps.RouterHTMLErr.Error()
+		routerLoginHtmlError = &tmp
+	}
+
+	var supportsIpv6Error *string
+	if hps.IPv6SupportErr != nil {
+		tmp := hps.IPv6SupportErr.Error()
+		supportsIpv6Error = &tmp
+	}
+
 	return &pb.TrackHolePunchRequest{
 		ApiKey:               &apiKey,
 		ClientId:             localID,
@@ -212,6 +222,9 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		Error:                errStr,
 		EndedAt:              toUnixNanos(hps.EndedAt),
 		RouterLoginHtml:      routerLoginHTML,
+		RouterLoginHtmlError: routerLoginHtmlError,
+		SupportsIpv6:         hps.IPv6Support,
+		SupportsIpv6Error:    supportsIpv6Error,
 		LatencyMeasurements:  lms,
 		Protocols:            filterProtocols,
 	}, nil

@@ -231,7 +231,7 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		}
 
 		if hpState.HasDirectConns {
-			hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-h.MeasurePing(ctx, addrInfo.ID, ToRemoteAfterHolePunch))
+			hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH))
 		}
 
 		if !p.disableRouterCheck {
@@ -243,10 +243,12 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 
 				log.Infoln("Found new multi addresses - fetching Router Login")
 				if err = p.UpdateRouterHTML(); err != nil {
-					log.WithError(err).Warnln("Could not get router HTML page")
+					hpState.RouterHTMLErr = err
 				} else {
 					hpState.RouterHTML = p.routerHTML
 				}
+
+				// TODO: check IPv6 support
 
 				// Update list of multi addresses
 				h.maddrs = map[string]struct{}{}

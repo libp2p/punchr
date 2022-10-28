@@ -215,7 +215,7 @@ func (h *Host) Close() error {
 	return h.Host.Close()
 }
 
-func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType MeasurementType) <-chan LatencyMeasurement {
+func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMeasurementType) <-chan LatencyMeasurement {
 	resultsChan := make(chan LatencyMeasurement)
 
 	go func() {
@@ -287,7 +287,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 		hpState.OpenMaddrsBefore = append(hpState.OpenMaddrsBefore, conn.RemoteMultiaddr())
 	}
 
-	relayedPingChan := h.MeasurePing(ctx, addrInfo.ID, ToRemoteThroughRelay)
+	relayedPingChan := h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_THROUGH_RELAY)
 	defer func() {
 		hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-relayedPingChan)
 	}()
@@ -349,7 +349,7 @@ type LatencyMeasurement struct {
 	remoteID     peer.ID
 	agentVersion *string
 	protocols    []string
-	mType        MeasurementType
+	mType        pb.LatencyMeasurementType
 	conn         multiaddr.Multiaddr
 	rtts         []time.Duration
 	rttErrs      []error
@@ -364,7 +364,7 @@ func (h *Host) PingRelays(ctx context.Context, addrInfo map[peer.ID]*peer.AddrIn
 			continue
 		}
 
-		lats = append(lats, <-h.MeasurePing(ctx, relayID, ToRelay))
+		lats = append(lats, <-h.MeasurePing(ctx, relayID, pb.LatencyMeasurementType_TO_RELAY))
 	}
 
 	return lats

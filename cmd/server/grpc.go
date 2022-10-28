@@ -4,11 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/stat"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/dennis-tra/punchr/pkg/db"
+	"github.com/dennis-tra/punchr/pkg/models"
+	"github.com/dennis-tra/punchr/pkg/pb"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -17,12 +22,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/dennis-tra/punchr/pkg/db"
-	"github.com/dennis-tra/punchr/pkg/models"
-	"github.com/dennis-tra/punchr/pkg/pb"
 )
 
 type Server struct {
@@ -336,12 +338,12 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "peer ID from client ID")
 	}
 
-	dbClientPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
+	dbLocalPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client peer from db")
 	}
 
-	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbClientPeer.ID)).Exists(ctx, s.DBClient)
+	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbLocalPeer.ID)).Exists(ctx, s.DBClient)
 	if !clientExists {
 		return nil, fmt.Errorf("client not registered")
 	}
@@ -420,7 +422,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 
 	hpr := &models.HolePunchResult{
-		ClientID:                  dbClientPeer.ID,
+		LocalID:                   dbLocalPeer.ID,
 		ListenMultiAddressesSetID: maddrSetID,
 		RemoteID:                  dbRemotePeer.ID,
 		ConnectStartedAt:          time.Unix(0, int64(*req.ConnectStartedAt)),
@@ -509,10 +511,16 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		}
 	}
 
-	if req.RouterLoginHtml != nil {
-		dbRouter := models.Router{HTML: *req.RouterLoginHtml}
+	if req.RouterLoginHtml != nil || req.SupportsIpv6 != nil {
+		dbRouter := models.NetworkInformation{
+			PeerID:            dbLocalPeer.ID,
+			SupportsIpv6:      null.BoolFromPtr(req.SupportsIpv6),
+			SupportsIpv6Error: null.StringFromPtr(req.SupportsIpv6Error),
+			RouterHTML:        null.StringFromPtr(req.RouterLoginHtml),
+			RouterHTMLError:   null.StringFromPtr(req.RouterLoginHtmlError),
+		}
 
-		if err = dbRouter.SetClient(ctx, txn, false, dbClientPeer); err != nil {
+		if err = dbRouter.SetPeer(ctx, txn, false, dbLocalPeer); err != nil {
 			return nil, errors.Wrap(err, "set client peer of router information")
 		}
 
@@ -520,13 +528,73 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			return nil, errors.Wrap(err, "insert router information")
 		}
 	}
-	//Insert and update relay and rtt data.
 
-	//TODO upsert relay peer info on peer table
+	for _, lm := range req.LatencyMeasurements {
 
-	//TODO insert rtt measurements
+		maddr, err := multiaddr.NewMultiaddrBytes(lm.MultiAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "multi addr from bytes")
+		}
+
+		dbMaddr, err := s.DBClient.UpsertMultiAddress(ctx, txn, maddr)
+		if err != nil {
+			return nil, errors.Wrap(err, "upsert latency measurement multi address")
+		}
+
+		lmRemoteID, err := peer.IDFromBytes(lm.RemoteId)
+		if err != nil {
+			return nil, errors.Wrap(err, "peer ID from remote ID")
+		}
+		dbLmRemotePeer, err := s.DBClient.UpsertPeer(ctx, txn, lmRemoteID, lm.AgentVersion, lm.Protocols)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not upsert latency measurement peer")
+		}
+
+		dbMtype, err := mapMeasurementType(lm.Mtype)
+		if err != nil {
+			return nil, errors.Wrap(err, "map measurement type")
+		}
+
+		dbRtts := make(types.Float64Array, len(lm.Rtts))
+		for i, rtt := range lm.Rtts {
+			dbRtts[i] = float64(rtt)
+		}
+
+		dblm := models.LatencyMeasurement{
+			RemoteID:          dbLmRemotePeer.ID,
+			HolePunchResultID: hpr.ID,
+			MultiAddressID:    dbMaddr.ID,
+			Mtype:             dbMtype,
+			RTTS:              dbRtts,
+			RTTAvg:            stat.Mean(dbRtts, nil),
+			RTTMax:            floats.Max(dbRtts),
+			RTTMin:            floats.Min(dbRtts),
+			RTTSTD:            stat.StdDev(dbRtts, nil),
+		}
+
+		if err := dblm.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert latency measurement")
+		}
+	}
 
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
+}
+
+func mapMeasurementType(mtype *pb.LatencyMeasurementType) (string, error) {
+	if mtype == nil {
+		return "", fmt.Errorf("latency measurement type is nil")
+	}
+
+	switch *mtype {
+	case pb.LatencyMeasurementType_TO_RELAY:
+		return models.LatencyMeasurementTypeTO_RELAY, nil
+	case pb.LatencyMeasurementType_TO_REMOTE_THROUGH_RELAY:
+		return models.LatencyMeasurementTypeTO_REMOTE_THROUGH_RELAY, nil
+	case pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH:
+		return models.LatencyMeasurementTypeTO_REMOTE_AFTER_HOLEPUNCH, nil
+	default:
+		return "", fmt.Errorf("unsupportet latency measurement type: %s", mtype)
+	}
 }
 
 func (s Server) checkApiKey(ctx context.Context, apiKey *string) (int, error) {

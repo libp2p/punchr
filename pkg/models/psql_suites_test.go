@@ -20,6 +20,8 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("IPAddresses", testIPAddressesUpsert)
 
+	t.Run("LatencyMeasurements", testLatencyMeasurementsUpsert)
+
 	t.Run("MultiAddresses", testMultiAddressesUpsert)
 
 	t.Run("MultiAddressesSets", testMultiAddressesSetsUpsert)

@@ -1,7 +1,7 @@
 CREATE TABLE multi_addresses
 (
     -- An internal unique id that identifies this multi address.
-    id             INT GENERATED ALWAYS AS IDENTITY,
+    id             BIGINT GENERATED ALWAYS AS IDENTITY,
     -- The autonomous system number that this multi address belongs to.
     asn            INT,
     -- If NULL this multi address could not be associated with a cloud provider.
@@ -16,8 +16,6 @@ CREATE TABLE multi_addresses
     -- Indicates if the multi_address has multiple IP addresses. Could happen for dnsaddr multi addresses.
     -- If this flag is true there are corresponding IP addresses.
     has_many_addrs BOOLEAN,
-    -- Indicates whether the resolver went over this multi address and tried to derived information from it
-    resolved       BOOLEAN     NOT NULL DEFAULT FALSE,
     -- The country that this multi address belongs to in the form of a two letter country code.
     country        CHAR(2) CHECK ( TRIM(country) != '' ),
     -- The continent that this multi address belongs to in the form of a two letter code.
