@@ -109,10 +109,10 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 
 	// Save this connection event
 	dbConnEvt := &models.ConnectionEvent{
-		LocalID:        h.DBPeer.ID,
-		RemoteID:       dbPeer.ID,
-		MultiAddressID: connMaddrID,
-		OpenedAt:       conn.Stat().Opened,
+		LocalID:            h.DBPeer.ID,
+		RemoteID:           dbPeer.ID,
+		ConnMultiAddressID: connMaddrID,
+		OpenedAt:           conn.Stat().Opened,
 	}
 	if err = dbConnEvt.Insert(h.ctx, txn, boil.Infer()); err != nil {
 		return errors.Wrap(err, "insert connection event")
