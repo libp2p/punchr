@@ -51,18 +51,7 @@ var (
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
-	nonDNS := []string{
-		"/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-		"/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
-		"/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp",
-	}
-	nonDNSaddrInfo, err := parseBootstrapPeers(nonDNS)
-	if err != nil {
-		panic(err)
-	}
-
 	bpAddrInfos := kaddht.GetDefaultBootstrapPeerAddrInfos()
-	bpAddrInfos = append(nonDNSaddrInfo, bpAddrInfos...)
 	if c.IsSet("bootstrap-peers") {
 		addrInfos, err := parseBootstrapPeers(c.StringSlice("bootstrap-peers"))
 		if err != nil {
@@ -134,12 +123,14 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 	errCount := 0
 	var lastErr error
 	for _, bp := range h.bpAddrInfos {
-		h.logEntry(bp.ID).WithField("hostID", util.FmtPeerID(h.ID())).Info("Connecting to bootstrap peer...")
+		h.logEntry(bp.ID).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
-			h.logEntry(bp.ID).WithError(err).Debugln("Error connecting to bootstrap peer ", bp)
+			h.logEntry(bp.ID).WithError(err).WithField("maddrs", bp.Addrs).Warnln("Error connecting to bootstrap peer")
 			errCount++
 			lastErr = errors.Wrap(err, "connecting to bootstrap peer")
+			continue
 		}
+		h.logEntry(bp.ID).Info("Connected to bootstrap peer!")
 	}
 
 	if errCount == len(h.bpAddrInfos) {
@@ -157,7 +148,7 @@ func (h *Host) WaitForPublicAddr(ctx context.Context) error {
 	logEntry := log.WithField("hostID", util.FmtPeerID(h.ID()))
 	logEntry.Infoln("Waiting for public address...")
 
-	timeout := time.NewTimer(CommunicationTimeout)
+	timeout := time.NewTimer(time.Minute)
 
 	duration := 250 * time.Millisecond
 	const maxDuration = 5 * time.Second

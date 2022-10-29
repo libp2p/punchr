@@ -101,6 +101,9 @@ func (p Punchr) InitHosts(c *cli.Context) error {
 // UpdateRouterHTML discovers the default gateway address and fetches the
 // home HTML page to get a sense which router is used.
 func (p Punchr) UpdateRouterHTML() error {
+	log.Infoln("Checking router HTML...")
+	defer log.Infoln("Checking router HTML - Done!")
+
 	router, err := gateway.DiscoverGateway()
 	if err != nil {
 		return errors.Wrap(err, "discover gateway")
