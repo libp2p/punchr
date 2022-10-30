@@ -28,7 +28,7 @@ func RootAction(c *cli.Context) error {
 	}
 
 	if !c.Bool("disable-router-check") {
-		if err = punchr.UpdateRouterHTML(); err != nil {
+		if err = punchr.UpdateRouterHTML(c.Context); err != nil {
 			log.WithError(err).Warnln("Could not get router HTML page")
 		}
 	}

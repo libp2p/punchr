@@ -100,7 +100,7 @@ func (p Punchr) InitHosts(c *cli.Context) error {
 
 // UpdateRouterHTML discovers the default gateway address and fetches the
 // home HTML page to get a sense which router is used.
-func (p Punchr) UpdateRouterHTML() error {
+func (p Punchr) UpdateRouterHTML(ctx context.Context) error {
 	log.Infoln("Checking router HTML...")
 	defer log.Infoln("Checking router HTML - Done!")
 
@@ -109,10 +109,24 @@ func (p Punchr) UpdateRouterHTML() error {
 		return errors.Wrap(err, "discover gateway")
 	}
 
-	u := url.URL{Scheme: "http", Host: router.String()}
-	resp, err := http.Get(u.String())
+	u := url.URL{Scheme: "https", Host: router.String()}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "new https request with context")
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		u := url.URL{Scheme: "http", Host: router.String()}
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		if err != nil {
+			return errors.Wrap(err, "new http request with context")
+		}
+
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrap(err, "get http")
+		}
 	}
 
 	html, err := io.ReadAll(resp.Body)
@@ -146,6 +160,7 @@ func (p Punchr) Bootstrap(ctx context.Context) error {
 				log.Warnf("waiting for public addr host %s: %s\n", util.FmtPeerID(h2.ID()), err)
 				return
 			}
+
 			atomic.AddInt32(&successes, 1)
 		}()
 	}
@@ -154,7 +169,7 @@ func (p Punchr) Bootstrap(ctx context.Context) error {
 	if successes >= 3 || successes == int32(len(p.hosts)) {
 		return nil
 	} else {
-		return fmt.Errorf("could not connect to enough hosts")
+		return fmt.Errorf("could not bootstrap enough hosts (only %d)", successes)
 	}
 }
 
@@ -245,7 +260,7 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 				}
 
 				log.Infoln("Found new multi addresses - fetching Router Login")
-				if err = p.UpdateRouterHTML(); err != nil {
+				if err = p.UpdateRouterHTML(ctx); err != nil {
 					hpState.RouterHTMLErr = err
 				} else {
 					hpState.RouterHTML = p.routerHTML
