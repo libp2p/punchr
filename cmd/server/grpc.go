@@ -508,20 +508,20 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		}
 	}
 
-	if req.RouterLoginHtml != nil || req.SupportsIpv6 != nil {
-		dbRouter := models.NetworkInformation{
+	if req.NetworkInformation != nil {
+		dbNetInfo := models.NetworkInformation{
 			PeerID:            dbLocalPeer.ID,
-			SupportsIpv6:      null.BoolFromPtr(req.SupportsIpv6),
-			SupportsIpv6Error: null.StringFromPtr(req.SupportsIpv6Error),
-			RouterHTML:        null.StringFromPtr(req.RouterLoginHtml),
-			RouterHTMLError:   null.StringFromPtr(req.RouterLoginHtmlError),
+			SupportsIpv6:      null.BoolFromPtr(req.NetworkInformation.SupportsIpv6),
+			SupportsIpv6Error: null.StringFromPtr(req.NetworkInformation.SupportsIpv6Error),
+			RouterHTML:        null.StringFromPtr(req.NetworkInformation.RouterLoginHtml),
+			RouterHTMLError:   null.StringFromPtr(req.NetworkInformation.RouterLoginHtmlError),
 		}
 
-		if err = dbRouter.SetPeer(ctx, txn, false, dbLocalPeer); err != nil {
+		if err = dbNetInfo.SetPeer(ctx, txn, false, dbLocalPeer); err != nil {
 			return nil, errors.Wrap(err, "set client peer of router information")
 		}
 
-		if err = dbRouter.Insert(ctx, txn, boil.Infer()); err != nil {
+		if err = dbNetInfo.Insert(ctx, txn, boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "insert router information")
 		}
 	}

@@ -27,12 +27,6 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "punchr init hosts")
 	}
 
-	if !c.Bool("disable-router-check") {
-		if err = punchr.UpdateRouterHTML(c.Context); err != nil {
-			log.WithError(err).Warnln("Could not get router HTML page")
-		}
-	}
-
 	// Connect punchr hosts to bootstrap nodes
 	if err = punchr.Bootstrap(c.Context); err != nil {
 		return errors.Wrap(err, "bootstrap punchr hosts")

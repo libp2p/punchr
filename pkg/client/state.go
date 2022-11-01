@@ -93,13 +93,7 @@ type HolePunchState struct {
 	Outcome pb.HolePunchOutcome
 	EndedAt time.Time
 
-	// The login page of the router
-	RouterHTML    string
-	RouterHTMLErr error
-
-	// indicates whether we have IPv6 support
-	IPv6Support    *bool
-	IPv6SupportErr error
+	NetworkInformation *pb.NetworkInformation
 
 	ProtocolFilters []int
 
@@ -190,23 +184,6 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		errStr = &hps.Error
 	}
 
-	var routerLoginHTML *string
-	if hps.RouterHTML != "" {
-		routerLoginHTML = &hps.RouterHTML
-	}
-
-	var routerLoginHtmlError *string
-	if hps.RouterHTMLErr != nil {
-		tmp := hps.RouterHTMLErr.Error()
-		routerLoginHtmlError = &tmp
-	}
-
-	var supportsIpv6Error *string
-	if hps.IPv6SupportErr != nil {
-		tmp := hps.IPv6SupportErr.Error()
-		supportsIpv6Error = &tmp
-	}
-
 	return &pb.TrackHolePunchRequest{
 		ApiKey:               &apiKey,
 		ClientId:             localID,
@@ -221,10 +198,7 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		Outcome:              &hps.Outcome,
 		Error:                errStr,
 		EndedAt:              toUnixNanos(hps.EndedAt),
-		RouterLoginHtml:      routerLoginHTML,
-		RouterLoginHtmlError: routerLoginHtmlError,
-		SupportsIpv6:         hps.IPv6Support,
-		SupportsIpv6Error:    supportsIpv6Error,
+		NetworkInformation:   hps.NetworkInformation,
 		LatencyMeasurements:  lms,
 		Protocols:            filterProtocols,
 	}, nil

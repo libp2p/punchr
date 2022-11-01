@@ -118,23 +118,14 @@ message TrackHolePunchRequest {
   // An authentication key for this request
   required string api_key = 13;
 
-  // The HTML login page of the router if it has changed
-  optional string router_login_html = 14;
-
-  // The error that occurred when looking up the router login page
-  optional string router_login_html_error = 15;
-
-  // Indicates whether the current network supports IPv6
-  optional bool supports_ipv6 = 16;
-
-  // The error that occurred when looking up the support for IPv6
-  optional string supports_ipv6_error = 17;
-
   // Protocols filtered by
-  repeated int32 protocols = 18;
+  repeated int32 protocols = 14;
 
   // Information about the relays
-  repeated LatencyMeasurement latency_measurements = 19;
+  repeated LatencyMeasurement latency_measurements = 15;
+
+  // Network information if the network has changed
+  optional NetworkInformation network_information = 16;
 }
 
 message TrackHolePunchResponse {}
@@ -220,4 +211,18 @@ message LatencyMeasurement {
 
   // the type of latency measurement
   required LatencyMeasurementType mtype = 7;
+}
+
+message NetworkInformation {
+  // The HTML login page of the router if it has changed
+  optional string router_login_html = 1;
+
+  // The error that occurred when looking up the router login page
+  optional string router_login_html_error = 2;
+
+  // Indicates whether the current network supports IPv6
+  optional bool supports_ipv6 = 3;
+
+  // The error that occurred when looking up the support for IPv6
+  optional string supports_ipv6_error = 4;
 }

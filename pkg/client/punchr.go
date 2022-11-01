@@ -4,14 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/jackpal/gateway"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -37,7 +33,6 @@ type Punchr struct {
 	privKeyFile        string
 	client             pb.PunchrServiceClient
 	clientConn         *grpc.ClientConn
-	routerHTML         string
 	disableRouterCheck bool
 }
 
@@ -94,47 +89,6 @@ func (p Punchr) InitHosts(c *cli.Context) error {
 		}
 		p.hosts[i] = h
 	}
-
-	return nil
-}
-
-// UpdateRouterHTML discovers the default gateway address and fetches the
-// home HTML page to get a sense which router is used.
-func (p Punchr) UpdateRouterHTML(ctx context.Context) error {
-	log.Infoln("Checking router HTML...")
-	defer log.Infoln("Checking router HTML - Done!")
-
-	router, err := gateway.DiscoverGateway()
-	if err != nil {
-		return errors.Wrap(err, "discover gateway")
-	}
-
-	u := url.URL{Scheme: "https", Host: router.String()}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return errors.Wrap(err, "new https request with context")
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		u := url.URL{Scheme: "http", Host: router.String()}
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err != nil {
-			return errors.Wrap(err, "new http request with context")
-		}
-
-		resp, err = http.DefaultClient.Do(req)
-		if err != nil {
-			return errors.Wrap(err, "get http")
-		}
-	}
-
-	html, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrap(err, "read response body")
-	}
-
-	p.routerHTML = string(html)
 
 	return nil
 }
@@ -253,18 +207,21 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		}
 
 		if !p.disableRouterCheck {
-			// Check if the multi addresses have changed - if that's the case we have switched networks
+			// Check if the multi addresses have changed - if that's the case we have likely switched networks
 			for _, maddr := range h.Addrs() {
 				if _, found := h.maddrs[maddr.String()]; found {
 					continue
 				}
 
+				ni := &pb.NetworkInformation{}
+
 				log.Infoln("Found new multi addresses - fetching Router Login")
-				if err = p.UpdateRouterHTML(ctx); err != nil {
-					hpState.RouterHTMLErr = err
-				} else {
-					hpState.RouterHTML = p.routerHTML
+				html, err := util.DefaultGatewayHTML(ctx)
+				if err != nil {
+					errStr := err.Error()
+					ni.RouterLoginHtmlError = &errStr
 				}
+				ni.RouterLoginHtml = &html
 
 				// TODO: check IPv6 support
 
@@ -273,6 +230,8 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 				for _, newMaddr := range h.Addrs() {
 					h.maddrs[newMaddr.String()] = struct{}{}
 				}
+
+				hpState.NetworkInformation = ni
 
 				break
 			}
