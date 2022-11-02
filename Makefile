@@ -5,6 +5,7 @@ test:
 
 clean:
 	rm -r dist || true
+	mkdir dist
 
 build-linux: clean build-linux-honeypot build-linux-client build-linux-server
 
@@ -40,6 +41,8 @@ tools:
 	go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.6.0
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	go install fyne.io/fyne/v2/cmd/fyne@latest
+	go install github.com/fyne-io/fyne-cross@latest
 
 proto:
 	protoc --proto_path=. --go_out=pkg/pb --go_opt=paths=source_relative --go-grpc_out=pkg/pb --go-grpc_opt=paths=source_relative punchr.proto
@@ -58,3 +61,18 @@ migrate-up:
 migrate-down:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations down
 
+package: clean
+	fyne package --name Punchr --icon `pwd`/gui/client/glove-active.png --sourceDir `pwd`/gui/client --release --appVersion 0.5.0
+	mv Punchr.app dist
+
+dmg: package clean
+	create-dmg \
+		--volname Punchr \
+		--volicon ./gui/client/glove-active.png \
+		--window-pos 200 120 \
+		--window-size 800 400 \
+		--icon-size 100 \
+		--icon ./dist/Punchr.app 200 190 \
+		--app-drop-link 600 185 \
+		./dist/Punchr.dmg \
+		./dist/Punchr.app

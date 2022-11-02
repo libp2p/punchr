@@ -1,6 +1,7 @@
 package main
 
 import (
+	"C"
 	"context"
 	_ "embed"
 	"fmt"
@@ -124,11 +125,8 @@ func (as *AppState) Init() error {
 	as.desk.SetSystemTrayMenu(as.gui.sysTrayMenu)
 
 	if as.apiKey == "" {
-		as.gui.menuItemStatus.Label = "No API-Key"
+		as.gui.menuItemStatus.Label = "Please set an API-Key below"
 		as.gui.menuItemStartStopHolePunching.Disabled = true
-		as.app.Lifecycle().SetOnStarted(func() {
-			go as.ShowApiKeyDialog()
-		})
 	} else {
 		go as.StartHolePunching()
 	}
@@ -140,6 +138,17 @@ func (as *AppState) Init() error {
 	}
 
 	as.gui.sysTrayMenu.Refresh()
+
+	as.app.Lifecycle().SetOnStarted(func() {
+		if as.apiKey == "" {
+			go as.ShowApiKeyDialog()
+		}
+
+		go func() {
+			time.Sleep(time.Second)
+			SetActivationPolicy()
+		}()
+	})
 
 	return nil
 }
