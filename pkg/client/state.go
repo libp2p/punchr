@@ -31,7 +31,11 @@ func (lm LatencyMeasurement) toProto() (*pb.LatencyMeasurement, error) {
 
 	rttErrs := []string{}
 	for _, rttErr := range lm.rttErrs {
-		rttErrs = append(rttErrs, rttErr.Error())
+		if rttErr == nil {
+			rttErrs = append(rttErrs, "")
+		} else {
+			rttErrs = append(rttErrs, rttErr.Error())
+		}
 	}
 
 	return &pb.LatencyMeasurement{
