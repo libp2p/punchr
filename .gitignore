@@ -242,6 +242,8 @@ punchr.gz
 
 dist/
 
+fyne-cross/
+
 **/*api-key.txt
 
 gui/client/**.app

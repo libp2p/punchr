@@ -1,3 +1,5 @@
+VERSION=0.5.0
+
 default: all
 
 test:
@@ -61,23 +63,41 @@ migrate-up:
 migrate-down:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations down
 
-package: clean
-	fyne package \
-		--name Punchr \
-		--icon `pwd`/gui/client/glove-active.png \
-		--sourceDir `pwd`/gui/client \
-		--release \
-		--appVersion 0.5.0
-	mv Punchr.app dist
+package: package-darwin package-linux
 
-sign: package
+package-darwin:
+	fyne-cross darwin \
+		-app-id=ai.protocol.punchr \
+		-app-version=${VERSION} \
+		-arch=arm64,amd64 \
+		-icon=`pwd`/gui/client/glove-active.png \
+		-name=Punchr
+
+package-linux:
+	fyne-cross linux \
+		-app-id=ai.protocol.punchr \
+		-app-version=${VERSION} \
+		-arch=* \
+		-icon=`pwd`/gui/client/glove-active.png \
+		-name=Punchr \
+		-release
+
+sign: package-darwin
 	codesign \
 		--force \
 		--options runtime \
 		--deep \
 		--sign "${SIGNING_CERTIFICATE}" \
 		-i "ai.protocol.punchr" \
-		./dist/Punchr.app
+		./fyne-cross/dist/darwin-amd64/Punchr.app
+
+	codesign \
+		--force \
+		--options runtime \
+		--deep \
+		--sign "${SIGNING_CERTIFICATE}" \
+		-i "ai.protocol.punchr" \
+		./fyne-cross/dist/darwin-arm64/Punchr.app
 
 dmg: sign
 	create-dmg \
@@ -90,6 +110,18 @@ dmg: sign
 		--app-drop-link 600 185 \
 		--codesign "${SIGNING_CERTIFICATE}" \
 		--notarize "${NOTARIZATION_PROFILE}" \
-		./dist/Punchr.dmg \
-		./dist/Punchr.app
-
+		./fyne-cross/dist/darwin-amd64/Punchr.dmg \
+		./fyne-cross/dist/darwin-amd64/Punchr.app
+		
+	create-dmg \
+		--volname Punchr \
+		--volicon ./gui/client/glove-active.png \
+		--window-pos 200 120 \
+		--window-size 800 400 \
+		--icon-size 100 \
+		--icon ./dist/Punchr.app 200 190 \
+		--app-drop-link 600 185 \
+		--codesign "${SIGNING_CERTIFICATE}" \
+		--notarize "${NOTARIZATION_PROFILE}" \
+		./fyne-cross/dist/darwin-arm64/Punchr.dmg \
+		./fyne-cross/dist/darwin-arm64/Punchr.app

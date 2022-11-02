@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"C"
@@ -345,7 +345,7 @@ func (as *AppState) DisableAutoStart() {
 	as.gui.sysTrayMenu.Refresh()
 }
 
-func main() {
+func Start() {
 	appState, err := NewAppState()
 	if err != nil {
 		log.WithError(err).Errorln("Could not get new app state")
