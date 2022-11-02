@@ -62,10 +62,24 @@ migrate-down:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations down
 
 package: clean
-	fyne package --name Punchr --icon `pwd`/gui/client/glove-active.png --sourceDir `pwd`/gui/client --release --appVersion 0.5.0
+	fyne package \
+		--name Punchr \
+		--icon `pwd`/gui/client/glove-active.png \
+		--sourceDir `pwd`/gui/client \
+		--release \
+		--appVersion 0.5.0
 	mv Punchr.app dist
 
-dmg: package clean
+sign: package
+	codesign \
+		--force \
+		--options runtime \
+		--deep \
+		--sign "${SIGNING_CERTIFICATE}" \
+		-i "ai.protocol.punchr" \
+		./dist/Punchr.app
+
+dmg: sign
 	create-dmg \
 		--volname Punchr \
 		--volicon ./gui/client/glove-active.png \
@@ -74,5 +88,8 @@ dmg: package clean
 		--icon-size 100 \
 		--icon ./dist/Punchr.app 200 190 \
 		--app-drop-link 600 185 \
+		--codesign "${SIGNING_CERTIFICATE}" \
+		--notarize "${NOTARIZATION_PROFILE}" \
 		./dist/Punchr.dmg \
 		./dist/Punchr.app
+

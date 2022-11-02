@@ -10,31 +10,36 @@
 
 This repo contains components to measure [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
-Specifically, this repo contains:
+Specifically, this repo contains the following [components](#components):
 
-1. A honeypot that tries to attract DCUtR capable peers behind NATs.
-2. A gRPC server that exposes found peers and tracks hole punching results.
-3. A hole punching client that fetches DCUtR capable peers from the API server, performs a hole punch to them and reports the result back.
+1. A [honeypot](#honeypot) that tries to attract DCUtR capable peers behind NATs.
+2. A [gRPC server](#server) that exposes found peers and tracks hole punching results.
+3. A [hole punching client](#clients) that fetches DCUtR capable peers from the API server, performs a hole punch to them and reports the result back.
 
 **Dashboards:**
 
 - [`Health Dashboard`](https://punchr.dtrautwein.eu/grafana/d/43l1QaC7z/punchr-health)
 - [`Performance Dashboard`](https://punchr.dtrautwein.eu/grafana/d/F8qg0DP7k/punchr-performance)
 
+**Talks**
+
+IPFS þing Jul 2022             |  IPFS Camp Oct 2022 
+:-------------------------:|:-------------------------:
+[![IPFS þing 2022 - libp2p NAT Hole Punching Success Rate - Dennis Trautwein](https://img.youtube.com/vi/fyhZWlDbcyM/0.jpg)](https://www.youtube.com/watch?v=fyhZWlDbcyM)  |  [![IPFS Camp 2022 - Decentralized NAT Hole-Punching - Dennis Trautwein](https://img.youtube.com/vi/bzL7Y1wYth8/0.jpg)](https://www.youtube.com/watch?v=bzL7Y1wYth8)
+
 # Table of Contents <!-- omit in toc -->
 - [Punchr](#punchr)
 - [Background](#background)
-- [Outcomes](#outcomes)
-  - [Hole Punch Outcomes](#hole-punch-outcomes)
-  - [Hole Punch Attempt Outcomes](#hole-punch-attempt-outcomes)
+- [Installation](#installation)
+  - [MacOS](#macos)
+  - [Linux](#linux)
+  - [Self Compilation](#self-compilation)
 - [Components](#components)
   - [`honeypot`](#honeypot)
   - [`server`](#server)
   - [`go-client`](#go-client)
   - [`rust-client`](#rust-client)
-- [Install](#install)
 - [Development](#development)
-  - [Package GUI](#package-gui)
 - [Deployment](#deployment)
   - [Clients](#clients)
     - [RaspberryPi](#raspberrypi)
@@ -42,7 +47,11 @@ Specifically, this repo contains:
 - [Server](#server-1)
 - [Honeypot](#honeypot-1)
 - [Release](#release)
+  - [Package GUI](#package-gui)
   - [go-client](#go-client-1)
+- [Outcomes](#outcomes)
+  - [Hole Punch Outcomes](#hole-punch-outcomes)
+  - [Hole Punch Attempt Outcomes](#hole-punch-attempt-outcomes)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
 - [License](#license)
@@ -51,31 +60,21 @@ Specifically, this repo contains:
 
 ![punchr flow diagram](./docs/punchr.drawio.png)
 
-The goal is to measure the hole punching success rate. For that, we are using a **honeypot** to attract inbound connections from DCUtR capable peers behind NATs. These are then saved into a database which get served to hole punching **clients** via a **server** component. The hole punching clients ask the server if it knows about DCUtR capable peers. If it does the clients connect to the remote peer via a relay and waits for the remote to initiate a hole punch. The result is reported back to the server.
+The goal is to measure the hole punching success rate. For that, we are using a **honeypot** to attract inbound connections from DCUtR capable peers behind NATs. These are then saved into a database which get served to hole punching **clients** via a **server** component. The hole punching clients ask the server if it knows about DCUtR capable peers. If it does, the clients connect to the remote peer via a relay and waits for the remote to initiate a hole punch. The result is reported back to the server.
 
-# Outcomes
+# Installation
 
-## Hole Punch Outcomes
+## MacOS
 
-1. `UNKNOWN` - There was no information why and how the hole punch completed
-2. `NO_CONNECTION` - The client could not connect to the remote peer via any of the provided multi addresses. At the moment this is just a single relay multi address.
-3. `NO_STREAM` - The client could connect to the remote peer via any of the provided multi addresses but no `/libp2p/dcutr` stream was opened within 15s. That stream is necessary to perform the hole punch.
-4. `CONNECTION_REVERSED` - The client only used one or more relay multi addresses to connect to the remote peer, the `/libp2p/dcutr` stream was not opened within 15s, and we still end up with a direct connection. This means the remote peer succesfully reversed it.
-5. `CANCELLED` - The user stopped the client (also returned by the rust client for quic multi addresses)
-6. `FAILED` - The hole punch was attempted multiple times but none succeeded OR the `/libp2p/dcutr` was opened but we have not received the internal start event OR there was a general protocol error.
-7. `SUCCESS` - Any of the three hole punch attempts succeeded.
+For MacOS there is a menu bar application that you can [download here](https://github.com/dennis-tra/punchr/releases/download/v0.5.0/Punchr.dmg).
 
-## Hole Punch Attempt Outcomes
+## Linux
 
-Any connection to a remote peer can consist of multiple attempts to hole punch a direct connection. Each individual attempt could yield the following outcomes:
+Head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary.
 
-1. `UNKNWON` - There was no information why and how the hole punch attempt completed
-2. `DIRECT_DIAL` - The connection reversal from our side succeeded (should never happen)
-3. `PROTOCOL_ERROR` - This can happen if e.g., the stream was reset mid-flight
-4. `CANCELLED` - The user stopped the client
-5. `TIMEOUT` - We waited for the internal start event for 15s but timed out
-6. `FAILED` - We exchanged `CONNECT` and `SYNC` messages on the `/libp2p/dcutr` stream but the final direct connection attempt failed -> the hole punch was unsuccessful
-7. `SUCCESS` - We were able to directly connect to the remote peer.
+## Self Compilation
+
+Run `make build` and find the executables in the `dist` folder. To participate in the measurement campaign you only need to pay attention to the `punchrclient` binary.
 
 # Components
 
@@ -85,9 +84,10 @@ The honeypot operates as a DHT server and periodically walks the complete DHT to
 
 When the honeypot registers an inbound connection it waits until the `identify` protocol has finished and saves the following information about the remote peer to the database: PeerID, agent version, supported protocols, listen multi addresses.
 
-Help output:
+<details>
+   <summary>Help output:</summary>
 
-```
+```text
 NAME:
    honeypot - A libp2p host allowing unlimited inbound connections.
 
@@ -101,25 +101,28 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --crawler-count value   The number of parallel crawlers (default: 10) [$PUNCHR_HONEYPOT_CRAWLER_COUNT]
-   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_HONEYPOT_DATABASE_HOST]
-   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_NAME]
-   --db-password value     The password for the database to use (default: password) [$PUNCHR_HONEYPOT_DATABASE_PASSWORD]
-   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_HONEYPOT_DATABASE_PORT]
-   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_HONEYPOT_DATABASE_SSL_MODE]
-   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_USER]
-   --help, -h              show help (default: false)
-   --key FILE              Load private key for peer ID from FILE (default: honeypot.key) [$PUNCHR_HONEYPOT_KEY_FILE]
    --port value            On which port should the libp2p host listen (default: 11000) [$PUNCHR_HONEYPOT_PORT]
    --telemetry-host value  To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_HONEYPOT_TELEMETRY_HOST]
    --telemetry-port value  On which port should the telemetry (prometheus, pprof) server listen (default: 11001) [$PUNCHR_HONEYPOT_TELEMETRY_PORT]
+   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_HONEYPOT_DATABASE_HOST]
+   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_HONEYPOT_DATABASE_PORT]
+   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_NAME]
+   --db-password value     The password for the database to use (default: password) [$PUNCHR_HONEYPOT_DATABASE_PASSWORD]
+   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_HONEYPOT_DATABASE_USER]
+   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_HONEYPOT_DATABASE_SSL_MODE]
+   --key FILE              Load private key for peer ID from FILE (default: honeypot.key) [$PUNCHR_HONEYPOT_KEY_FILE]
+   --crawler-count value   The number of parallel crawlers (default: 10) [$PUNCHR_HONEYPOT_CRAWLER_COUNT]
+   --help, -h              show help (default: false)
    --version, -v           print the version (default: false)
 ```
+</details>
+
 ## `server`
 
 The server exposes a gRPC api that allows clients to query for recently seen NAT'ed DCUtR capable peers that can be probed and then report the result of the hole punching process back.
 
-Help output:
+<details>
+   <summary>Help output:</summary>
 
 ```text
 NAME:
@@ -135,24 +138,34 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_SERVER_DATABASE_HOST]
-   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_NAME]
-   --db-password value     The password for the database to use (default: password) [$PUNCHR_SERVER_DATABASE_PASSWORD]
-   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_SERVER_DATABASE_PORT]
-   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_SERVER_DATABASE_SSL_MODE]
-   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_USER]
-   --help, -h              show help (default: false)
    --port value            On which port should the gRPC host listen (default: 10000) [$PUNCHR_SERVER_PORT]
    --telemetry-host value  To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_SERVER_TELEMETRY_HOST]
    --telemetry-port value  On which port should the telemetry (prometheus, pprof) server listen (default: 10001) [$PUNCHR_SERVER_TELEMETRY_PORT]
+   --db-host value         On which host address can the database be reached (default: localhost) [$PUNCHR_SERVER_DATABASE_HOST]
+   --db-port value         On which port can the database be reached (default: 5432) [$PUNCHR_SERVER_DATABASE_PORT]
+   --db-name value         The name of the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_NAME]
+   --db-password value     The password for the database to use (default: password) [$PUNCHR_SERVER_DATABASE_PASSWORD]
+   --db-user value         The user with which to access the database to use (default: punchr) [$PUNCHR_SERVER_DATABASE_USER]
+   --db-sslmode value      The sslmode to use when connecting the the database (default: disable) [$PUNCHR_SERVER_DATABASE_SSL_MODE]
+   --help, -h              show help (default: false)
    --version, -v           print the version (default: false)
 ```
+</details>
 
 ## `go-client`
 
 The client announces itself to the server and then periodically queries the server for peers to hole punch. If the server returns address information the client connects to the remote peer via the relay and waits for the remote to initiate a hole punch. Finally, the outcome gets reported back to the server.
 
-Help output:
+Resource requirements:
+
+- `Storage` - `~35MB`
+- `Memory` - `~100MB`
+- `CPU` - `~2.5%`
+
+
+<details>
+<summary>Help output:</summary>
+
 ```text
 NAME:
    punchrclient - A libp2p host that is capable of DCUtR.
@@ -161,37 +174,42 @@ USAGE:
    punchrclient [global options] command [command options] [arguments...]
 
 VERSION:
-   dev+
+   0.5.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --api-key value           The key to authenticate against the API [$PUNCHR_CLIENT_API_KEY]
-   --bootstrap-peers value   Comma separated list of multi addresses of bootstrap peers  (accepts multiple inputs) [$NEBULA_BOOTSTRAP_PEERS]
-   --help, -h                show help (default: false)
-   --host-count value        How many libp2p hosts should be used to hole punch (default: 10) [$PUNCHR_CLIENT_HOST_COUNT]
-   --key-file value          File where punchr saves the host identities. (default: punchrclient.keys) [$PUNCHR_CLIENT_KEY_FILE]
-   --server-host value       Where does the the punchr server listen (default: punchr.dtrautwein.eu) [$PUNCHR_CLIENT_SERVER_HOST]
-   --server-port value       On which port listens the punchr server (default: 443) [$PUNCHR_CLIENT_SERVER_PORT]
-   --server-ssl              Whether or not to use a SSL connection to the server. (default: true) [$PUNCHR_CLIENT_SERVER_SSL]
-   --server-ssl-skip-verify  Whether or not to skip SSL certificate verification. (default: false) [$PUNCHR_CLIENT_SERVER_SSL_SKIP_VERIFY]
-   --telemetry-host value    To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_CLIENT_TELEMETRY_HOST]
-   --telemetry-port value    On which port should the telemetry (prometheus, pprof) server listen (default: 12001) [$PUNCHR_CLIENT_TELEMETRY_PORT]
-   --version, -v             print the version (default: false)
+   --telemetry-host value                               To which network address should the telemetry (prometheus, pprof) server bind (default: localhost) [$PUNCHR_CLIENT_TELEMETRY_HOST]
+   --telemetry-port value                               On which port should the telemetry (prometheus, pprof) server listen (default: 12001) [$PUNCHR_CLIENT_TELEMETRY_PORT]
+   --server-host value                                  Where does the the punchr server listen (default: punchr.dtrautwein.eu) [$PUNCHR_CLIENT_SERVER_HOST]
+   --server-port value                                  On which port listens the punchr server (default: 443) [$PUNCHR_CLIENT_SERVER_PORT]
+   --server-ssl                                         Whether or not to use a SSL connection to the server. (default: true) [$PUNCHR_CLIENT_SERVER_SSL]
+   --server-ssl-skip-verify                             Whether or not to skip SSL certificate verification. (default: false) [$PUNCHR_CLIENT_SERVER_SSL_SKIP_VERIFY]
+   --host-count value                                   How many libp2p hosts should be used to hole punch (default: 10) [$PUNCHR_CLIENT_HOST_COUNT]
+   --api-key value                                      The key to authenticate against the API [$PUNCHR_CLIENT_API_KEY]
+   --key-file value                                     File where punchr saves the host identities. (default: punchrclient.keys) [$PUNCHR_CLIENT_KEY_FILE]
+   --bootstrap-peers value [ --bootstrap-peers value ]  Comma separated list of multi addresses of bootstrap peers [$PUNCHR_BOOTSTRAP_PEERS]
+   --disable-router-check                               Set this flag if you don't want punchr to check your router home page (default: false)
+   --help, -h                                           show help (default: false)
+   --version, -v                                        print the version (default: false)
 ```
-
-Resource requirements:
-
-- `Storage` - `~35MB`
-- `Memory` - `~100MB`
-- `CPU` - `~2.5%`
+</details>
 
 ## `rust-client`
 
 Rust implementation of the punchr client.
 
-Help output:
+Resource requirements:
+
+- `Storage` - `~12MB`
+- `Memory` - `~20MB`
+- `CPU` - `~0.2%`
+
+
+<details>
+<summary>Help output:</summary>
+
 ```
 Rust Punchr Client 0.1.0
 
@@ -211,22 +229,7 @@ OPTIONS:
 
 Note: The api key for authentication is read from env value "API_KEY".
 ```
-
-Resource requirements:
-
-- `Storage` - `~12MB`
-- `Memory` - `~20MB`
-- `CPU` - `~0.2%`
-
-# Install
-
-Head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary or compile it yourself.
-
-- For MacOS there is a system tray application that you can [download here](https://github.com/dennis-tra/punchr/releases/download/v0.5.0/Punchr.dmg).
-
-Run `make build` and find the executables in the `dist` folder. When running the honeypot or server the database migrations folder `./migrations` needs to be in the working directory of either process.
-
-The honeypot listens on port `10000`, the server on port `11000` and clients on `12000`. All components expose prometheus and pprof telemetry on `10001`, `11001`, and `12001` respectively.
+</details>
 
 # Development
 
@@ -239,12 +242,13 @@ go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.6.0
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 go install fyne.io/fyne/v2/cmd/fyne@latest
+go install github.com/fyne-io/fyne-cross@latest
 ```
 
 Then start the database with `make database` or run:
 
 ```shell
-docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=punchr -e POSTGRES_DB=punchr postgres:13
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=punchr -e POSTGRES_DB=punchr postgres:14
 ```
 
 Database migrations are applied automatically when starting either the honeypot or server component. To run them manually you have `make migrate-up`, `make migrate-down` and `make database-reset` at your disposal.
@@ -255,9 +259,6 @@ To create and apply a new database migration run:
 migrate create -ext sql -dir migrations -seq create_some_table
 make migrate-up
 ```
-
-## Package GUI
-
 
 
 # Deployment
@@ -375,14 +376,49 @@ sudo service punchr-honeypot start
 
 # Release
 
+## Package GUI
+
+Run:
+
+```shell
+SIGNING_CERTIFICATE="Developer ID Application: Firstname Lastname (DevID)" NOTARIZATION_PROFILE="APPSTORE_CONNECT" make dmg
+```
+
 ## go-client
 
 Tag a commit with a semantic version and this will trigger a GitHub-Action. This will build go-client binaries for several platforms and create a new GitHub release.
 
+
+# Outcomes
+
+## Hole Punch Outcomes
+
+1. `UNKNOWN` - There was no information why and how the hole punch completed
+2. `NO_CONNECTION` - The client could not connect to the remote peer via any of the provided multi addresses. At the moment this is just a single relay multi address.
+3. `NO_STREAM` - The client could connect to the remote peer via any of the provided multi addresses but no `/libp2p/dcutr` stream was opened within 15s. That stream is necessary to perform the hole punch.
+4. `CONNECTION_REVERSED` - The client only used one or more relay multi addresses to connect to the remote peer, the `/libp2p/dcutr` stream was not opened within 15s, and we still end up with a direct connection. This means the remote peer succesfully reversed it.
+5. `CANCELLED` - The user stopped the client (also returned by the rust client for quic multi addresses)
+6. `FAILED` - The hole punch was attempted multiple times but none succeeded OR the `/libp2p/dcutr` was opened but we have not received the internal start event OR there was a general protocol error.
+7. `SUCCESS` - Any of the three hole punch attempts succeeded.
+
+## Hole Punch Attempt Outcomes
+
+Any connection to a remote peer can consist of multiple attempts to hole punch a direct connection. Each individual attempt could yield the following outcomes:
+
+1. `UNKNWON` - There was no information why and how the hole punch attempt completed
+2. `DIRECT_DIAL` - The connection reversal from our side succeeded (should never happen)
+3. `PROTOCOL_ERROR` - This can happen if e.g., the stream was reset mid-flight
+4. `CANCELLED` - The user stopped the client
+5. `TIMEOUT` - We waited for the internal start event for 15s but timed out
+6. `FAILED` - We exchanged `CONNECT` and `SYNC` messages on the `/libp2p/dcutr` stream but the final direct connection attempt failed -> the hole punch was unsuccessful
+7. `SUCCESS` - We were able to directly connect to the remote peer.
+
+
 # Maintainers
 
-[@dennis-tra](https://github.com/dennis-tra)
-
+[@dennis-tra](https://github.com/dennis-tra), 
+[@elenaf9](https://github.com/elenaf9), 
+[@mxinden](https://github.com/mxinden)
 
 # Contributing
 
