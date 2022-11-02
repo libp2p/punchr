@@ -39,7 +39,7 @@ func RootAction(c *cli.Context) error {
 
 	// Finally, start hole punching
 	if err = punchr.StartHolePunching(c.Context); err != nil {
-		log.Fatalf("failed to hole punch: %v", err)
+		return errors.Wrap(err, "failed to hole punch")
 	}
 
 	// Waiting for shutdown signal
