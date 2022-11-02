@@ -418,6 +418,11 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "upsert multi addresses set")
 	}
 
+	filters := make([]int64, len(req.Protocols))
+	for i, p := range req.Protocols {
+		filters[i] = int64(p)
+	}
+
 	hpr := &models.HolePunchResult{
 		LocalID:                   dbLocalPeer.ID,
 		ListenMultiAddressesSetID: maddrSetID,
@@ -425,6 +430,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		ConnectStartedAt:          time.Unix(0, int64(*req.ConnectStartedAt)),
 		ConnectEndedAt:            time.Unix(0, int64(*req.ConnectEndedAt)),
 		HasDirectConns:            *req.HasDirectConns,
+		ProtocolFilters:           filters,
 		Outcome:                   s.mapHolePunchOutcome(req),
 		Error:                     null.StringFromPtr(req.Error),
 		EndedAt:                   time.Unix(0, int64(*req.EndedAt)),

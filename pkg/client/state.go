@@ -42,6 +42,7 @@ func (lm LatencyMeasurement) toProto() (*pb.LatencyMeasurement, error) {
 		RemoteId:     remoteID,
 		AgentVersion: lm.agentVersion,
 		Protocols:    lm.protocols,
+		Mtype:        &lm.mType,
 		MultiAddress: lm.conn.Bytes(),
 		Rtts:         rtts,
 		RttErrs:      rttErrs,
