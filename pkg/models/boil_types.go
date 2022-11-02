@@ -109,3 +109,18 @@ func AllHolePunchMultiAddressRelationship() []string {
 		HolePunchMultiAddressRelationshipFINAL,
 	}
 }
+
+// Enum values for LatencyMeasurementType
+const (
+	LatencyMeasurementTypeTO_RELAY                  string = "TO_RELAY"
+	LatencyMeasurementTypeTO_REMOTE_THROUGH_RELAY   string = "TO_REMOTE_THROUGH_RELAY"
+	LatencyMeasurementTypeTO_REMOTE_AFTER_HOLEPUNCH string = "TO_REMOTE_AFTER_HOLEPUNCH"
+)
+
+func AllLatencyMeasurementType() []string {
+	return []string{
+		LatencyMeasurementTypeTO_RELAY,
+		LatencyMeasurementTypeTO_REMOTE_THROUGH_RELAY,
+		LatencyMeasurementTypeTO_REMOTE_AFTER_HOLEPUNCH,
+	}
+}

@@ -4,14 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/jackpal/gateway"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -37,7 +33,6 @@ type Punchr struct {
 	privKeyFile        string
 	client             pb.PunchrServiceClient
 	clientConn         *grpc.ClientConn
-	routerHTML         string
 	disableRouterCheck bool
 }
 
@@ -98,30 +93,6 @@ func (p Punchr) InitHosts(c *cli.Context) error {
 	return nil
 }
 
-// UpdateRouterHTML discovers the default gateway address and fetches the
-// home HTML page to get a sense which router is used.
-func (p Punchr) UpdateRouterHTML() error {
-	router, err := gateway.DiscoverGateway()
-	if err != nil {
-		return errors.Wrap(err, "discover gateway")
-	}
-
-	u := url.URL{Scheme: "http", Host: router.String()}
-	resp, err := http.Get(u.String())
-	if err != nil {
-		return err
-	}
-
-	html, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrap(err, "read response body")
-	}
-
-	p.routerHTML = string(html)
-
-	return nil
-}
-
 // Bootstrap loops through all hosts, connects each of them to the canonical bootstrap nodes, and
 // waits until they have identified their public address(es).
 func (p Punchr) Bootstrap(ctx context.Context) error {
@@ -143,6 +114,7 @@ func (p Punchr) Bootstrap(ctx context.Context) error {
 				log.Warnf("waiting for public addr host %s: %s\n", util.FmtPeerID(h2.ID()), err)
 				return
 			}
+
 			atomic.AddInt32(&successes, 1)
 		}()
 	}
@@ -151,7 +123,7 @@ func (p Punchr) Bootstrap(ctx context.Context) error {
 	if successes >= 3 || successes == int32(len(p.hosts)) {
 		return nil
 	} else {
-		return fmt.Errorf("could not connect to enough hosts")
+		return fmt.Errorf("could not bootstrap enough hosts (only %d)", successes)
 	}
 }
 
@@ -230,19 +202,28 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED
 		}
 
+		if hpState.HasDirectConns {
+			hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH))
+		}
+
 		if !p.disableRouterCheck {
-			// Check if the multi addresses have changed - if that's the case we have switched networks
+			// Check if the multi addresses have changed - if that's the case we have likely switched networks
 			for _, maddr := range h.Addrs() {
 				if _, found := h.maddrs[maddr.String()]; found {
 					continue
 				}
 
+				ni := &pb.NetworkInformation{}
+
 				log.Infoln("Found new multi addresses - fetching Router Login")
-				if err = p.UpdateRouterHTML(); err != nil {
-					log.WithError(err).Warnln("Could not get router HTML page")
-				} else {
-					hpState.RouterHTML = p.routerHTML
+				html, err := util.DefaultGatewayHTML(ctx)
+				if err != nil {
+					errStr := err.Error()
+					ni.RouterLoginHtmlError = &errStr
 				}
+				ni.RouterLoginHtml = &html
+
+				// TODO: check IPv6 support
 
 				// Update list of multi addresses
 				h.maddrs = map[string]struct{}{}
@@ -250,9 +231,14 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 					h.maddrs[newMaddr.String()] = struct{}{}
 				}
 
+				hpState.NetworkInformation = ni
+
 				break
 			}
 		}
+
+		relayLatencies := h.PingRelays(ctx, extractRelayInfo(*addrInfo))
+		hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, relayLatencies...)
 
 		// Tell the server about the hole punch outcome
 		if err = p.TrackHolePunchResult(ctx, hpState); err != nil {

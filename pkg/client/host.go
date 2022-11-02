@@ -27,6 +27,7 @@ import (
 var (
 	CommunicationTimeout = 15 * time.Second
 	RetryCount           = 3
+	PingDuration         = 10 * time.Second
 )
 
 // Host holds information of the honeypot libp2p host.
@@ -50,18 +51,7 @@ var (
 func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
-	nonDNS := []string{
-		"/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-		"/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
-		"/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp",
-	}
-	nonDNSaddrInfo, err := parseBootstrapPeers(nonDNS)
-	if err != nil {
-		panic(err)
-	}
-
 	bpAddrInfos := kaddht.GetDefaultBootstrapPeerAddrInfos()
-	bpAddrInfos = append(nonDNSaddrInfo, bpAddrInfos...)
 	if c.IsSet("bootstrap-peers") {
 		addrInfos, err := parseBootstrapPeers(c.StringSlice("bootstrap-peers"))
 		if err != nil {
@@ -133,12 +123,14 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 	errCount := 0
 	var lastErr error
 	for _, bp := range h.bpAddrInfos {
-		log.WithField("remoteID", util.FmtPeerID(bp.ID)).WithField("hostID", util.FmtPeerID(h.ID())).Info("Connecting to bootstrap peer...")
+		h.logEntry(bp.ID).Info("Connecting to bootstrap peer...")
 		if err := h.Connect(ctx, bp); err != nil {
-			log.WithError(err).Debugln("Error connecting to bootstrap peer ", bp)
+			h.logEntry(bp.ID).WithError(err).WithField("maddrs", bp.Addrs).Warnln("Error connecting to bootstrap peer")
 			errCount++
 			lastErr = errors.Wrap(err, "connecting to bootstrap peer")
+			continue
 		}
+		h.logEntry(bp.ID).Info("Connected to bootstrap peer!")
 	}
 
 	if errCount == len(h.bpAddrInfos) {
@@ -156,7 +148,7 @@ func (h *Host) WaitForPublicAddr(ctx context.Context) error {
 	logEntry := log.WithField("hostID", util.FmtPeerID(h.ID()))
 	logEntry.Infoln("Waiting for public address...")
 
-	timeout := time.NewTimer(CommunicationTimeout)
+	timeout := time.NewTimer(time.Minute)
 
 	duration := 250 * time.Millisecond
 	const maxDuration = 5 * time.Second
@@ -214,6 +206,36 @@ func (h *Host) Close() error {
 	return h.Host.Close()
 }
 
+func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMeasurementType) <-chan LatencyMeasurement {
+	resultsChan := make(chan LatencyMeasurement)
+
+	go func() {
+		tctx, cancel := context.WithTimeout(ctx, PingDuration)
+		rChan, stream := Ping(tctx, h.Host, pid)
+
+		lm := LatencyMeasurement{
+			remoteID: pid,
+			mType:    mType,
+			conn:     stream.Conn().RemoteMultiaddr(),
+			rtts:     []time.Duration{},
+		}
+
+		lm.agentVersion = h.GetAgentVersion(pid)
+		lm.protocols = h.GetProtocols(pid)
+
+		for result := range rChan {
+			lm.rtts = append(lm.rtts, result.RTT)
+			lm.rttErrs = append(lm.rttErrs, result.Error)
+		}
+		cancel()
+
+		resultsChan <- lm
+		close(resultsChan)
+	}()
+
+	return resultsChan
+}
+
 func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunchState {
 	// we received a new peer to hole punch -> log its information
 	h.logAddrInfo(addrInfo)
@@ -232,18 +254,11 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 
 	// Track open connections after the hole punch
 	defer func() {
-		deduplicate := map[string]struct{}{}
 		for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
-			if _, found := deduplicate[conn.RemoteMultiaddr().String()]; found {
-				continue
-			}
-
 			if !util.IsRelayedMaddr(conn.RemoteMultiaddr()) {
 				hpState.HasDirectConns = true
 			}
-
-			hpState.OpenMaddrs = append(hpState.OpenMaddrs, conn.RemoteMultiaddr())
-			deduplicate[conn.RemoteMultiaddr().String()] = struct{}{}
+			hpState.OpenMaddrsAfter = append(hpState.OpenMaddrsAfter, conn.RemoteMultiaddr())
 		}
 	}()
 
@@ -258,6 +273,15 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	}
 	hpState.ConnectEndedAt = time.Now()
 	h.logEntry(addrInfo.ID).Infoln("Connected!")
+
+	for _, conn := range h.Network().ConnsToPeer(addrInfo.ID) {
+		hpState.OpenMaddrsBefore = append(hpState.OpenMaddrsBefore, conn.RemoteMultiaddr())
+	}
+
+	relayedPingChan := h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_THROUGH_RELAY)
+	defer func() {
+		hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-relayedPingChan)
+	}()
 
 	// we were able to connect to the remote peer.
 	for i := 0; i < RetryCount; i++ {
@@ -310,6 +334,31 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	hpState.Error = fmt.Sprintf("none of the %d attempts succeeded", RetryCount)
 
 	return hpState
+}
+
+type LatencyMeasurement struct {
+	remoteID     peer.ID
+	agentVersion *string
+	protocols    []string
+	mType        pb.LatencyMeasurementType
+	conn         multiaddr.Multiaddr
+	rtts         []time.Duration
+	rttErrs      []error
+}
+
+func (h *Host) PingRelays(ctx context.Context, addrInfo map[peer.ID]*peer.AddrInfo) []LatencyMeasurement {
+	var lats []LatencyMeasurement
+
+	for relayID, ri := range addrInfo {
+		if err := h.Connect(ctx, *ri); err != nil {
+			h.logEntry(relayID).WithError(err).WithField("maddrs", ri.Addrs).Info("Could not connect to relay peer")
+			continue
+		}
+
+		lats = append(lats, <-h.MeasurePing(ctx, relayID, pb.LatencyMeasurementType_TO_RELAY))
+	}
+
+	return lats
 }
 
 func (hps HolePunchState) TrackHolePunch(ctx context.Context, remoteID peer.ID, evtChan <-chan *holepunch.Event) HolePunchAttempt {

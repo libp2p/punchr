@@ -118,11 +118,14 @@ message TrackHolePunchRequest {
   // An authentication key for this request
   required string api_key = 13;
 
-  // The HTML login page of the router if it has changed
-  optional string router_login_html = 14;
-
   // Protocols filtered by
-  repeated int32 protocols = 15;
+  repeated int32 protocols = 14;
+
+  // Information about the relays
+  repeated LatencyMeasurement latency_measurements = 15;
+
+  // Network information if the network has changed
+  optional NetworkInformation network_information = 16;
 }
 
 message TrackHolePunchResponse {}
@@ -179,4 +182,47 @@ enum HolePunchAttemptOutcome {
 
   // The hole punch was performed and was successful
   HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS = 6;
+}
+
+enum LatencyMeasurementType {
+  TO_RELAY = 0;
+  TO_REMOTE_THROUGH_RELAY = 1;
+  TO_REMOTE_AFTER_HOLE_PUNCH = 2 ;
+}
+
+message LatencyMeasurement {
+  // The remote peer ID
+  required bytes remote_id = 1;
+
+  // The remote's agent_version
+  required string agent_version = 2;
+
+  // The remote's protocols
+  repeated string protocols = 3;
+
+  // The used multi address to run the ping stream over
+  required bytes multi_address = 4;
+
+  // rtt measurements to the remote peer
+  repeated float rtts = 5;
+
+  // rtt measurement errors to the remote peer
+  repeated string rtt_errs = 6;
+
+  // the type of latency measurement
+  required LatencyMeasurementType mtype = 7;
+}
+
+message NetworkInformation {
+  // The HTML login page of the router if it has changed
+  optional string router_login_html = 1;
+
+  // The error that occurred when looking up the router login page
+  optional string router_login_html_error = 2;
+
+  // Indicates whether the current network supports IPv6
+  optional bool supports_ipv6 = 3;
+
+  // The error that occurred when looking up the support for IPv6
+  optional string supports_ipv6_error = 4;
 }

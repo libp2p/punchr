@@ -17,6 +17,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/types"
+	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/stat"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -149,9 +152,7 @@ FROM connection_events ce
          INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
          INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
          INNER JOIN peers p ON ce.remote_id = p.id
-WHERE ce.listens_on_relay_multi_address = true
-  AND ce.supports_dcutr = true
-  AND ma.is_relay = true
+WHERE ma.is_relay = true
   AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
   AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
           SELECT count(*)
@@ -164,7 +165,7 @@ WHERE ce.listens_on_relay_multi_address = true
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
         WHERE hpr.remote_id = ce.remote_id
-          AND hpr.client_id IN (%s)
+          AND hpr.local_id IN (%s)
           AND hprxma.multi_address_id = ma.id
           AND hprxma.relationship = 'INITIAL'
           AND hpr.created_at > NOW() - '30min'::INTERVAL
@@ -232,9 +233,7 @@ FROM connection_events ce
          INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
          INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
          INNER JOIN peers p ON ce.remote_id = p.id
-WHERE ce.listens_on_relay_multi_address = true
-  AND ce.supports_dcutr = true
-  AND ma.is_relay = true
+WHERE ma.is_relay = true
   AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
   AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
           SELECT count(*)
@@ -247,7 +246,7 @@ WHERE ce.listens_on_relay_multi_address = true
         FROM hole_punch_results hpr
                  INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
         WHERE hpr.remote_id = ce.remote_id
-          AND hpr.client_id IN (%s)
+          AND hpr.local_id IN (%s)
           AND hprxma.multi_address_id = ma.id
           AND hprxma.relationship = 'INITIAL'
           AND hpr.created_at > NOW() - '10min'::INTERVAL
@@ -336,12 +335,12 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "peer ID from client ID")
 	}
 
-	dbClientPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
+	dbLocalPeer, err := models.Peers(models.PeerWhere.MultiHash.EQ(clientID.String())).One(ctx, s.DBClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client peer from db")
 	}
 
-	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbClientPeer.ID)).Exists(ctx, s.DBClient)
+	clientExists, err := models.Clients(models.ClientWhere.PeerID.EQ(dbLocalPeer.ID)).Exists(ctx, s.DBClient)
 	if !clientExists {
 		return nil, fmt.Errorf("client not registered")
 	}
@@ -420,7 +419,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 	}
 
 	hpr := &models.HolePunchResult{
-		ClientID:                  dbClientPeer.ID,
+		LocalID:                   dbLocalPeer.ID,
 		ListenMultiAddressesSetID: maddrSetID,
 		RemoteID:                  dbRemotePeer.ID,
 		ConnectStartedAt:          time.Unix(0, int64(*req.ConnectStartedAt)),
@@ -509,19 +508,90 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		}
 	}
 
-	if req.RouterLoginHtml != nil {
-		dbRouter := models.Router{HTML: *req.RouterLoginHtml}
+	if req.NetworkInformation != nil {
+		dbNetInfo := models.NetworkInformation{
+			PeerID:            dbLocalPeer.ID,
+			SupportsIpv6:      null.BoolFromPtr(req.NetworkInformation.SupportsIpv6),
+			SupportsIpv6Error: null.StringFromPtr(req.NetworkInformation.SupportsIpv6Error),
+			RouterHTML:        null.StringFromPtr(req.NetworkInformation.RouterLoginHtml),
+			RouterHTMLError:   null.StringFromPtr(req.NetworkInformation.RouterLoginHtmlError),
+		}
 
-		if err = dbRouter.SetClient(ctx, txn, false, dbClientPeer); err != nil {
+		if err = dbNetInfo.SetPeer(ctx, txn, false, dbLocalPeer); err != nil {
 			return nil, errors.Wrap(err, "set client peer of router information")
 		}
 
-		if err = dbRouter.Insert(ctx, txn, boil.Infer()); err != nil {
+		if err = dbNetInfo.Insert(ctx, txn, boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "insert router information")
 		}
 	}
 
+	for _, lm := range req.LatencyMeasurements {
+
+		maddr, err := multiaddr.NewMultiaddrBytes(lm.MultiAddress)
+		if err != nil {
+			return nil, errors.Wrap(err, "multi addr from bytes")
+		}
+
+		dbMaddr, err := s.DBClient.UpsertMultiAddress(ctx, txn, maddr)
+		if err != nil {
+			return nil, errors.Wrap(err, "upsert latency measurement multi address")
+		}
+
+		lmRemoteID, err := peer.IDFromBytes(lm.RemoteId)
+		if err != nil {
+			return nil, errors.Wrap(err, "peer ID from remote ID")
+		}
+		dbLmRemotePeer, err := s.DBClient.UpsertPeer(ctx, txn, lmRemoteID, lm.AgentVersion, lm.Protocols)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not upsert latency measurement peer")
+		}
+
+		dbMtype, err := mapMeasurementType(lm.Mtype)
+		if err != nil {
+			return nil, errors.Wrap(err, "map measurement type")
+		}
+
+		dbRtts := make(types.Float64Array, len(lm.Rtts))
+		for i, rtt := range lm.Rtts {
+			dbRtts[i] = float64(rtt)
+		}
+
+		dblm := models.LatencyMeasurement{
+			RemoteID:          dbLmRemotePeer.ID,
+			HolePunchResultID: hpr.ID,
+			MultiAddressID:    dbMaddr.ID,
+			Mtype:             dbMtype,
+			RTTS:              dbRtts,
+			RTTAvg:            stat.Mean(dbRtts, nil),
+			RTTMax:            floats.Max(dbRtts),
+			RTTMin:            floats.Min(dbRtts),
+			RTTSTD:            stat.StdDev(dbRtts, nil),
+		}
+
+		if err := dblm.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert latency measurement")
+		}
+	}
+
 	return &pb.TrackHolePunchResponse{}, txn.Commit()
+}
+
+func mapMeasurementType(mtype *pb.LatencyMeasurementType) (string, error) {
+	if mtype == nil {
+		return "", fmt.Errorf("latency measurement type is nil")
+	}
+
+	switch *mtype {
+	case pb.LatencyMeasurementType_TO_RELAY:
+		return models.LatencyMeasurementTypeTO_RELAY, nil
+	case pb.LatencyMeasurementType_TO_REMOTE_THROUGH_RELAY:
+		return models.LatencyMeasurementTypeTO_REMOTE_THROUGH_RELAY, nil
+	case pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH:
+		return models.LatencyMeasurementTypeTO_REMOTE_AFTER_HOLEPUNCH, nil
+	default:
+		return "", fmt.Errorf("unsupportet latency measurement type: %s", mtype)
+	}
 }
 
 func (s Server) checkApiKey(ctx context.Context, apiKey *string) (int, error) {

@@ -13,8 +13,10 @@ require (
 	github.com/jackpal/gateway v1.0.7
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/lib/pq v1.10.7
+	github.com/libp2p/go-buffer-pool v0.1.0
 	github.com/libp2p/go-libp2p v0.23.2
 	github.com/libp2p/go-libp2p-kad-dht v0.18.0
+	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/multiformats/go-multiaddr v0.7.0
 	github.com/multiformats/go-multiaddr-dns v0.3.1
 	github.com/oschwald/geoip2-golang v1.8.0
@@ -28,6 +30,7 @@ require (
 	github.com/volatiletech/randomize v0.0.1
 	github.com/volatiletech/sqlboiler/v4 v4.13.0
 	github.com/volatiletech/strmangle v0.0.4
+	gonum.org/v1/gonum v0.12.0
 	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1
 )
@@ -85,7 +88,6 @@ require (
 	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.2 // indirect
 	github.com/koron/go-ssdp v0.0.3 // indirect
-	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-cidranger v1.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.2.0 // indirect
@@ -151,8 +153,8 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/exp v0.0.0-20221019170559-20944726eadf // indirect
-	golang.org/x/image v0.0.0-20220601225756-64ec528b34cd // indirect
+	golang.org/x/exp v0.0.0-20221026153819-32f3d567a233 // indirect
+	golang.org/x/image v0.1.0 // indirect
 	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/net v0.1.0 // indirect

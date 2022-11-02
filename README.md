@@ -6,7 +6,7 @@
 
 > **Note**
 >
-> We are running a hole punching week from the **5th to the 12th of December 2022**. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project. Here you can find the [download links](https://github.com/dennis-tra/punchr/releases/tag/v0.5.0).
+> We are running a hole punching month during December 2022. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project. Here you can find the [download links](https://github.com/dennis-tra/punchr/releases/tag/v0.5.0).
 
 This repo contains components to measure [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
@@ -21,11 +21,8 @@ Specifically, this repo contains:
 - [`Health Dashboard`](https://punchr.dtrautwein.eu/grafana/d/43l1QaC7z/punchr-health)
 - [`Performance Dashboard`](https://punchr.dtrautwein.eu/grafana/d/F8qg0DP7k/punchr-performance)
 
-**Want to participate?**
-
-- [Register here](https://forms.gle/ueNS5iGQup6oszCQ8)
-
 # Table of Contents <!-- omit in toc -->
+- [Punchr](#punchr)
 - [Background](#background)
 - [Outcomes](#outcomes)
   - [Hole Punch Outcomes](#hole-punch-outcomes)
@@ -37,14 +34,15 @@ Specifically, this repo contains:
   - [`rust-client`](#rust-client)
 - [Install](#install)
 - [Development](#development)
+  - [Package GUI](#package-gui)
 - [Deployment](#deployment)
   - [Clients](#clients)
     - [RaspberryPi](#raspberrypi)
     - [NixOS](#nixos)
-- [Server](#server)
-- [Honeypot](#honeypot)
+- [Server](#server-1)
+- [Honeypot](#honeypot-1)
 - [Release](#release)
-  - [go-client](#go-client)
+  - [go-client](#go-client-1)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
 - [License](#license)
@@ -240,6 +238,7 @@ go install github.com/volatiletech/sqlboiler/v4@v4.6.0
 go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.6.0
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install fyne.io/fyne/v2/cmd/fyne@latest
 ```
 
 Then start the database with `make database` or run:
@@ -256,6 +255,10 @@ To create and apply a new database migration run:
 migrate create -ext sql -dir migrations -seq create_some_table
 make migrate-up
 ```
+
+## Package GUI
+
+
 
 # Deployment
 

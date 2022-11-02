@@ -5,13 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
-
+	"github.com/dennis-tra/punchr/pkg/udger"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -25,6 +19,12 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/dennis-tra/punchr/pkg/maxmind"
 	"github.com/dennis-tra/punchr/pkg/models"
@@ -38,6 +38,8 @@ type Client struct {
 	*sql.DB
 
 	MMClient *maxmind.Client
+
+	UdgerClient *udger.Client
 }
 
 func NewClient(c *cli.Context) (*Client, error) {
@@ -79,7 +81,13 @@ func NewClient(c *cli.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "new maxmind client")
 	}
 
-	client := &Client{DB: dbh, MMClient: mmClient}
+	// Create udger client
+	uclient, err := udger.NewClient("udgerdb_v3.dat")
+	if err != nil {
+		return nil, errors.Wrap(err, "new udger client")
+	}
+
+	client := &Client{DB: dbh, MMClient: mmClient, UdgerClient: uclient}
 	client.applyMigrations(c, dbh)
 
 	return client, nil
@@ -144,10 +152,9 @@ func DeferRollback(txn *sql.Tx) {
 
 func (c *Client) UpsertPeer(ctx context.Context, exec boil.ContextExecutor, pid peer.ID, agentVersion *string, protocols []string) (*models.Peer, error) {
 	dbPeer := &models.Peer{
-		MultiHash:     pid.String(),
-		AgentVersion:  null.StringFromPtr(agentVersion),
-		Protocols:     protocols,
-		SupportsDcutr: util.SupportDCUtR(protocols),
+		MultiHash:    pid.String(),
+		AgentVersion: null.StringFromPtr(agentVersion),
+		Protocols:    protocols,
 	}
 
 	err := dbPeer.Upsert(
@@ -159,7 +166,6 @@ func (c *Client) UpsertPeer(ctx context.Context, exec boil.ContextExecutor, pid 
 			models.PeerColumns.UpdatedAt,
 			models.PeerColumns.AgentVersion,
 			models.PeerColumns.Protocols,
-			models.PeerColumns.SupportsDcutr,
 		),
 		boil.Infer(),
 	)
@@ -178,30 +184,10 @@ func (c *Client) UpsertMultiAddresses(ctx context.Context, exec boil.ContextExec
 
 	dbMaddrs := make([]*models.MultiAddress, len(maddrs))
 	for i, maddr := range maddrs {
-		dbIPAddresses, country, continent, asn, err := c.UpsertIPAddresses(ctx, exec, maddr)
+
+		dbMaddr, err := c.UpsertMultiAddress(ctx, exec, maddr)
 		if err != nil {
-			return nil, errors.Wrap(err, "save ip addresses")
-		}
-
-		dbMaddr := &models.MultiAddress{
-			Maddr:          maddr.String(),
-			Country:        null.StringFromPtr(country),
-			Continent:      null.StringFromPtr(continent),
-			Asn:            null.IntFromPtr(asn),
-			IsPublic:       manet.IsPublicAddr(maddr),
-			IsRelay:        util.IsRelayedMaddr(maddr),
-			IPAddressCount: len(dbIPAddresses),
-		}
-		if err = dbMaddr.Upsert(ctx, exec, true, []string{models.MultiAddressColumns.Maddr}, boil.Whitelist(models.MultiAddressColumns.UpdatedAt), boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "upsert multi address")
-		}
-
-		if err := dbMaddr.SetIPAddresses(ctx, exec, false); err != nil {
-			return nil, errors.Wrap(err, "removing ip addresses to multi addresses association")
-		}
-
-		if err = dbMaddr.AddIPAddresses(ctx, exec, false, dbIPAddresses...); err != nil {
-			return nil, errors.Wrap(err, "adding ip addresses to multi address")
 		}
 
 		dbMaddrs[i] = dbMaddr
@@ -233,19 +219,13 @@ func (c *Client) UpsertMultiAddressesSet(ctx context.Context, exec boil.ContextE
 	return maddrSetID, errors.Wrap(rows.Close(), "close multi address set query rows")
 }
 
-func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecutor, maddr ma.Multiaddr) (models.IPAddressSlice, *string, *string, *int, error) {
+func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecutor, addrInfos map[string]*maxmind.AddrInfo) (models.IPAddressSlice, *string, *string, *int, error) {
 	var (
 		countries     []string
 		continents    []string
 		asns          []int
 		dbIPAddresses []*models.IPAddress
 	)
-
-	addrInfos, err := c.MMClient.MaddrInfo(ctx, maddr)
-	if err != nil {
-		// That's not an error that should be returned
-		log.WithError(err).Warnln("Could not get multi address information")
-	}
 
 	for ipAddress, addrInfo := range addrInfos {
 		if addrInfo.Country != "" {
@@ -260,12 +240,17 @@ func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecuto
 			asns = append(asns, int(addrInfo.ASN))
 		}
 
+		dc, err := c.UdgerClient.Datacenter(ipAddress)
+		if err != nil {
+			log.WithError(err).WithField("addr", ipAddress).Debugln("could not extract data center")
+		}
+
 		dbIPAddress := &models.IPAddress{
 			Address:   ipAddress,
 			Country:   null.NewString(addrInfo.Country, addrInfo.Country != ""),
 			Continent: null.NewString(addrInfo.Continent, addrInfo.Continent != ""),
 			Asn:       null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
-			IsPublic:  manet.IsPublicAddr(maddr),
+			IsCloud:   null.NewInt(dc, dc != 0),
 		}
 
 		err = dbIPAddress.Upsert(
@@ -284,4 +269,53 @@ func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecuto
 	}
 
 	return dbIPAddresses, util.Unique(countries), util.Unique(continents), util.Unique(asns), nil
+}
+
+func (c *Client) UpsertMultiAddress(ctx context.Context, exec boil.ContextExecutor, maddr ma.Multiaddr) (*models.MultiAddress, error) {
+	addrInfos, err := c.MMClient.MaddrInfo(ctx, maddr)
+	if err != nil {
+		// That's not an error that should be returned
+		log.WithError(err).Warnln("Could not get multi address information")
+	}
+
+	dbMaddr := &models.MultiAddress{
+		Maddr:    maddr.String(),
+		IsRelay:  null.BoolFrom(util.IsRelayedMaddr(maddr)),
+		IsPublic: null.BoolFrom(manet.IsPublicAddr(maddr)),
+	}
+
+	if len(addrInfos) == 1 {
+		var addrInfo *maxmind.AddrInfo
+		var ipAddress string
+		for ipAddress, addrInfo = range addrInfos {
+			break
+		}
+		dc, err := c.UdgerClient.Datacenter(ipAddress)
+		if err != nil {
+			log.WithError(err).WithField("addr", ipAddress).Debugln("could not extract data center")
+		}
+
+		dbMaddr.Asn = null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0)
+		dbMaddr.IsCloud = null.NewInt(dc, dc != 0)
+		dbMaddr.Addr = null.NewString(ipAddress, ipAddress != "")
+		dbMaddr.Country = null.NewString(addrInfo.Country, addrInfo.Country != "")
+		dbMaddr.Continent = null.NewString(addrInfo.Continent, addrInfo.Continent != "")
+	} else if len(addrInfos) > 1 {
+		dbMaddr.HasManyAddrs = null.NewBool(true, true)
+		dbipAddresses, country, continent, asn, err := c.UpsertIPAddresses(ctx, exec, addrInfos)
+		if err != nil {
+			return nil, errors.Wrap(err, "upsert ip addresses")
+		}
+		dbMaddr.Country = null.StringFromPtr(country)
+		dbMaddr.Continent = null.StringFromPtr(continent)
+		dbMaddr.Asn = null.IntFromPtr(asn)
+
+		for _, ipAddress := range dbipAddresses {
+			if err := ipAddress.SetMultiAddress(ctx, exec, false, dbMaddr); err != nil {
+				return nil, errors.Wrap(err, "assign multi address to ip address")
+			}
+		}
+	}
+
+	return dbMaddr, dbMaddr.Upsert(ctx, exec, true, []string{models.MultiAddressColumns.Maddr}, boil.Whitelist(models.MultiAddressColumns.UpdatedAt), boil.Infer())
 }

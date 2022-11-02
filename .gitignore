@@ -248,3 +248,5 @@ gui/client/**.app
 
 # Nix build result symlink
 result
+
+udgerdb_v3.dat

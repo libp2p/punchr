@@ -24,57 +24,62 @@ import (
 
 // IPAddress is an object representing the database table.
 type IPAddress struct {
-	ID        int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Address   string      `boil:"address" json:"address" toml:"address" yaml:"address"`
-	Country   null.String `boil:"country" json:"country,omitempty" toml:"country" yaml:"country,omitempty"`
-	Continent null.String `boil:"continent" json:"continent,omitempty" toml:"continent" yaml:"continent,omitempty"`
-	Asn       null.Int    `boil:"asn" json:"asn,omitempty" toml:"asn" yaml:"asn,omitempty"`
-	IsPublic  bool        `boil:"is_public" json:"is_public" toml:"is_public" yaml:"is_public"`
-	UpdatedAt time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID             int         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	MultiAddressID int64       `boil:"multi_address_id" json:"multi_address_id" toml:"multi_address_id" yaml:"multi_address_id"`
+	Asn            null.Int    `boil:"asn" json:"asn,omitempty" toml:"asn" yaml:"asn,omitempty"`
+	IsCloud        null.Int    `boil:"is_cloud" json:"is_cloud,omitempty" toml:"is_cloud" yaml:"is_cloud,omitempty"`
+	UpdatedAt      time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt      time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	Country        null.String `boil:"country" json:"country,omitempty" toml:"country" yaml:"country,omitempty"`
+	Continent      null.String `boil:"continent" json:"continent,omitempty" toml:"continent" yaml:"continent,omitempty"`
+	Address        string      `boil:"address" json:"address" toml:"address" yaml:"address"`
 
 	R *ipAddressR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L ipAddressL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var IPAddressColumns = struct {
-	ID        string
-	Address   string
-	Country   string
-	Continent string
-	Asn       string
-	IsPublic  string
-	UpdatedAt string
-	CreatedAt string
+	ID             string
+	MultiAddressID string
+	Asn            string
+	IsCloud        string
+	UpdatedAt      string
+	CreatedAt      string
+	Country        string
+	Continent      string
+	Address        string
 }{
-	ID:        "id",
-	Address:   "address",
-	Country:   "country",
-	Continent: "continent",
-	Asn:       "asn",
-	IsPublic:  "is_public",
-	UpdatedAt: "updated_at",
-	CreatedAt: "created_at",
+	ID:             "id",
+	MultiAddressID: "multi_address_id",
+	Asn:            "asn",
+	IsCloud:        "is_cloud",
+	UpdatedAt:      "updated_at",
+	CreatedAt:      "created_at",
+	Country:        "country",
+	Continent:      "continent",
+	Address:        "address",
 }
 
 var IPAddressTableColumns = struct {
-	ID        string
-	Address   string
-	Country   string
-	Continent string
-	Asn       string
-	IsPublic  string
-	UpdatedAt string
-	CreatedAt string
+	ID             string
+	MultiAddressID string
+	Asn            string
+	IsCloud        string
+	UpdatedAt      string
+	CreatedAt      string
+	Country        string
+	Continent      string
+	Address        string
 }{
-	ID:        "ip_addresses.id",
-	Address:   "ip_addresses.address",
-	Country:   "ip_addresses.country",
-	Continent: "ip_addresses.continent",
-	Asn:       "ip_addresses.asn",
-	IsPublic:  "ip_addresses.is_public",
-	UpdatedAt: "ip_addresses.updated_at",
-	CreatedAt: "ip_addresses.created_at",
+	ID:             "ip_addresses.id",
+	MultiAddressID: "ip_addresses.multi_address_id",
+	Asn:            "ip_addresses.asn",
+	IsCloud:        "ip_addresses.is_cloud",
+	UpdatedAt:      "ip_addresses.updated_at",
+	CreatedAt:      "ip_addresses.created_at",
+	Country:        "ip_addresses.country",
+	Continent:      "ip_addresses.continent",
+	Address:        "ip_addresses.address",
 }
 
 // Generated where
@@ -118,35 +123,37 @@ func (w whereHelpernull_Int) IsNull() qm.QueryMod    { return qmhelper.WhereIsNu
 func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
 var IPAddressWhere = struct {
-	ID        whereHelperint64
-	Address   whereHelperstring
-	Country   whereHelpernull_String
-	Continent whereHelpernull_String
-	Asn       whereHelpernull_Int
-	IsPublic  whereHelperbool
-	UpdatedAt whereHelpertime_Time
-	CreatedAt whereHelpertime_Time
+	ID             whereHelperint
+	MultiAddressID whereHelperint64
+	Asn            whereHelpernull_Int
+	IsCloud        whereHelpernull_Int
+	UpdatedAt      whereHelpertime_Time
+	CreatedAt      whereHelpertime_Time
+	Country        whereHelpernull_String
+	Continent      whereHelpernull_String
+	Address        whereHelperstring
 }{
-	ID:        whereHelperint64{field: "\"ip_addresses\".\"id\""},
-	Address:   whereHelperstring{field: "\"ip_addresses\".\"address\""},
-	Country:   whereHelpernull_String{field: "\"ip_addresses\".\"country\""},
-	Continent: whereHelpernull_String{field: "\"ip_addresses\".\"continent\""},
-	Asn:       whereHelpernull_Int{field: "\"ip_addresses\".\"asn\""},
-	IsPublic:  whereHelperbool{field: "\"ip_addresses\".\"is_public\""},
-	UpdatedAt: whereHelpertime_Time{field: "\"ip_addresses\".\"updated_at\""},
-	CreatedAt: whereHelpertime_Time{field: "\"ip_addresses\".\"created_at\""},
+	ID:             whereHelperint{field: "\"ip_addresses\".\"id\""},
+	MultiAddressID: whereHelperint64{field: "\"ip_addresses\".\"multi_address_id\""},
+	Asn:            whereHelpernull_Int{field: "\"ip_addresses\".\"asn\""},
+	IsCloud:        whereHelpernull_Int{field: "\"ip_addresses\".\"is_cloud\""},
+	UpdatedAt:      whereHelpertime_Time{field: "\"ip_addresses\".\"updated_at\""},
+	CreatedAt:      whereHelpertime_Time{field: "\"ip_addresses\".\"created_at\""},
+	Country:        whereHelpernull_String{field: "\"ip_addresses\".\"country\""},
+	Continent:      whereHelpernull_String{field: "\"ip_addresses\".\"continent\""},
+	Address:        whereHelperstring{field: "\"ip_addresses\".\"address\""},
 }
 
 // IPAddressRels is where relationship names are stored.
 var IPAddressRels = struct {
-	MultiAddresses string
+	MultiAddress string
 }{
-	MultiAddresses: "MultiAddresses",
+	MultiAddress: "MultiAddress",
 }
 
 // ipAddressR is where relationships are stored.
 type ipAddressR struct {
-	MultiAddresses MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
+	MultiAddress *MultiAddress `boil:"MultiAddress" json:"MultiAddress" toml:"MultiAddress" yaml:"MultiAddress"`
 }
 
 // NewStruct creates a new relationship struct
@@ -154,20 +161,20 @@ func (*ipAddressR) NewStruct() *ipAddressR {
 	return &ipAddressR{}
 }
 
-func (r *ipAddressR) GetMultiAddresses() MultiAddressSlice {
+func (r *ipAddressR) GetMultiAddress() *MultiAddress {
 	if r == nil {
 		return nil
 	}
-	return r.MultiAddresses
+	return r.MultiAddress
 }
 
 // ipAddressL is where Load methods for each relationship are stored.
 type ipAddressL struct{}
 
 var (
-	ipAddressAllColumns            = []string{"id", "address", "country", "continent", "asn", "is_public", "updated_at", "created_at"}
-	ipAddressColumnsWithoutDefault = []string{"address", "is_public", "updated_at", "created_at"}
-	ipAddressColumnsWithDefault    = []string{"id", "country", "continent", "asn"}
+	ipAddressAllColumns            = []string{"id", "multi_address_id", "asn", "is_cloud", "updated_at", "created_at", "country", "continent", "address"}
+	ipAddressColumnsWithoutDefault = []string{"multi_address_id", "updated_at", "created_at", "address"}
+	ipAddressColumnsWithDefault    = []string{"id", "asn", "is_cloud", "country", "continent"}
 	ipAddressPrimaryKeyColumns     = []string{"id"}
 	ipAddressGeneratedColumns      = []string{"id"}
 )
@@ -450,24 +457,20 @@ func (q ipAddressQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (
 	return count > 0, nil
 }
 
-// MultiAddresses retrieves all the multi_address's MultiAddresses with an executor.
-func (o *IPAddress) MultiAddresses(mods ...qm.QueryMod) multiAddressQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
+// MultiAddress pointed to by the foreign key.
+func (o *IPAddress) MultiAddress(mods ...qm.QueryMod) multiAddressQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.MultiAddressID),
 	}
 
-	queryMods = append(queryMods,
-		qm.InnerJoin("\"multi_addresses_x_ip_addresses\" on \"multi_addresses\".\"id\" = \"multi_addresses_x_ip_addresses\".\"multi_address_id\""),
-		qm.Where("\"multi_addresses_x_ip_addresses\".\"ip_address_id\"=?", o.ID),
-	)
+	queryMods = append(queryMods, mods...)
 
 	return MultiAddresses(queryMods...)
 }
 
-// LoadMultiAddresses allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybeIPAddress interface{}, mods queries.Applicator) error {
+// LoadMultiAddress allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (ipAddressL) LoadMultiAddress(ctx context.Context, e boil.ContextExecutor, singular bool, maybeIPAddress interface{}, mods queries.Applicator) error {
 	var slice []*IPAddress
 	var object *IPAddress
 
@@ -498,7 +501,8 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 		if object.R == nil {
 			object.R = &ipAddressR{}
 		}
-		args = append(args, object.ID)
+		args = append(args, object.MultiAddressID)
+
 	} else {
 	Outer:
 		for _, obj := range slice {
@@ -507,12 +511,13 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 			}
 
 			for _, a := range args {
-				if a == obj.ID {
+				if a == obj.MultiAddressID {
 					continue Outer
 				}
 			}
 
-			args = append(args, obj.ID)
+			args = append(args, obj.MultiAddressID)
+
 		}
 	}
 
@@ -521,10 +526,8 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 	}
 
 	query := NewQuery(
-		qm.Select("\"multi_addresses\".\"id\", \"multi_addresses\".\"maddr\", \"multi_addresses\".\"country\", \"multi_addresses\".\"continent\", \"multi_addresses\".\"asn\", \"multi_addresses\".\"is_public\", \"multi_addresses\".\"is_relay\", \"multi_addresses\".\"ip_address_count\", \"multi_addresses\".\"updated_at\", \"multi_addresses\".\"created_at\", \"a\".\"ip_address_id\""),
-		qm.From("\"multi_addresses\""),
-		qm.InnerJoin("\"multi_addresses_x_ip_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
-		qm.WhereIn("\"a\".\"ip_address_id\" in ?", args...),
+		qm.From(`multi_addresses`),
+		qm.WhereIn(`multi_addresses.id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -532,58 +535,47 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load multi_addresses")
+		return errors.Wrap(err, "failed to eager load MultiAddress")
 	}
 
 	var resultSlice []*MultiAddress
-
-	var localJoinCols []int64
-	for results.Next() {
-		one := new(MultiAddress)
-		var localJoinCol int64
-
-		err = results.Scan(&one.ID, &one.Maddr, &one.Country, &one.Continent, &one.Asn, &one.IsPublic, &one.IsRelay, &one.IPAddressCount, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
-		if err != nil {
-			return errors.Wrap(err, "failed to scan eager loaded results for multi_addresses")
-		}
-		if err = results.Err(); err != nil {
-			return errors.Wrap(err, "failed to plebian-bind eager loaded slice multi_addresses")
-		}
-
-		resultSlice = append(resultSlice, one)
-		localJoinCols = append(localJoinCols, localJoinCol)
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice MultiAddress")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on multi_addresses")
+		return errors.Wrap(err, "failed to close results of eager load for multi_addresses")
 	}
 	if err = results.Err(); err != nil {
 		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for multi_addresses")
 	}
 
-	if len(multiAddressAfterSelectHooks) != 0 {
+	if len(ipAddressAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
 			}
 		}
 	}
-	if singular {
-		object.R.MultiAddresses = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &multiAddressR{}
-			}
-			foreign.R.IPAddresses = append(foreign.R.IPAddresses, object)
-		}
+
+	if len(resultSlice) == 0 {
 		return nil
 	}
 
-	for i, foreign := range resultSlice {
-		localJoinCol := localJoinCols[i]
-		for _, local := range slice {
-			if local.ID == localJoinCol {
-				local.R.MultiAddresses = append(local.R.MultiAddresses, foreign)
+	if singular {
+		foreign := resultSlice[0]
+		object.R.MultiAddress = foreign
+		if foreign.R == nil {
+			foreign.R = &multiAddressR{}
+		}
+		foreign.R.IPAddresses = append(foreign.R.IPAddresses, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.MultiAddressID == foreign.ID {
+				local.R.MultiAddress = foreign
 				if foreign.R == nil {
 					foreign.R = &multiAddressR{}
 				}
@@ -596,149 +588,51 @@ func (ipAddressL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor
 	return nil
 }
 
-// AddMultiAddresses adds the given related objects to the existing relationships
-// of the ip_address, optionally inserting them as new records.
-// Appends related to o.R.MultiAddresses.
-// Sets related.R.IPAddresses appropriately.
-func (o *IPAddress) AddMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
+// SetMultiAddress of the ipAddress to the related item.
+// Sets o.R.MultiAddress to related.
+// Adds o to related.R.IPAddresses.
+func (o *IPAddress) SetMultiAddress(ctx context.Context, exec boil.ContextExecutor, insert bool, related *MultiAddress) error {
 	var err error
-	for _, rel := range related {
-		if insert {
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
 		}
 	}
 
-	for _, rel := range related {
-		query := "insert into \"multi_addresses_x_ip_addresses\" (\"ip_address_id\", \"multi_address_id\") values ($1, $2)"
-		values := []interface{}{o.ID, rel.ID}
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"ip_addresses\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
+		strmangle.WhereClause("\"", "\"", 2, ipAddressPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
 
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, query)
-			fmt.Fprintln(writer, values)
-		}
-		_, err = exec.ExecContext(ctx, query, values...)
-		if err != nil {
-			return errors.Wrap(err, "failed to insert into join table")
-		}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
 	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	o.MultiAddressID = related.ID
 	if o.R == nil {
 		o.R = &ipAddressR{
-			MultiAddresses: related,
+			MultiAddress: related,
 		}
 	} else {
-		o.R.MultiAddresses = append(o.R.MultiAddresses, related...)
+		o.R.MultiAddress = related
 	}
 
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &multiAddressR{
-				IPAddresses: IPAddressSlice{o},
-			}
-		} else {
-			rel.R.IPAddresses = append(rel.R.IPAddresses, o)
+	if related.R == nil {
+		related.R = &multiAddressR{
+			IPAddresses: IPAddressSlice{o},
 		}
-	}
-	return nil
-}
-
-// SetMultiAddresses removes all previously related items of the
-// ip_address replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.IPAddresses's MultiAddresses accordingly.
-// Replaces o.R.MultiAddresses with related.
-// Sets related.R.IPAddresses's MultiAddresses accordingly.
-func (o *IPAddress) SetMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
-	query := "delete from \"multi_addresses_x_ip_addresses\" where \"ip_address_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-
-	removeMultiAddressesFromIPAddressesSlice(o, related)
-	if o.R != nil {
-		o.R.MultiAddresses = nil
-	}
-
-	return o.AddMultiAddresses(ctx, exec, insert, related...)
-}
-
-// RemoveMultiAddresses relationships from objects passed in.
-// Removes related items from R.MultiAddresses (uses pointer comparison, removal does not keep order)
-// Sets related.R.IPAddresses.
-func (o *IPAddress) RemoveMultiAddresses(ctx context.Context, exec boil.ContextExecutor, related ...*MultiAddress) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	query := fmt.Sprintf(
-		"delete from \"multi_addresses_x_ip_addresses\" where \"ip_address_id\" = $1 and \"multi_address_id\" in (%s)",
-		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
-	)
-	values := []interface{}{o.ID}
-	for _, rel := range related {
-		values = append(values, rel.ID)
-	}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err = exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-	removeMultiAddressesFromIPAddressesSlice(o, related)
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.MultiAddresses {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.MultiAddresses)
-			if ln > 1 && i < ln-1 {
-				o.R.MultiAddresses[i] = o.R.MultiAddresses[ln-1]
-			}
-			o.R.MultiAddresses = o.R.MultiAddresses[:ln-1]
-			break
-		}
+	} else {
+		related.R.IPAddresses = append(related.R.IPAddresses, o)
 	}
 
 	return nil
-}
-
-func removeMultiAddressesFromIPAddressesSlice(o *IPAddress, related []*MultiAddress) {
-	for _, rel := range related {
-		if rel.R == nil {
-			continue
-		}
-		for i, ri := range rel.R.IPAddresses {
-			if o.ID != ri.ID {
-				continue
-			}
-
-			ln := len(rel.R.IPAddresses)
-			if ln > 1 && i < ln-1 {
-				rel.R.IPAddresses[i] = rel.R.IPAddresses[ln-1]
-			}
-			rel.R.IPAddresses = rel.R.IPAddresses[:ln-1]
-			break
-		}
-	}
 }
 
 // IPAddresses retrieves all the records using an executor.
@@ -754,7 +648,7 @@ func IPAddresses(mods ...qm.QueryMod) ipAddressQuery {
 
 // FindIPAddress retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindIPAddress(ctx context.Context, exec boil.ContextExecutor, iD int64, selectCols ...string) (*IPAddress, error) {
+func FindIPAddress(ctx context.Context, exec boil.ContextExecutor, iD int, selectCols ...string) (*IPAddress, error) {
 	ipAddressObj := &IPAddress{}
 
 	sel := "*"
@@ -1282,7 +1176,7 @@ func (o *IPAddressSlice) ReloadAll(ctx context.Context, exec boil.ContextExecuto
 }
 
 // IPAddressExists checks if the IPAddress row exists.
-func IPAddressExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
+func IPAddressExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, error) {
 	var exists bool
 	sql := "select exists(select 1 from \"ip_addresses\" where \"id\"=$1 limit 1)"
 

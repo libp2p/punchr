@@ -13,7 +13,7 @@ CREATE TYPE hole_punch_outcome AS ENUM (
 CREATE TABLE hole_punch_results
 (
     id                 INT GENERATED ALWAYS AS IDENTITY,
-    client_id          BIGINT             NOT NULL,
+    local_id           BIGINT             NOT NULL,
     remote_id          BIGINT             NOT NULL,
     connect_started_at TIMESTAMPTZ        NOT NULL,
     connect_ended_at   TIMESTAMPTZ        NOT NULL,
@@ -21,15 +21,17 @@ CREATE TABLE hole_punch_results
     error              TEXT,
     outcome            hole_punch_outcome NOT NULL,
     ended_at           TIMESTAMPTZ        NOT NULL,
-    filters            INT[]              NOT NULL,
+    protocol_filters   INT[]              NOT NULL,
     updated_at         TIMESTAMPTZ        NOT NULL,
     created_at         TIMESTAMPTZ        NOT NULL,
 
-    CONSTRAINT fk_hole_punch_results_client_id FOREIGN KEY (client_id) REFERENCES peers (id) ON DELETE CASCADE,
+    CONSTRAINT fk_hole_punch_results_local_id FOREIGN KEY (local_id) REFERENCES peers (id) ON DELETE CASCADE,
     CONSTRAINT fk_hole_punch_results_remote_id FOREIGN KEY (remote_id) REFERENCES peers (id) ON DELETE CASCADE,
 
     PRIMARY KEY (id)
 );
+
+CREATE INDEX idx_hole_punch_results_remote_id_created_at ON hole_punch_results (remote_id, created_at);
 
 CREATE TYPE hole_punch_attempt_outcome AS ENUM (
     'UNKNOWN',

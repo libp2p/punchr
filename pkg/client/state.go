@@ -14,12 +14,63 @@ import (
 	"github.com/dennis-tra/punchr/pkg/util"
 )
 
+func (lm LatencyMeasurement) toProto() (*pb.LatencyMeasurement, error) {
+	remoteID, err := lm.remoteID.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal latency measurement remote peer id")
+	}
+
+	rtts := []float32{}
+	for _, rtt := range lm.rtts {
+		if rtt == 0 {
+			rtts = append(rtts, float32(-1))
+		} else {
+			rtts = append(rtts, float32(rtt.Seconds()))
+		}
+	}
+
+	rttErrs := []string{}
+	for _, rttErr := range lm.rttErrs {
+		rttErrs = append(rttErrs, rttErr.Error())
+	}
+
+	return &pb.LatencyMeasurement{
+		RemoteId:     remoteID,
+		AgentVersion: lm.agentVersion,
+		Protocols:    lm.protocols,
+		MultiAddress: lm.conn.Bytes(),
+		Rtts:         rtts,
+		RttErrs:      rttErrs,
+	}, nil
+}
+
+func extractRelayInfo(info peer.AddrInfo) map[peer.ID]*peer.AddrInfo {
+	relays := make(map[peer.ID]*peer.AddrInfo)
+
+	for _, addr := range info.Addrs {
+		relayAddrInfo, err := util.ExtractRelayMaddr(addr)
+		if err != nil {
+			log.WithError(err).Warnln("error extracting relay multi address")
+			continue
+		}
+
+		if _, ok := relays[relayAddrInfo.ID]; !ok {
+			relays[relayAddrInfo.ID] = relayAddrInfo
+			continue
+		}
+
+		relays[relayAddrInfo.ID].Addrs = append(relays[relayAddrInfo.ID].Addrs, relayAddrInfo.Addrs...)
+	}
+
+	return relays
+}
+
 type HolePunchState struct {
-	// The host that established the connection to the remote peer via a relay and it's listening multi addresses
+	// The host that established the connection to the remote peer via a relay, and it's listening multi addresses
 	HostID      peer.ID
 	LocalMaddrs []multiaddr.Multiaddr
 
-	// The remote peer and its multi addresses - usually relayed ones.
+	// The remote peer and its multi addresses - usually relayed ones. We use that set for the first connection.
 	RemoteID     peer.ID
 	RemoteMaddrs []multiaddr.Multiaddr
 
@@ -27,30 +78,42 @@ type HolePunchState struct {
 	ConnectStartedAt time.Time
 	ConnectEndedAt   time.Time
 
+	// Multi addresses of the open connections before the hole punch aka the multi addresses we
+	// managed to get a connection to the remote peer.
+	OpenMaddrsBefore []multiaddr.Multiaddr
+
 	// Information about each individual hole punch attempt
 	HolePunchAttempts []*HolePunchAttempt
 
 	// Multi addresses of the open connections after the hole punch
-	OpenMaddrs     []multiaddr.Multiaddr
-	HasDirectConns bool
+	OpenMaddrsAfter []multiaddr.Multiaddr
+	HasDirectConns  bool
 
 	Error   string
 	Outcome pb.HolePunchOutcome
 	EndedAt time.Time
 
-	// The login page of the router
-	RouterHTML      string
+	NetworkInformation *pb.NetworkInformation
+
 	ProtocolFilters []int
+
+	// Remote Peer data
+	RemoteRttAfterHolePunch time.Duration
+
+	// LatencyMeasurements of different types
+	LatencyMeasurements []LatencyMeasurement
 }
 
 func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr) *HolePunchState {
 	return &HolePunchState{
-		HostID:            hostID,
-		RemoteID:          remoteID,
-		RemoteMaddrs:      rmaddrs,
-		LocalMaddrs:       lmaddrs,
-		HolePunchAttempts: []*HolePunchAttempt{},
-		OpenMaddrs:        []multiaddr.Multiaddr{},
+		HostID:              hostID,
+		RemoteID:            remoteID,
+		RemoteMaddrs:        rmaddrs,
+		LocalMaddrs:         lmaddrs,
+		OpenMaddrsBefore:    []multiaddr.Multiaddr{},
+		HolePunchAttempts:   []*HolePunchAttempt{},
+		OpenMaddrsAfter:     []multiaddr.Multiaddr{},
+		LatencyMeasurements: []LatencyMeasurement{},
 	}
 }
 
@@ -93,8 +156,8 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		rMaddrBytes[i] = maddr.Bytes()
 	}
 
-	oMaddrBytes := make([][]byte, len(hps.OpenMaddrs))
-	for i, maddr := range hps.OpenMaddrs {
+	oMaddrBytes := make([][]byte, len(hps.OpenMaddrsAfter))
+	for i, maddr := range hps.OpenMaddrsAfter {
 		oMaddrBytes[i] = maddr.Bytes()
 	}
 
@@ -103,9 +166,17 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		hpAttempts[i] = attempt.ToProto()
 	}
 
-	var routerLoginHTML *string
-	if hps.RouterHTML != "" {
-		routerLoginHTML = &hps.RouterHTML
+	lms := make([]*pb.LatencyMeasurement, len(hps.LatencyMeasurements))
+	for i, lm := range hps.LatencyMeasurements {
+		lms[i], err = lm.toProto()
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal latency measurement")
+		}
+	}
+
+	filterProtocols := make([]int32, len(hps.ProtocolFilters))
+	for i, pf := range hps.ProtocolFilters {
+		filterProtocols[i] = int32(pf)
 	}
 
 	var errStr *string
@@ -127,7 +198,9 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		Outcome:              &hps.Outcome,
 		Error:                errStr,
 		EndedAt:              toUnixNanos(hps.EndedAt),
-		RouterLoginHtml:      routerLoginHTML,
+		NetworkInformation:   hps.NetworkInformation,
+		LatencyMeasurements:  lms,
+		Protocols:            filterProtocols,
 	}, nil
 }
 

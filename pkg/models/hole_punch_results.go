@@ -26,7 +26,7 @@ import (
 // HolePunchResult is an object representing the database table.
 type HolePunchResult struct {
 	ID                        int              `boil:"id" json:"id" toml:"id" yaml:"id"`
-	ClientID                  int64            `boil:"client_id" json:"client_id" toml:"client_id" yaml:"client_id"`
+	LocalID                   int64            `boil:"local_id" json:"local_id" toml:"local_id" yaml:"local_id"`
 	RemoteID                  int64            `boil:"remote_id" json:"remote_id" toml:"remote_id" yaml:"remote_id"`
 	ConnectStartedAt          time.Time        `boil:"connect_started_at" json:"connect_started_at" toml:"connect_started_at" yaml:"connect_started_at"`
 	ConnectEndedAt            time.Time        `boil:"connect_ended_at" json:"connect_ended_at" toml:"connect_ended_at" yaml:"connect_ended_at"`
@@ -34,7 +34,7 @@ type HolePunchResult struct {
 	Error                     null.String      `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
 	Outcome                   string           `boil:"outcome" json:"outcome" toml:"outcome" yaml:"outcome"`
 	EndedAt                   time.Time        `boil:"ended_at" json:"ended_at" toml:"ended_at" yaml:"ended_at"`
-	Filters                   types.Int64Array `boil:"filters" json:"filters" toml:"filters" yaml:"filters"`
+	ProtocolFilters           types.Int64Array `boil:"protocol_filters" json:"protocol_filters" toml:"protocol_filters" yaml:"protocol_filters"`
 	UpdatedAt                 time.Time        `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt                 time.Time        `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	ListenMultiAddressesSetID int              `boil:"listen_multi_addresses_set_id" json:"listen_multi_addresses_set_id" toml:"listen_multi_addresses_set_id" yaml:"listen_multi_addresses_set_id"`
@@ -45,7 +45,7 @@ type HolePunchResult struct {
 
 var HolePunchResultColumns = struct {
 	ID                        string
-	ClientID                  string
+	LocalID                   string
 	RemoteID                  string
 	ConnectStartedAt          string
 	ConnectEndedAt            string
@@ -53,13 +53,13 @@ var HolePunchResultColumns = struct {
 	Error                     string
 	Outcome                   string
 	EndedAt                   string
-	Filters                   string
+	ProtocolFilters           string
 	UpdatedAt                 string
 	CreatedAt                 string
 	ListenMultiAddressesSetID string
 }{
 	ID:                        "id",
-	ClientID:                  "client_id",
+	LocalID:                   "local_id",
 	RemoteID:                  "remote_id",
 	ConnectStartedAt:          "connect_started_at",
 	ConnectEndedAt:            "connect_ended_at",
@@ -67,7 +67,7 @@ var HolePunchResultColumns = struct {
 	Error:                     "error",
 	Outcome:                   "outcome",
 	EndedAt:                   "ended_at",
-	Filters:                   "filters",
+	ProtocolFilters:           "protocol_filters",
 	UpdatedAt:                 "updated_at",
 	CreatedAt:                 "created_at",
 	ListenMultiAddressesSetID: "listen_multi_addresses_set_id",
@@ -75,7 +75,7 @@ var HolePunchResultColumns = struct {
 
 var HolePunchResultTableColumns = struct {
 	ID                        string
-	ClientID                  string
+	LocalID                   string
 	RemoteID                  string
 	ConnectStartedAt          string
 	ConnectEndedAt            string
@@ -83,13 +83,13 @@ var HolePunchResultTableColumns = struct {
 	Error                     string
 	Outcome                   string
 	EndedAt                   string
-	Filters                   string
+	ProtocolFilters           string
 	UpdatedAt                 string
 	CreatedAt                 string
 	ListenMultiAddressesSetID string
 }{
 	ID:                        "hole_punch_results.id",
-	ClientID:                  "hole_punch_results.client_id",
+	LocalID:                   "hole_punch_results.local_id",
 	RemoteID:                  "hole_punch_results.remote_id",
 	ConnectStartedAt:          "hole_punch_results.connect_started_at",
 	ConnectEndedAt:            "hole_punch_results.connect_ended_at",
@@ -97,7 +97,7 @@ var HolePunchResultTableColumns = struct {
 	Error:                     "hole_punch_results.error",
 	Outcome:                   "hole_punch_results.outcome",
 	EndedAt:                   "hole_punch_results.ended_at",
-	Filters:                   "hole_punch_results.filters",
+	ProtocolFilters:           "hole_punch_results.protocol_filters",
 	UpdatedAt:                 "hole_punch_results.updated_at",
 	CreatedAt:                 "hole_punch_results.created_at",
 	ListenMultiAddressesSetID: "hole_punch_results.listen_multi_addresses_set_id",
@@ -137,7 +137,7 @@ func (w whereHelpertypes_Int64Array) GTE(x types.Int64Array) qm.QueryMod {
 
 var HolePunchResultWhere = struct {
 	ID                        whereHelperint
-	ClientID                  whereHelperint64
+	LocalID                   whereHelperint64
 	RemoteID                  whereHelperint64
 	ConnectStartedAt          whereHelpertime_Time
 	ConnectEndedAt            whereHelpertime_Time
@@ -145,13 +145,13 @@ var HolePunchResultWhere = struct {
 	Error                     whereHelpernull_String
 	Outcome                   whereHelperstring
 	EndedAt                   whereHelpertime_Time
-	Filters                   whereHelpertypes_Int64Array
+	ProtocolFilters           whereHelpertypes_Int64Array
 	UpdatedAt                 whereHelpertime_Time
 	CreatedAt                 whereHelpertime_Time
 	ListenMultiAddressesSetID whereHelperint
 }{
 	ID:                        whereHelperint{field: "\"hole_punch_results\".\"id\""},
-	ClientID:                  whereHelperint64{field: "\"hole_punch_results\".\"client_id\""},
+	LocalID:                   whereHelperint64{field: "\"hole_punch_results\".\"local_id\""},
 	RemoteID:                  whereHelperint64{field: "\"hole_punch_results\".\"remote_id\""},
 	ConnectStartedAt:          whereHelpertime_Time{field: "\"hole_punch_results\".\"connect_started_at\""},
 	ConnectEndedAt:            whereHelpertime_Time{field: "\"hole_punch_results\".\"connect_ended_at\""},
@@ -159,7 +159,7 @@ var HolePunchResultWhere = struct {
 	Error:                     whereHelpernull_String{field: "\"hole_punch_results\".\"error\""},
 	Outcome:                   whereHelperstring{field: "\"hole_punch_results\".\"outcome\""},
 	EndedAt:                   whereHelpertime_Time{field: "\"hole_punch_results\".\"ended_at\""},
-	Filters:                   whereHelpertypes_Int64Array{field: "\"hole_punch_results\".\"filters\""},
+	ProtocolFilters:           whereHelpertypes_Int64Array{field: "\"hole_punch_results\".\"protocol_filters\""},
 	UpdatedAt:                 whereHelpertime_Time{field: "\"hole_punch_results\".\"updated_at\""},
 	CreatedAt:                 whereHelpertime_Time{field: "\"hole_punch_results\".\"created_at\""},
 	ListenMultiAddressesSetID: whereHelperint{field: "\"hole_punch_results\".\"listen_multi_addresses_set_id\""},
@@ -167,26 +167,29 @@ var HolePunchResultWhere = struct {
 
 // HolePunchResultRels is where relationship names are stored.
 var HolePunchResultRels = struct {
-	Client                          string
 	ListenMultiAddressesSet         string
+	Local                           string
 	Remote                          string
 	HolePunchAttempts               string
 	HolePunchResultsXMultiAddresses string
+	LatencyMeasurements             string
 }{
-	Client:                          "Client",
 	ListenMultiAddressesSet:         "ListenMultiAddressesSet",
+	Local:                           "Local",
 	Remote:                          "Remote",
 	HolePunchAttempts:               "HolePunchAttempts",
 	HolePunchResultsXMultiAddresses: "HolePunchResultsXMultiAddresses",
+	LatencyMeasurements:             "LatencyMeasurements",
 }
 
 // holePunchResultR is where relationships are stored.
 type holePunchResultR struct {
-	Client                          *Peer                              `boil:"Client" json:"Client" toml:"Client" yaml:"Client"`
 	ListenMultiAddressesSet         *MultiAddressesSet                 `boil:"ListenMultiAddressesSet" json:"ListenMultiAddressesSet" toml:"ListenMultiAddressesSet" yaml:"ListenMultiAddressesSet"`
+	Local                           *Peer                              `boil:"Local" json:"Local" toml:"Local" yaml:"Local"`
 	Remote                          *Peer                              `boil:"Remote" json:"Remote" toml:"Remote" yaml:"Remote"`
 	HolePunchAttempts               HolePunchAttemptSlice              `boil:"HolePunchAttempts" json:"HolePunchAttempts" toml:"HolePunchAttempts" yaml:"HolePunchAttempts"`
 	HolePunchResultsXMultiAddresses HolePunchResultsXMultiAddressSlice `boil:"HolePunchResultsXMultiAddresses" json:"HolePunchResultsXMultiAddresses" toml:"HolePunchResultsXMultiAddresses" yaml:"HolePunchResultsXMultiAddresses"`
+	LatencyMeasurements             LatencyMeasurementSlice            `boil:"LatencyMeasurements" json:"LatencyMeasurements" toml:"LatencyMeasurements" yaml:"LatencyMeasurements"`
 }
 
 // NewStruct creates a new relationship struct
@@ -194,18 +197,18 @@ func (*holePunchResultR) NewStruct() *holePunchResultR {
 	return &holePunchResultR{}
 }
 
-func (r *holePunchResultR) GetClient() *Peer {
-	if r == nil {
-		return nil
-	}
-	return r.Client
-}
-
 func (r *holePunchResultR) GetListenMultiAddressesSet() *MultiAddressesSet {
 	if r == nil {
 		return nil
 	}
 	return r.ListenMultiAddressesSet
+}
+
+func (r *holePunchResultR) GetLocal() *Peer {
+	if r == nil {
+		return nil
+	}
+	return r.Local
 }
 
 func (r *holePunchResultR) GetRemote() *Peer {
@@ -229,12 +232,19 @@ func (r *holePunchResultR) GetHolePunchResultsXMultiAddresses() HolePunchResults
 	return r.HolePunchResultsXMultiAddresses
 }
 
+func (r *holePunchResultR) GetLatencyMeasurements() LatencyMeasurementSlice {
+	if r == nil {
+		return nil
+	}
+	return r.LatencyMeasurements
+}
+
 // holePunchResultL is where Load methods for each relationship are stored.
 type holePunchResultL struct{}
 
 var (
-	holePunchResultAllColumns            = []string{"id", "client_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "error", "outcome", "ended_at", "filters", "updated_at", "created_at", "listen_multi_addresses_set_id"}
-	holePunchResultColumnsWithoutDefault = []string{"client_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "outcome", "ended_at", "filters", "updated_at", "created_at"}
+	holePunchResultAllColumns            = []string{"id", "local_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "error", "outcome", "ended_at", "protocol_filters", "updated_at", "created_at", "listen_multi_addresses_set_id"}
+	holePunchResultColumnsWithoutDefault = []string{"local_id", "remote_id", "connect_started_at", "connect_ended_at", "has_direct_conns", "outcome", "ended_at", "protocol_filters", "updated_at", "created_at"}
 	holePunchResultColumnsWithDefault    = []string{"id", "error", "listen_multi_addresses_set_id"}
 	holePunchResultPrimaryKeyColumns     = []string{"id"}
 	holePunchResultGeneratedColumns      = []string{"id"}
@@ -518,17 +528,6 @@ func (q holePunchResultQuery) Exists(ctx context.Context, exec boil.ContextExecu
 	return count > 0, nil
 }
 
-// Client pointed to by the foreign key.
-func (o *HolePunchResult) Client(mods ...qm.QueryMod) peerQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.ClientID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	return Peers(queryMods...)
-}
-
 // ListenMultiAddressesSet pointed to by the foreign key.
 func (o *HolePunchResult) ListenMultiAddressesSet(mods ...qm.QueryMod) multiAddressesSetQuery {
 	queryMods := []qm.QueryMod{
@@ -538,6 +537,17 @@ func (o *HolePunchResult) ListenMultiAddressesSet(mods ...qm.QueryMod) multiAddr
 	queryMods = append(queryMods, mods...)
 
 	return MultiAddressesSets(queryMods...)
+}
+
+// Local pointed to by the foreign key.
+func (o *HolePunchResult) Local(mods ...qm.QueryMod) peerQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.LocalID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return Peers(queryMods...)
 }
 
 // Remote pointed to by the foreign key.
@@ -579,124 +589,18 @@ func (o *HolePunchResult) HolePunchResultsXMultiAddresses(mods ...qm.QueryMod) h
 	return HolePunchResultsXMultiAddresses(queryMods...)
 }
 
-// LoadClient allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (holePunchResultL) LoadClient(ctx context.Context, e boil.ContextExecutor, singular bool, maybeHolePunchResult interface{}, mods queries.Applicator) error {
-	var slice []*HolePunchResult
-	var object *HolePunchResult
-
-	if singular {
-		var ok bool
-		object, ok = maybeHolePunchResult.(*HolePunchResult)
-		if !ok {
-			object = new(HolePunchResult)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeHolePunchResult)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeHolePunchResult))
-			}
-		}
-	} else {
-		s, ok := maybeHolePunchResult.(*[]*HolePunchResult)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeHolePunchResult)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeHolePunchResult))
-			}
-		}
+// LatencyMeasurements retrieves all the latency_measurement's LatencyMeasurements with an executor.
+func (o *HolePunchResult) LatencyMeasurements(mods ...qm.QueryMod) latencyMeasurementQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
 	}
 
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &holePunchResultR{}
-		}
-		args = append(args, object.ClientID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &holePunchResultR{}
-			}
-
-			for _, a := range args {
-				if a == obj.ClientID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.ClientID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`peers`),
-		qm.WhereIn(`peers.id in ?`, args...),
+	queryMods = append(queryMods,
+		qm.Where("\"latency_measurements\".\"hole_punch_result_id\"=?", o.ID),
 	)
-	if mods != nil {
-		mods.Apply(query)
-	}
 
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load Peer")
-	}
-
-	var resultSlice []*Peer
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for peers")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
-	}
-
-	if len(holePunchResultAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.Client = foreign
-		if foreign.R == nil {
-			foreign.R = &peerR{}
-		}
-		foreign.R.ClientHolePunchResults = append(foreign.R.ClientHolePunchResults, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.ClientID == foreign.ID {
-				local.R.Client = foreign
-				if foreign.R == nil {
-					foreign.R = &peerR{}
-				}
-				foreign.R.ClientHolePunchResults = append(foreign.R.ClientHolePunchResults, local)
-				break
-			}
-		}
-	}
-
-	return nil
+	return LatencyMeasurements(queryMods...)
 }
 
 // LoadListenMultiAddressesSet allows an eager lookup of values, cached into the
@@ -811,6 +715,126 @@ func (holePunchResultL) LoadListenMultiAddressesSet(ctx context.Context, e boil.
 					foreign.R = &multiAddressesSetR{}
 				}
 				foreign.R.ListenMultiAddressesSetHolePunchResults = append(foreign.R.ListenMultiAddressesSetHolePunchResults, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadLocal allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (holePunchResultL) LoadLocal(ctx context.Context, e boil.ContextExecutor, singular bool, maybeHolePunchResult interface{}, mods queries.Applicator) error {
+	var slice []*HolePunchResult
+	var object *HolePunchResult
+
+	if singular {
+		var ok bool
+		object, ok = maybeHolePunchResult.(*HolePunchResult)
+		if !ok {
+			object = new(HolePunchResult)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeHolePunchResult)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeHolePunchResult))
+			}
+		}
+	} else {
+		s, ok := maybeHolePunchResult.(*[]*HolePunchResult)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeHolePunchResult)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeHolePunchResult))
+			}
+		}
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &holePunchResultR{}
+		}
+		args = append(args, object.LocalID)
+
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &holePunchResultR{}
+			}
+
+			for _, a := range args {
+				if a == obj.LocalID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.LocalID)
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`peers`),
+		qm.WhereIn(`peers.id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load Peer")
+	}
+
+	var resultSlice []*Peer
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for peers")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
+	}
+
+	if len(holePunchResultAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.Local = foreign
+		if foreign.R == nil {
+			foreign.R = &peerR{}
+		}
+		foreign.R.LocalHolePunchResults = append(foreign.R.LocalHolePunchResults, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.LocalID == foreign.ID {
+				local.R.Local = foreign
+				if foreign.R == nil {
+					foreign.R = &peerR{}
+				}
+				foreign.R.LocalHolePunchResults = append(foreign.R.LocalHolePunchResults, local)
 				break
 			}
 		}
@@ -1167,48 +1191,115 @@ func (holePunchResultL) LoadHolePunchResultsXMultiAddresses(ctx context.Context,
 	return nil
 }
 
-// SetClient of the holePunchResult to the related item.
-// Sets o.R.Client to related.
-// Adds o to related.R.ClientHolePunchResults.
-func (o *HolePunchResult) SetClient(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
+// LoadLatencyMeasurements allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (holePunchResultL) LoadLatencyMeasurements(ctx context.Context, e boil.ContextExecutor, singular bool, maybeHolePunchResult interface{}, mods queries.Applicator) error {
+	var slice []*HolePunchResult
+	var object *HolePunchResult
+
+	if singular {
+		var ok bool
+		object, ok = maybeHolePunchResult.(*HolePunchResult)
+		if !ok {
+			object = new(HolePunchResult)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeHolePunchResult)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeHolePunchResult))
+			}
+		}
+	} else {
+		s, ok := maybeHolePunchResult.(*[]*HolePunchResult)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeHolePunchResult)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeHolePunchResult))
+			}
 		}
 	}
 
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"hole_punch_results\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"client_id"}),
-		strmangle.WhereClause("\"", "\"", 2, holePunchResultPrimaryKeyColumns),
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &holePunchResultR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &holePunchResultR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`latency_measurements`),
+		qm.WhereIn(`latency_measurements.hole_punch_result_id in ?`, args...),
 	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, updateQuery)
-		fmt.Fprintln(writer, values)
-	}
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
+	if mods != nil {
+		mods.Apply(query)
 	}
 
-	o.ClientID = related.ID
-	if o.R == nil {
-		o.R = &holePunchResultR{
-			Client: related,
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load latency_measurements")
+	}
+
+	var resultSlice []*LatencyMeasurement
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice latency_measurements")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on latency_measurements")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for latency_measurements")
+	}
+
+	if len(latencyMeasurementAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
 		}
-	} else {
-		o.R.Client = related
+	}
+	if singular {
+		object.R.LatencyMeasurements = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &latencyMeasurementR{}
+			}
+			foreign.R.HolePunchResult = object
+		}
+		return nil
 	}
 
-	if related.R == nil {
-		related.R = &peerR{
-			ClientHolePunchResults: HolePunchResultSlice{o},
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.HolePunchResultID {
+				local.R.LatencyMeasurements = append(local.R.LatencyMeasurements, foreign)
+				if foreign.R == nil {
+					foreign.R = &latencyMeasurementR{}
+				}
+				foreign.R.HolePunchResult = local
+				break
+			}
 		}
-	} else {
-		related.R.ClientHolePunchResults = append(related.R.ClientHolePunchResults, o)
 	}
 
 	return nil
@@ -1256,6 +1347,53 @@ func (o *HolePunchResult) SetListenMultiAddressesSet(ctx context.Context, exec b
 		}
 	} else {
 		related.R.ListenMultiAddressesSetHolePunchResults = append(related.R.ListenMultiAddressesSetHolePunchResults, o)
+	}
+
+	return nil
+}
+
+// SetLocal of the holePunchResult to the related item.
+// Sets o.R.Local to related.
+// Adds o to related.R.LocalHolePunchResults.
+func (o *HolePunchResult) SetLocal(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"hole_punch_results\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"local_id"}),
+		strmangle.WhereClause("\"", "\"", 2, holePunchResultPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	o.LocalID = related.ID
+	if o.R == nil {
+		o.R = &holePunchResultR{
+			Local: related,
+		}
+	} else {
+		o.R.Local = related
+	}
+
+	if related.R == nil {
+		related.R = &peerR{
+			LocalHolePunchResults: HolePunchResultSlice{o},
+		}
+	} else {
+		related.R.LocalHolePunchResults = append(related.R.LocalHolePunchResults, o)
 	}
 
 	return nil
@@ -1405,6 +1543,59 @@ func (o *HolePunchResult) AddHolePunchResultsXMultiAddresses(ctx context.Context
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &holePunchResultsXMultiAddressR{
+				HolePunchResult: o,
+			}
+		} else {
+			rel.R.HolePunchResult = o
+		}
+	}
+	return nil
+}
+
+// AddLatencyMeasurements adds the given related objects to the existing relationships
+// of the hole_punch_result, optionally inserting them as new records.
+// Appends related to o.R.LatencyMeasurements.
+// Sets related.R.HolePunchResult appropriately.
+func (o *HolePunchResult) AddLatencyMeasurements(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*LatencyMeasurement) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.HolePunchResultID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"latency_measurements\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"hole_punch_result_id"}),
+				strmangle.WhereClause("\"", "\"", 2, latencyMeasurementPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.HolePunchResultID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &holePunchResultR{
+			LatencyMeasurements: related,
+		}
+	} else {
+		o.R.LatencyMeasurements = append(o.R.LatencyMeasurements, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &latencyMeasurementR{
 				HolePunchResult: o,
 			}
 		} else {

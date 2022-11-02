@@ -13,12 +13,12 @@ var TableNames = struct {
 	HolePunchResults                string
 	HolePunchResultsXMultiAddresses string
 	IPAddresses                     string
+	LatencyMeasurements             string
 	MultiAddresses                  string
 	MultiAddressesSets              string
-	MultiAddressesXIPAddresses      string
+	NetworkInformation              string
 	PeerLogs                        string
 	Peers                           string
-	Routers                         string
 }{
 	Authorizations:                  "authorizations",
 	Clients:                         "clients",
@@ -29,10 +29,10 @@ var TableNames = struct {
 	HolePunchResults:                "hole_punch_results",
 	HolePunchResultsXMultiAddresses: "hole_punch_results_x_multi_addresses",
 	IPAddresses:                     "ip_addresses",
+	LatencyMeasurements:             "latency_measurements",
 	MultiAddresses:                  "multi_addresses",
 	MultiAddressesSets:              "multi_addresses_sets",
-	MultiAddressesXIPAddresses:      "multi_addresses_x_ip_addresses",
+	NetworkInformation:              "network_information",
 	PeerLogs:                        "peer_logs",
 	Peers:                           "peers",
-	Routers:                         "routers",
 }

@@ -27,12 +27,6 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "punchr init hosts")
 	}
 
-	if !c.Bool("disable-router-check") {
-		if err = punchr.UpdateRouterHTML(); err != nil {
-			log.WithError(err).Warnln("Could not get router HTML page")
-		}
-	}
-
 	// Connect punchr hosts to bootstrap nodes
 	if err = punchr.Bootstrap(c.Context); err != nil {
 		return errors.Wrap(err, "bootstrap punchr hosts")
@@ -45,7 +39,7 @@ func RootAction(c *cli.Context) error {
 
 	// Finally, start hole punching
 	if err = punchr.StartHolePunching(c.Context); err != nil {
-		log.Fatalf("failed to hole punch: %v", err)
+		return errors.Wrap(err, "failed to hole punch")
 	}
 
 	// Waiting for shutdown signal
