@@ -210,14 +210,24 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 	resultsChan := make(chan LatencyMeasurement)
 
 	go func() {
+		defer close(resultsChan)
+
 		tctx, cancel := context.WithTimeout(ctx, PingDuration)
+		defer cancel()
+
 		rChan, stream := Ping(tctx, h.Host, pid)
+		if stream == nil {
+			result := <-rChan
+			log.WithError(result.Error).WithField("type", mType.String()).WithField("pid", util.FmtPeerID(pid)).Warnln("Could not ping peer")
+			return
+		}
 
 		lm := LatencyMeasurement{
 			remoteID: pid,
 			mType:    mType,
 			conn:     stream.Conn().RemoteMultiaddr(),
 			rtts:     []time.Duration{},
+			rttErrs:  []error{},
 		}
 
 		lm.agentVersion = h.GetAgentVersion(pid)
@@ -227,10 +237,8 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 			lm.rtts = append(lm.rtts, result.RTT)
 			lm.rttErrs = append(lm.rttErrs, result.Error)
 		}
-		cancel()
 
 		resultsChan <- lm
-		close(resultsChan)
 	}()
 
 	return resultsChan
