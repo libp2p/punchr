@@ -304,14 +304,14 @@ func (hpa *HolePunchAttempt) handleHolePunchCancelled(err error) {
 	hpa.Error = err.Error()
 }
 
-func (hpa HolePunchAttempt) logEntry() *log.Entry {
+func (hpa *HolePunchAttempt) logEntry() *log.Entry {
 	return log.WithFields(log.Fields{
 		"remoteID": util.FmtPeerID(hpa.RemoteID),
 		"hostID":   util.FmtPeerID(hpa.HostID),
 	})
 }
 
-func (hpa HolePunchAttempt) ToProto() *pb.HolePunchAttempt {
+func (hpa *HolePunchAttempt) ToProto() *pb.HolePunchAttempt {
 	var startedAt *uint64
 	if !hpa.StartedAt.IsZero() {
 		startedAt = toUnixNanos(hpa.StartedAt)
