@@ -363,7 +363,9 @@ func (h *Host) PingRelays(ctx context.Context, addrInfo map[peer.ID]*peer.AddrIn
 			continue
 		}
 
-		lats = append(lats, <-h.MeasurePing(ctx, relayID, pb.LatencyMeasurementType_TO_RELAY))
+		if lm, ok := <-h.MeasurePing(ctx, relayID, pb.LatencyMeasurementType_TO_RELAY); ok {
+			lats = append(lats, lm)
+		}
 	}
 
 	return lats

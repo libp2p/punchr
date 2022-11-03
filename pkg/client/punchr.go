@@ -203,7 +203,9 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		}
 
 		if hpState.HasDirectConns {
-			hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH))
+			if lm, ok := <-h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH); ok {
+				hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, lm)
+			}
 		}
 
 		if !p.disableRouterCheck {
