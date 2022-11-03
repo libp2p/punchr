@@ -241,8 +241,8 @@ func (c *Client) UpsertIPAddresses(ctx context.Context, exec boil.ContextExecuto
 		}
 
 		dc, err := c.UdgerClient.Datacenter(ipAddress)
-		if err != nil {
-			log.WithError(err).WithField("addr", ipAddress).Debugln("could not extract data center")
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.WithError(err).WithField("addr", ipAddress).Warnln("could not extract data center")
 		}
 
 		dbIPAddress := &models.IPAddress{
@@ -290,9 +290,10 @@ func (c *Client) UpsertMultiAddress(ctx context.Context, exec boil.ContextExecut
 		for ipAddress, addrInfo = range addrInfos {
 			break
 		}
+
 		dc, err := c.UdgerClient.Datacenter(ipAddress)
-		if err != nil {
-			log.WithError(err).WithField("addr", ipAddress).Debugln("could not extract data center")
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.WithError(err).WithField("addr", ipAddress).Warnln("could not extract data center")
 		}
 
 		dbMaddr.Asn = null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0)
