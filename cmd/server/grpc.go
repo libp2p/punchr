@@ -423,6 +423,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		filters[i] = int64(p)
 	}
 
+	fmt.Printf("Filters: %v\n", filters)
+
 	hpr := &models.HolePunchResult{
 		LocalID:                   dbLocalPeer.ID,
 		ListenMultiAddressesSetID: maddrSetID,
