@@ -82,7 +82,7 @@ func NewClient(c *cli.Context) (*Client, error) {
 	}
 
 	// Create udger client
-	uclient, err := udger.NewClient("udgerdb_v3.dat")
+	uclient, err := udger.NewClient(c.String("udger-db"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new udger client")
 	}

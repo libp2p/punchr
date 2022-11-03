@@ -115,6 +115,13 @@ func main() {
 				DefaultText: "disable",
 				Value:       "disable",
 			},
+			&cli.StringFlag{
+				Name:        "udger-db",
+				Usage:       "Path to the Udger database",
+				EnvVars:     []string{"PUNCHR_SERVER_UDGER_DATABASE"},
+				DefaultText: "udgerdb_v3.dat",
+				Value:       "udgerdb_v3.dat",
+			},
 		},
 		EnableBashCompletion: true,
 	}
