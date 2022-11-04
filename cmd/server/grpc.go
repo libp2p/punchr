@@ -111,12 +111,7 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 		dbHostIDs[i] = strconv.FormatInt(dbHost.ID, 10)
 	}
 
-	var resp *pb.GetAddrInfoResponse
-	if rand.Float32() > 0.5 {
-		resp, err = s.querySingleMaddr(ctx, dbHostIDs)
-	} else {
-		resp, err = s.queryAllMaddrs(ctx, dbHostIDs)
-	}
+	resp, err := s.queryMaddrs(ctx, dbHostIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -137,91 +132,9 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 	return resp, nil
 }
 
-// querySingleMaddr queries a single peer with a single multi address to hole punch as opposed to
-// queryAllMaddrs that queries a single peer with all its multi addresses.
-// TODO: Remove redundancy between querySingleMaddr and queryAllMaddrs
-func (s Server) querySingleMaddr(ctx context.Context, dbHostIDs []string) (*pb.GetAddrInfoResponse, error) {
-	query := `
--- select all peers that connected to the honeypot within the last 10 mins, listen on a relay address,
--- and support dcutr. Then also select all of their relay multi addresses. But only if:
---   1. the peer has not been hole punched more than 10 times in the last minute AND
---   2. the peer/maddr combination was not hole-punched by the same client in the last 30 mins.
--- then only return ONE random peer/maddr combination!
-SELECT p.multi_hash, ma.maddr
-FROM connection_events ce
-         INNER JOIN connection_events_x_multi_addresses cexma ON ce.id = cexma.connection_event_id
-         INNER JOIN multi_addresses ma ON cexma.multi_address_id = ma.id
-         INNER JOIN peers p ON ce.remote_id = p.id
-WHERE ma.is_relay = true
-  AND ce.opened_at > NOW() - '10min'::INTERVAL -- peer connected to honeypot within last 10min
-  AND ( -- prevent DoS. Exclude peers that were hole-punched >= 10 times in the last minute
-          SELECT count(*)
-          FROM hole_punch_results hpr
-          WHERE hpr.remote_id = ce.remote_id
-            AND hpr.created_at > NOW() - '1min'::INTERVAL
-      ) < 10
-  AND NOT EXISTS( -- Exclude peer/maddr combinations that were hole-punched from the same client within the last 30 min
-        SELECT
-        FROM hole_punch_results hpr
-                 INNER JOIN hole_punch_results_x_multi_addresses hprxma ON hpr.id = hprxma.hole_punch_result_id
-        WHERE hpr.remote_id = ce.remote_id
-          AND hpr.local_id IN (%s)
-          AND hprxma.multi_address_id = ma.id
-          AND hprxma.relationship = 'INITIAL'
-          AND hpr.created_at > NOW() - '30min'::INTERVAL
-    )
-ORDER BY random() -- get random peer/maddr combination
-LIMIT 1
-`
-	start := time.Now()
-	query = fmt.Sprintf(query, strings.Join(dbHostIDs, ","))
-	rows, err := s.DBClient.QueryContext(ctx, query)
-	if err != nil {
-		allocationQueryDurationHistogram.WithLabelValues("single", "false").Observe(time.Since(start).Seconds())
-		return nil, errors.Wrap(err, "query addr infos")
-	}
-	allocationQueryDurationHistogram.WithLabelValues("single", "true").Observe(time.Since(start).Seconds())
-
-	defer func() {
-		if err := rows.Close(); err != nil {
-			log.WithError(err).Warnln("Could not close database query")
-		}
-	}()
-
-	if !rows.Next() {
-		return nil, status.Error(codes.NotFound, "no peers to hole punch")
-	}
-
-	var remoteMultiHash string
-	var remoteMaddrStr string
-	if err = rows.Scan(&remoteMultiHash, &remoteMaddrStr); err != nil {
-		return nil, errors.Wrap(err, "map query results")
-	}
-	remoteID, err := peer.Decode(remoteMultiHash)
-	if err != nil {
-		return nil, errors.Wrap(err, "decode remote multi hash")
-	}
-
-	remoteIDBytes, err := remoteID.Marshal()
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal remote ID to bytes")
-	}
-
-	maddr, err := multiaddr.NewMultiaddr(remoteMaddrStr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "parse multi address %s", remoteMaddrStr)
-	}
-
-	return &pb.GetAddrInfoResponse{
-		RemoteId:       remoteIDBytes,
-		MultiAddresses: [][]byte{maddr.Bytes()},
-	}, nil
-}
-
-// queryAllMaddrs queries a single peer from the database and all its multi addresses to hole punch
+// queryMaddrs queries a single peer from the database and all its multi addresses to hole punch
 // as opposed to querySingleMaddr that quries a single peer with a single multi address.
-// TODO: Remove redundancy between querySingleMaddr and queryAllMaddrs
-func (s Server) queryAllMaddrs(ctx context.Context, dbHostIDs []string) (*pb.GetAddrInfoResponse, error) {
+func (s Server) queryMaddrs(ctx context.Context, dbHostIDs []string) (*pb.GetAddrInfoResponse, error) {
 	query := `
 -- select all peers that connected to the honeypot within the last 10 mins, listen on a relay address,
 -- and support dcutr. Then also select all of their relay multi addresses. But only if:
