@@ -141,11 +141,6 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 
 // WalkDHT slowly enumerates the whole DHT to announce ourselves to the network.
 func (h *Host) WalkDHT(ctx context.Context) {
-	c, err := crawler.New(h, crawler.WithParallelism(h.crawlers), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
-	if err != nil {
-		panic(err)
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -154,6 +149,13 @@ func (h *Host) WalkDHT(ctx context.Context) {
 		}
 
 		log.Infoln("Start walking the DHT...")
+
+		c, err := crawler.New(h, crawler.WithParallelism(h.crawlers), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
+		if err != nil {
+			log.WithError(err).Infoln("Could not create crawler")
+			time.Sleep(10 * time.Second)
+			continue
+		}
 
 		bps := kaddht.GetDefaultBootstrapPeerAddrInfos()
 		seedPeers := make([]*peer.AddrInfo, len(bps))
