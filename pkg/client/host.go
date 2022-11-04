@@ -207,6 +207,8 @@ func (h *Host) Close() error {
 }
 
 func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMeasurementType) <-chan LatencyMeasurement {
+	logEntry := log.WithField("remoteID", util.FmtPeerID(pid)).WithField("type", mType.String())
+
 	resultsChan := make(chan LatencyMeasurement)
 
 	go func() {
@@ -215,12 +217,14 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 		tctx, cancel := context.WithTimeout(ctx, PingDuration)
 		defer cancel()
 
+		logEntry.Infoln("Measuring ping", mType.String())
 		rChan, stream := Ping(tctx, h.Host, pid)
 		if stream == nil {
 			result := <-rChan
-			log.WithError(result.Error).WithField("type", mType.String()).WithField("pid", util.FmtPeerID(pid)).Warnln("Could not ping peer")
+			logEntry.WithError(result.Error).Warnln("Could not ping peer")
 			return
 		}
+		defer logEntry.Debugln("Measuring ping", mType.String(), "done!")
 
 		lm := LatencyMeasurement{
 			remoteID: pid,
@@ -248,7 +252,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	// we received a new peer to hole punch -> log its information
 	h.logAddrInfo(addrInfo)
 
-	// sanity operation -> clean up all resources before and after
+	// sanity operation -> clean up all resources before
 	h.prunePeer(addrInfo.ID)
 	defer h.prunePeer(addrInfo.ID)
 
@@ -273,7 +277,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	// connect to the remote peer via relay
 	hpState.ConnectStartedAt = time.Now()
 	if err := h.Connect(ctx, addrInfo); err != nil {
-		h.logEntry(addrInfo.ID).Infoln("Error connecting to remote peer")
+		h.logEntry(addrInfo.ID).WithError(err).Infoln("Error connecting to remote peer")
 		hpState.ConnectEndedAt = time.Now()
 		hpState.Error = err.Error()
 		hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION

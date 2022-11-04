@@ -191,6 +191,13 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 			}
 		}
 
+		// Log request
+		protocolNames := make([]string, len(protocols))
+		for j, protocol := range protocols {
+			protocolNames[j] = multiaddr.ProtocolWithCode(int(protocol)).Name
+		}
+		log.WithField("remoteID", addrInfo.ID).WithField("filter", protocolNames).Infoln("Received peer to hole punch from server!")
+
 		// Instruct the i-th host to hole punch
 		hpState := h.HolePunch(ctx, *addrInfo)
 

@@ -76,8 +76,7 @@ func ExtractRelayMaddr(maddr ma.Multiaddr) (*peer.AddrInfo, error) {
 // DefaultGatewayHTML discovers the default gateway address and fetches the
 // home HTML page to get a sense which router is used.
 func DefaultGatewayHTML(ctx context.Context) (string, error) {
-	log.Infoln("Checking router HTML...")
-	defer log.Infoln("Checking router HTML - Done!")
+	log.Infoln("Checking router HTML")
 
 	router, err := gateway.DiscoverGateway()
 	if err != nil {
