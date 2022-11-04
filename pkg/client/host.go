@@ -203,6 +203,17 @@ func (h *Host) GetProtocols(pid peer.ID) []string {
 	return protocols
 }
 
+// ProtocolFilters copies the slice
+func (h *Host) ProtocolFilters() []int32 {
+	h.protocolFiltersLk.RLock()
+	defer h.protocolFiltersLk.RUnlock()
+	filters := make([]int32, len(h.protocolFilters))
+	for i, pf := range h.protocolFilters {
+		filters[i] = pf
+	}
+	return filters
+}
+
 func (h *Host) Close() error {
 	return h.Host.Close()
 }
@@ -256,20 +267,19 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 	return resultsChan
 }
 
-func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunchState {
+func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) (*HolePunchState, <-chan LatencyMeasurement) {
 	// we received a new peer to hole punch -> log its information
 	h.logAddrInfo(addrInfo)
 
 	// sanity operation -> clean up all resources before
 	h.prunePeer(addrInfo.ID)
-	defer h.prunePeer(addrInfo.ID)
 
 	// register for tracer events for this particular peer
 	evtChan := h.RegisterPeerToTrace(addrInfo.ID)
 	defer h.UnregisterPeerToTrace(addrInfo.ID)
 
 	// initialize a new hole punch state
-	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs, h.Addrs())
+	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs, h.Addrs(), h.ProtocolFilters())
 	defer func() { hpState.EndedAt = time.Now() }()
 
 	// Track open connections after the hole punch
@@ -289,7 +299,7 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 		hpState.ConnectEndedAt = time.Now()
 		hpState.Error = err.Error()
 		hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_CONNECTION
-		return hpState
+		return hpState, nil
 	}
 	hpState.ConnectEndedAt = time.Now()
 	h.logEntry(addrInfo.ID).Infoln("Connected!")
@@ -299,9 +309,6 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 	}
 
 	relayedPingChan := h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_THROUGH_RELAY)
-	defer func() {
-		hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, <-relayedPingChan)
-	}()
 
 	// we were able to connect to the remote peer.
 	for i := 0; i < RetryCount; i++ {
@@ -312,12 +319,12 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 				// Stream was not opened in time by the remote.
 				hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_NO_STREAM
 				hpState.Error = "/libp2p/dcutr stream was not opened after " + CommunicationTimeout.String()
-				return hpState
+				return hpState, relayedPingChan
 			}
 		case <-ctx.Done():
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED
 			hpState.Error = ctx.Err().Error()
-			return hpState
+			return hpState, relayedPingChan
 		}
 		// stream was opened! Now, wait for the first hole punch event.
 
@@ -328,32 +335,32 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) *HolePunch
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_PROTOCOL_ERROR:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
 			hpState.Error = hpa.Error
-			return hpState
+			return hpState, relayedPingChan
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_DIRECT_DIAL:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS
-			return hpState
+			return hpState, relayedPingChan
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_UNKNOWN:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_UNKNOWN
 			hpState.Error = "unknown hole punch attempt outcome"
-			return hpState
+			return hpState, relayedPingChan
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_CANCELLED:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CANCELLED
 			hpState.Error = hpa.Error
-			return hpState
+			return hpState, relayedPingChan
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_TIMEOUT:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
 			hpState.Error = hpa.Error
-			return hpState
+			return hpState, relayedPingChan
 		case pb.HolePunchAttemptOutcome_HOLE_PUNCH_ATTEMPT_OUTCOME_SUCCESS:
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_SUCCESS
-			return hpState
+			return hpState, relayedPingChan
 		}
 	}
 
 	hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_FAILED
 	hpState.Error = fmt.Sprintf("none of the %d attempts succeeded", RetryCount)
 
-	return hpState
+	return hpState, relayedPingChan
 }
 
 type LatencyMeasurement struct {

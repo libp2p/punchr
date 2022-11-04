@@ -199,7 +199,7 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		log.WithField("remoteID", addrInfo.ID).WithField("filter", protocolNames).Infoln("Received peer to hole punch from server!")
 
 		// Instruct the i-th host to hole punch
-		hpState := h.HolePunch(ctx, *addrInfo)
+		hpState, relayedPingChan := h.HolePunch(ctx, *addrInfo)
 
 		// Conditions for a connection reversal:
 		//   1. /libp2p/dcutr stream was not opened.
@@ -209,13 +209,22 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 			hpState.Outcome = pb.HolePunchOutcome_HOLE_PUNCH_OUTCOME_CONNECTION_REVERSED
 		}
 
+		// If we have a direct connection, measure ping to remote peer
 		if hpState.HasDirectConns {
 			if lm, ok := <-h.MeasurePing(ctx, addrInfo.ID, pb.LatencyMeasurementType_TO_REMOTE_AFTER_HOLE_PUNCH); ok {
 				hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, lm)
 			}
 		}
 
+		// If we were able to connect to the remote peer through a relay, measure the ping
+		if relayedPingChan != nil {
+			if lm, ok := <-relayedPingChan; ok {
+				hpState.LatencyMeasurements = append(hpState.LatencyMeasurements, lm)
+			}
+		}
 
+		// Prune peer after we have operated on it
+		h.prunePeer(addrInfo.ID)
 
 		if !p.disableRouterCheck {
 			hpState.NetworkInformation = h.networkInformation(ctx)

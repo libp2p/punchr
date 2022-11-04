@@ -100,7 +100,7 @@ type HolePunchState struct {
 
 	NetworkInformation *pb.NetworkInformation
 
-	ProtocolFilters []int
+	ProtocolFilters []int32
 
 	// Remote Peer data
 	RemoteRttAfterHolePunch time.Duration
@@ -109,7 +109,7 @@ type HolePunchState struct {
 	LatencyMeasurements []LatencyMeasurement
 }
 
-func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr) *HolePunchState {
+func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr, filters []int32) *HolePunchState {
 	return &HolePunchState{
 		HostID:              hostID,
 		RemoteID:            remoteID,
@@ -119,6 +119,7 @@ func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Mul
 		HolePunchAttempts:   []*HolePunchAttempt{},
 		OpenMaddrsAfter:     []multiaddr.Multiaddr{},
 		LatencyMeasurements: []LatencyMeasurement{},
+		ProtocolFilters:     filters,
 	}
 }
 
