@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -46,7 +47,7 @@ type AppState struct {
 	desk           desktop.App
 	autostartApp   *autostart.App
 	execPath       string
-	isHolePunching bool
+	isHolePunching atomic.Bool
 	events         chan any
 	gui            *Gui
 	apiKey         string
@@ -89,7 +90,7 @@ func NewAppState() (*AppState, error) {
 		app:            fapp,
 		desk:           desk,
 		autostartApp:   autostartApp,
-		isHolePunching: false,
+		isHolePunching: atomic.Bool{},
 		events:         make(chan any),
 		execPath:       execPath,
 		gui: &Gui{
@@ -157,7 +158,7 @@ func (as *AppState) Loop() {
 	for event := range as.events {
 		switch evt := event.(type) {
 		case *EvtToggleHolePunching:
-			if as.isHolePunching {
+			if as.isHolePunching.Load() {
 				go as.StopHolePunching()
 			} else {
 				go as.StartHolePunching()
@@ -185,6 +186,11 @@ func (as *AppState) Loop() {
 			if as.gui.apiKeyDialog != nil {
 				(*as.gui.apiKeyDialog).Close()
 			}
+
+			if !as.isHolePunching.Load() {
+				go as.StartHolePunching()
+			}
+
 		case *EvtCloseAPIKeyDialog:
 			as.gui.apiKeyDialog = nil
 		}
@@ -275,7 +281,7 @@ func (as *AppState) StartHolePunching() {
 	ctx, cancel := context.WithCancel(context.Background())
 	as.hpCtx = ctx
 	as.hpCtxCancel = cancel
-	as.isHolePunching = true
+	as.isHolePunching.Store(true)
 
 LOOP:
 	for {
@@ -321,7 +327,7 @@ LOOP:
 	as.gui.menuItemStartStopHolePunching.Label = "🔴 Hole Punching Stopped"
 	as.gui.sysTrayMenu.Refresh()
 
-	as.isHolePunching = false
+	as.isHolePunching.Store(false)
 }
 
 func (as *AppState) EnableAutoStart() {
