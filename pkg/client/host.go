@@ -28,6 +28,7 @@ var (
 	CommunicationTimeout = 15 * time.Second
 	RetryCount           = 3
 	PingDuration         = 10 * time.Second
+	MaxPingCount         = 10
 )
 
 // Host holds information of the honeypot libp2p host.
@@ -237,10 +238,17 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 		lm.agentVersion = h.GetAgentVersion(pid)
 		lm.protocols = h.GetProtocols(pid)
 
-		for result := range rChan {
+		for i := 0; i < MaxPingCount; i++ {
+			result, ok := <-rChan
+			if !ok {
+				// channel closed due to e.g. a closed context
+				break
+			}
+
 			lm.rtts = append(lm.rtts, result.RTT)
 			lm.rttErrs = append(lm.rttErrs, result.Error)
 		}
+		cancel()
 
 		resultsChan <- lm
 	}()
