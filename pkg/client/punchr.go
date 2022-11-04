@@ -215,35 +215,10 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 			}
 		}
 
+
+
 		if !p.disableRouterCheck {
-			// Check if the multi addresses have changed - if that's the case we have likely switched networks
-			for _, maddr := range h.Addrs() {
-				if _, found := h.maddrs[maddr.String()]; found {
-					continue
-				}
-
-				ni := &pb.NetworkInformation{}
-
-				log.Infoln("Found new multi addresses - fetching Router Login")
-				html, err := util.DefaultGatewayHTML(ctx)
-				if err != nil {
-					errStr := err.Error()
-					ni.RouterLoginHtmlError = &errStr
-				}
-				ni.RouterLoginHtml = &html
-
-				// TODO: check IPv6 support
-
-				// Update list of multi addresses
-				h.maddrs = map[string]struct{}{}
-				for _, newMaddr := range h.Addrs() {
-					h.maddrs[newMaddr.String()] = struct{}{}
-				}
-
-				hpState.NetworkInformation = ni
-
-				break
-			}
+			hpState.NetworkInformation = h.networkInformation(ctx)
 		}
 
 		relayLatencies := h.PingRelays(ctx, extractRelayInfo(*addrInfo))

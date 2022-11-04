@@ -488,6 +488,37 @@ func (h *Host) prunePeer(pid peer.ID) {
 	h.Peerstore().ClearAddrs(pid)
 }
 
+// networkInformation checks if the multi addresses have changed - if that's the case we have likely switched networks
+func (h *Host) networkInformation(ctx context.Context) *pb.NetworkInformation {
+	for _, maddr := range h.Addrs() {
+		if _, found := h.maddrs[maddr.String()]; found {
+			continue
+		}
+
+		ni := &pb.NetworkInformation{}
+
+		log.Infoln("Found new multi addresses - fetching Router Login")
+		html, err := util.DefaultGatewayHTML(ctx)
+		if err != nil {
+			errStr := err.Error()
+			ni.RouterLoginHtmlError = &errStr
+		}
+		ni.RouterLoginHtml = &html
+
+		// TODO: check IPv6 support
+
+		// Update list of multi addresses
+		h.maddrs = map[string]struct{}{}
+		for _, newMaddr := range h.Addrs() {
+			h.maddrs[newMaddr.String()] = struct{}{}
+		}
+
+		return ni
+	}
+
+	return nil
+}
+
 // Trace is called during the hole punching process
 func (h *Host) Trace(evt *holepunch.Event) {
 	val, found := h.holePunchEventsPeers.Load(evt.Remote)
