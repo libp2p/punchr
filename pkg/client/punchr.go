@@ -182,9 +182,9 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 				log.Infoln("No peer to hole punch received waiting 10s")
 			}
 
-			// Wait 10s until next request in either case
+			// Wait 30s until next request in either case
 			select {
-			case <-time.After(10 * time.Second):
+			case <-time.After(30 * time.Second):
 				continue
 			case <-ctx.Done():
 				return ctx.Err()
