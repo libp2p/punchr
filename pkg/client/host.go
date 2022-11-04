@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	CommunicationTimeout = 15 * time.Second
+	CommunicationTimeout = 30 * time.Second
 	RetryCount           = 3
 	PingDuration         = 10 * time.Second
 	MaxPingCount         = 10
