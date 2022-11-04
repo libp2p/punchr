@@ -502,10 +502,13 @@ func (h *Host) filter(remoteID peer.ID, maddrs []multiaddr.Multiaddr) []multiadd
 	defer h.protocolFiltersLk.RUnlock()
 
 	result := make([]multiaddr.Multiaddr, 0, len(maddrs))
+	onlyRelayFiltered := make([]multiaddr.Multiaddr, 0, len(maddrs))
 	for _, maddr := range maddrs {
 		if util.IsRelayedMaddr(maddr) {
 			continue
 		}
+
+		onlyRelayFiltered = append(onlyRelayFiltered, maddr)
 
 		// If there's no filter -> add all maddrs
 		if len(h.protocolFilters) == 0 {
@@ -525,6 +528,10 @@ func (h *Host) filter(remoteID peer.ID, maddrs []multiaddr.Multiaddr) []multiadd
 		if matchesAllFilters {
 			result = append(result, maddr)
 		}
+	}
+
+	if len(result) == 0 {
+		return onlyRelayFiltered
 	}
 
 	return result
