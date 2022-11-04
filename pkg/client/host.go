@@ -233,7 +233,7 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 		rChan, stream := Ping(tctx, h.Host, pid)
 		if stream == nil {
 			result := <-rChan
-			logEntry.WithError(result.Error).Warnln("Could not ping peer")
+			logEntry.WithError(result.Error).Debugln("Could not ping peer")
 			return
 		}
 		defer logEntry.Debugln("Measuring ping", mType.String(), "done!")
