@@ -422,6 +422,16 @@ func (h *Host) WaitForDCUtRStream(pid peer.ID) <-chan struct{} {
 		openedStream := h.rcmgr.Register(pid)
 		defer h.rcmgr.Unregister(pid)
 
+		for _, conn := range h.Network().ConnsToPeer(pid) {
+			for _, stream := range conn.GetStreams() {
+				if stream.Protocol() == holepunch.Protocol {
+					dcutrOpenedChan <- struct{}{}
+					close(dcutrOpenedChan)
+					return
+				}
+			}
+		}
+
 		select {
 		case <-time.After(CommunicationTimeout):
 			h.logEntry(pid).Infoln("/libp2p/dcutr stream was not opened after " + CommunicationTimeout.String())
