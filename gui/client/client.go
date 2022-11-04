@@ -280,6 +280,7 @@ func (as *AppState) StartHolePunching() {
 LOOP:
 	for {
 		as.gui.menuItemStatus.Label = "🟢 Running..."
+		as.desk.SetSystemTrayIcon(gloveActiveEmoji)
 		as.gui.sysTrayMenu.Refresh()
 
 		err := client.App.RunContext(as.hpCtx, []string{
