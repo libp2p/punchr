@@ -171,4 +171,7 @@ require (
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
 
-replace github.com/libp2p/go-libp2p => github.com/dennis-tra/go-libp2p v0.0.0-20221024170124-992c68d65c50
+replace (
+	github.com/libp2p/go-libp2p => github.com/dennis-tra/go-libp2p v0.0.0-20221104214707-e091dec61e4a
+	github.com/libp2p/go-libp2p-kad-dht => github.com/dennis-tra/go-libp2p-kad-dht v0.15.1-0.20221021120013-362b64d42c51
+)
