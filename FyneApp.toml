@@ -1,0 +1,7 @@
+Website = "https://github.com/dennis-tra/punchr"
+
+[Details]
+Icon = "gui/client/glove-active.png"
+Name = "Punchr"
+ID = "ai.protocol.punchr"
+Version = "dev"

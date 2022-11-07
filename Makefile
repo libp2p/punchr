@@ -70,20 +70,16 @@ package: package-darwin package-linux
 
 package-darwin:
 	fyne-cross darwin \
-		-app-id=ai.protocol.punchr \
-		-app-version=${VERSION} \
+		-app-version=$(VERSION_CLIENT_GUI) \
 		-arch=arm64,amd64 \
-		-icon=`pwd`/gui/client/glove-active.png \
-		-ldflags="-X 'gui/client.Version=$(VERSION_CLIENT_GUI)'" \
+		-ldflags="-X 'gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client.VersionCLI=$(VERSION_CLIENT)'" \
 		-name=Punchr
 
 package-linux:
 	fyne-cross linux \
-		-app-id=ai.protocol.punchr \
-		-app-version=${VERSION} \
+		-app-version=$(VERSION_CLIENT_GUI) \
 		-arch=* \
-		-icon=`pwd`/gui/client/glove-active.png \
-		-ldflags="-X 'gui/client.Version=$(VERSION_CLIENT_GUI)'" \
+		-ldflags="-X 'gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client.VersionCLI=$(VERSION_CLIENT)'" \
 		-name=Punchr \
 		-release
 
