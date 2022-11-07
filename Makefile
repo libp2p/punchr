@@ -10,6 +10,7 @@ test:
 
 clean:
 	rm -r dist || true
+	rm -r fyne-cross || true
 	mkdir dist
 
 build-linux: clean build-linux-honeypot build-linux-client build-linux-server
