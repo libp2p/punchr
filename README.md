@@ -6,9 +6,16 @@
 
 > **Note**
 >
-> We are running a hole punching month during December 2022. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project. Download the MacOS clients [here (`arm64`)](https://github.com/dennis-tra/punchr/releases/download/v0.6.0-rc1/punchr-macos-arm64.dmg) and [here (`amd64`)](https://github.com/dennis-tra/punchr/releases/download/v0.6.0-rc1/punchr-macos-amd64.dmg).
+> We are running a hole punching month during December 2022. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8), request an API-Key, and contribute to this research project. 
+> Download the clients here (direct download links):
+> 
+> MacOS: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-darwin-amd64.dmg)
+> 
+> Linux: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-linux-386.tar.xz)
+> 
+> More options available on the [release page](https://github.com/dennis-tra/punchr/releases/v0.6.0).
 
-This repo contains components to measure [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
+This repo contains components to measure the [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
 Specifically, this repo contains the following [components](#components):
 
