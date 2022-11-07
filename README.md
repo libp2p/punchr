@@ -6,7 +6,7 @@
 
 > **Note**
 >
-> We are running a hole punching month during December 2022. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project. Here you can find the [download links](https://github.com/dennis-tra/punchr/releases/tag/v0.5.0).
+> We are running a hole punching month during December 2022. [**Register here**](https://forms.gle/ueNS5iGQup6oszCQ8) and contribute to this research project. Download the MacOS clients [here (`arm64`)](https://github.com/dennis-tra/punchr/releases/download/v0.6.0-rc1/punchr-macos-arm64.dmg) and [here (`amd64`)](https://github.com/dennis-tra/punchr/releases/download/v0.6.0-rc1/punchr-macos-amd64.dmg).
 
 This repo contains components to measure [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
@@ -23,7 +23,7 @@ Specifically, this repo contains the following [components](#components):
 
 **Talks**
 
-IPFS þing Jul 2022             |  IPFS Camp Oct 2022 
+IPFS þing Jul 2022         |  IPFS Camp Oct 2022 
 :-------------------------:|:-------------------------:
 [![IPFS þing 2022 - libp2p NAT Hole Punching Success Rate - Dennis Trautwein](https://img.youtube.com/vi/fyhZWlDbcyM/0.jpg)](https://www.youtube.com/watch?v=fyhZWlDbcyM)  |  [![IPFS Camp 2022 - Decentralized NAT Hole-Punching - Dennis Trautwein](https://img.youtube.com/vi/bzL7Y1wYth8/0.jpg)](https://www.youtube.com/watch?v=bzL7Y1wYth8)
 
@@ -66,7 +66,7 @@ The goal is to measure the hole punching success rate. For that, we are using a 
 
 ## MacOS
 
-For MacOS there is a menu bar application that you can [download here](https://github.com/dennis-tra/punchr/releases/download/v0.5.0/Punchr.dmg).
+For MacOS there is a menu bar application that you can [download here](https://github.com/dennis-tra/punchr/releases/download/v0.6.0-rc1/Punchr.dmg).
 
 ## Linux
 
@@ -174,7 +174,7 @@ USAGE:
    punchrclient [global options] command [command options] [arguments...]
 
 VERSION:
-   0.5.0
+   0.6.0-rc1
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command

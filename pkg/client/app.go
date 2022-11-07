@@ -9,7 +9,7 @@ var App = &cli.App{
 	Usage:     "A libp2p host that is capable of DCUtR.",
 	UsageText: "punchrclient [global options] command [command options] [arguments...]",
 	Action:    RootAction,
-	Version:   "0.5.0",
+	Version:   "0.6.0-rc1",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:        "telemetry-host",
