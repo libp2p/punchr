@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -55,11 +56,21 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 		return nil, errors.Wrap(err, "failed to dial")
 	}
 
+	apiKey, err := key.LoadApiKey(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "load api key")
+	}
+
+	keyFile, err := xdg.ConfigFile("punchr/client.keys")
+	if err != nil || c.IsSet("key-file") {
+		keyFile = c.String("key-file")
+	}
+
 	i := c.Int("host-count")
 	return &Punchr{
 		hosts:              make([]*Host, i),
-		apiKey:             c.String("api-key"),
-		privKeyFile:        c.String("key-file"),
+		apiKey:             apiKey,
+		privKeyFile:        keyFile,
 		client:             pb.NewPunchrServiceClient(conn),
 		clientConn:         conn,
 		disableRouterCheck: c.Bool("disable-router-check"),
@@ -138,7 +149,7 @@ func (p Punchr) Register(c *cli.Context) error {
 		}
 
 		av := "punchr/go-client/" + c.App.Version
-		apiKey := c.String("api-key")
+		apiKey := p.apiKey
 		req := &pb.RegisterRequest{
 			ClientId:     bytesLocalPeerID,
 			AgentVersion: &av,

@@ -2,13 +2,32 @@ package key
 
 import (
 	"bufio"
-	"encoding/base64"
 	"os"
+	"path"
 
+	"encoding/base64"
+	"github.com/adrg/xdg"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 )
+
+func LoadApiKey(c *cli.Context) (string, error) {
+	if c.IsSet("api-key") {
+		return c.String("api-key"), nil
+	}
+
+	apiKeyURI, err := xdg.ConfigFile("punchr/api-key.txt")
+	if err != nil {
+		apiKeyURI = path.Join("api-key.txt")
+	}
+	apiKeyBytes, err := os.ReadFile(apiKeyURI)
+	if err != nil {
+		return "", errors.Wrap(err, "read api key file")
+	}
+	return string(apiKeyBytes), nil
+}
 
 // Load attempts to load private key information from the given private key file.
 func Load(privKeyFile string) ([]crypto.PrivKey, error) {

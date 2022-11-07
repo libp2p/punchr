@@ -63,18 +63,17 @@ var App = &cli.App{
 			Value:       10,
 		},
 		&cli.StringFlag{
-			Name:     "api-key",
-			Usage:    "The key to authenticate against the API",
-			EnvVars:  []string{"PUNCHR_CLIENT_API_KEY"},
-			Required: true,
+			Name:    "api-key",
+			Usage:   "The key to authenticate against the API. If not set, it's read from $XDG_CONFIG_HOME/punchr/api-key.txt",
+			EnvVars: []string{"PUNCHR_CLIENT_API_KEY"},
 		},
 		&cli.StringFlag{
 			Name:        "key-file",
 			Usage:       "File where punchr saves the host identities.",
 			TakesFile:   true,
 			EnvVars:     []string{"PUNCHR_CLIENT_KEY_FILE"},
-			DefaultText: "punchrclient.keys",
-			Value:       "punchrclient.keys",
+			DefaultText: "$XDG_CONFIG_HOME/punchr/client.keys",
+			Value:       "$XDG_CONFIG_HOME/punchr/client.keys",
 		},
 		&cli.StringSliceFlag{
 			Name:    "bootstrap-peers",

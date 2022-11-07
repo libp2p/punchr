@@ -19,8 +19,10 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"github.com/adrg/xdg"
 	"github.com/emersion/go-autostart"
 	"github.com/friendsofgo/errors"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/punchr/pkg/client"
@@ -35,7 +37,10 @@ var gloveInactive []byte
 //go:embed glove-pending.png
 var glovePending []byte
 
-var Version = "dev"
+var (
+	VersionCLI = "dev"
+	VersionGUI = "dev"
+)
 
 var (
 	gloveActiveEmoji   = fyne.NewStaticResource("glove-active", gloveActive)
@@ -64,7 +69,9 @@ type Gui struct {
 	menuItemStartStopHolePunching *fyne.MenuItem
 	menuItemSetApiKey             *fyne.MenuItem
 	menuItemAutoStart             *fyne.MenuItem
+	menuItemVersionInfo           *fyne.MenuItem
 	apiKeyDialog                  *fyne.Window
+	confirmationDialog            *fyne.Window
 }
 
 func NewAppState() (*AppState, error) {
@@ -99,19 +106,27 @@ func NewAppState() (*AppState, error) {
 			menuItemStartStopHolePunching: fyne.NewMenuItem("", nil),
 			menuItemSetApiKey:             fyne.NewMenuItem("Set API Key", nil),
 			menuItemAutoStart:             fyne.NewMenuItem("", nil),
+			menuItemVersionInfo:           fyne.NewMenuItem("", nil),
 		},
 	}, nil
 }
 
+type EvtOnStarted struct{}
 type EvtToggleHolePunching struct{}
 type EvtShowAPIKeyDialog struct{}
 type EvtCloseAPIKeyDialog struct{}
+type EvtCloseConfirmationDialog struct{}
 type EvtToggleAutoStart struct{}
 type EvtSaveApiKey struct{ apiKey string }
+type EvtSaveConfirmation struct{ launchOnLogin bool }
 
 func (as *AppState) Init() error {
 
-	as.apiKeyURI = storage.NewFileURI(path.Join(path.Dir(as.execPath), "api-key.txt"))
+	apiKeyURI, err := xdg.ConfigFile("punchr/api-key.txt")
+	if err != nil {
+		apiKeyURI = path.Join(path.Dir(as.execPath), "api-key.txt")
+	}
+	as.apiKeyURI = storage.NewFileURI(apiKeyURI)
 
 	if err := as.LoadApiKey(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.WithError(err).Warnln("Error loading API Key")
@@ -119,10 +134,12 @@ func (as *AppState) Init() error {
 
 	as.gui.menuItemStatus.Disabled = true
 	as.gui.menuItemStartStopHolePunching.Label = "🔴 Hole Punching Stopped"
+	as.gui.menuItemVersionInfo.Label = fmt.Sprintf("GUI: %s | CLI: %s", VersionGUI, VersionCLI)
+	as.gui.menuItemVersionInfo.Disabled = true
 	as.gui.menuItemStartStopHolePunching.Action = func() { as.events <- &EvtToggleHolePunching{} }
 	as.gui.menuItemSetApiKey.Action = func() { as.events <- &EvtShowAPIKeyDialog{} }
 	as.gui.menuItemAutoStart.Action = func() { as.events <- &EvtToggleAutoStart{} }
-	as.gui.sysTrayMenu = fyne.NewMenu("Punchr", as.gui.menuItemStatus, fyne.NewMenuItemSeparator(), as.gui.menuItemSetApiKey, fyne.NewMenuItemSeparator(), as.gui.menuItemStartStopHolePunching, as.gui.menuItemAutoStart)
+	as.gui.sysTrayMenu = fyne.NewMenu("Punchr", as.gui.menuItemStatus, fyne.NewMenuItemSeparator(), as.gui.menuItemSetApiKey, fyne.NewMenuItemSeparator(), as.gui.menuItemStartStopHolePunching, as.gui.menuItemAutoStart, fyne.NewMenuItemSeparator(), as.gui.menuItemVersionInfo)
 
 	as.desk.SetSystemTrayMenu(as.gui.sysTrayMenu)
 
@@ -142,13 +159,8 @@ func (as *AppState) Init() error {
 	as.gui.sysTrayMenu.Refresh()
 
 	as.app.Lifecycle().SetOnStarted(func() {
-		if as.apiKey == "" {
-			go as.ShowApiKeyDialog()
-		}
-
 		go func() {
-			time.Sleep(time.Second)
-			SetActivationPolicy()
+			as.events <- &EvtOnStarted{}
 		}()
 	})
 
@@ -157,16 +169,23 @@ func (as *AppState) Init() error {
 
 func (as *AppState) Loop() {
 	for event := range as.events {
+		log.Infof("Handle gui event %T\n", event)
 		switch evt := event.(type) {
+		case *EvtOnStarted:
+			if as.apiKey == "" {
+				as.ShowApiKeyDialog()
+			} else {
+				SetActivationPolicy()
+			}
 		case *EvtToggleHolePunching:
 			if as.isHolePunching {
-				go as.StopHolePunching()
+				as.StopHolePunching()
 			} else {
-				go as.StartHolePunching()
+				as.StartHolePunching()
 			}
 		case *EvtShowAPIKeyDialog:
 			if as.gui.apiKeyDialog == nil {
-				go as.ShowApiKeyDialog()
+				as.ShowApiKeyDialog()
 			}
 		case *EvtToggleAutoStart:
 			if as.autostartApp.IsEnabled() {
@@ -175,11 +194,11 @@ func (as *AppState) Loop() {
 				as.EnableAutoStart()
 			}
 		case *EvtSaveApiKey:
+			newApiKey := as.apiKey == ""
 			if err := as.SaveApiKey(evt.apiKey); err != nil {
 				log.WithError(err).WithField("apiKey", evt.apiKey).Warnln("Could not save API-Key")
 				return
 			}
-
 			as.gui.menuItemStatus.Label = "API-Key: " + as.apiKey
 			as.gui.menuItemStartStopHolePunching.Disabled = false
 			as.gui.sysTrayMenu.Refresh()
@@ -187,18 +206,53 @@ func (as *AppState) Loop() {
 			if as.gui.apiKeyDialog != nil {
 				(*as.gui.apiKeyDialog).Close()
 			}
+
+			if !as.isHolePunching && newApiKey {
+				go func() {
+					as.events <- &EvtToggleHolePunching{}
+				}()
+				as.ShowConfirmationDialog()
+			}
 		case *EvtCloseAPIKeyDialog:
 			as.gui.apiKeyDialog = nil
+			SetActivationPolicy()
+		case *EvtSaveConfirmation:
+			if evt.launchOnLogin {
+				as.EnableAutoStart()
+			} else {
+				as.DisableAutoStart()
+			}
+			if as.gui.confirmationDialog != nil {
+				(*as.gui.confirmationDialog).Close()
+			}
+
+		case *EvtCloseConfirmationDialog:
+			as.gui.confirmationDialog = nil
 		}
 	}
+}
+
+func (as *AppState) ShowConfirmationDialog() {
+	window := as.app.NewWindow("All set!")
+	as.gui.confirmationDialog = &window
+
+	l := widget.NewLabel("You're all set! Hole punching has already started.\nYou can see the status in your menu bar/system tray (usually in the top right corner).\nDo you want the application to automatically launch on startup?")
+	btnYes := widget.NewButton("Yes", func() {
+		as.events <- &EvtSaveConfirmation{launchOnLogin: true}
+	})
+	btnNo := widget.NewButton("No", func() {
+		as.events <- &EvtSaveConfirmation{launchOnLogin: false}
+	})
+	window.SetOnClosed(func() { as.events <- &EvtCloseConfirmationDialog{} })
+	window.SetContent(container.New(layout.NewVBoxLayout(), l, container.New(layout.NewHBoxLayout(), btnYes, btnNo)))
+
+	go window.Show()
 }
 
 func (as *AppState) ShowApiKeyDialog() {
 
 	window := as.app.NewWindow("Punchr API-Key")
 	as.gui.apiKeyDialog = &window
-
-	window.Resize(fyne.NewSize(300, 100))
 
 	l := widget.NewLabel("If you don't have an API-Key yet please request one here:")
 	urlBtn := widget.NewButton("Request API-Key", func() {
@@ -215,22 +269,24 @@ func (as *AppState) ShowApiKeyDialog() {
 	entry.SetPlaceHolder("Please enter your API-Key")
 	entry.SetText(as.apiKey)
 
-	btn := widget.NewButton("Save API-Key", func() { as.events <- &EvtSaveApiKey{apiKey: entry.Text} })
+	btn := widget.NewButton("Save API-Key", func() { as.events <- &EvtSaveApiKey{apiKey: strings.TrimSpace(entry.Text)} })
 	window.SetOnClosed(func() { as.events <- &EvtCloseAPIKeyDialog{} })
 	entry.OnChanged = func(s string) {
-		if s == "" {
-			btn.Disable()
-		} else {
+		s = strings.TrimSpace(s)
+		if isValidUUID(s) {
 			btn.Enable()
+		} else {
+			btn.Disable()
 		}
 	}
 
-	if as.apiKey == "" {
+	if strings.TrimSpace(as.apiKey) == "" {
 		btn.Disable()
 	}
 
 	window.SetContent(container.New(layout.NewVBoxLayout(), container.New(layout.NewHBoxLayout(), l, urlBtn), entry, btn))
-	window.Show()
+
+	go window.Show()
 }
 
 func (as *AppState) SaveApiKey(newApiKey string) error {
@@ -279,6 +335,10 @@ func (as *AppState) StartHolePunching() {
 	as.hpCtxCancel = cancel
 	as.isHolePunching = true
 
+	go as.holepunchLoop()
+}
+
+func (as *AppState) holepunchLoop() {
 LOOP:
 	for {
 		as.gui.menuItemStatus.Label = "🟢 Running..."
@@ -288,7 +348,6 @@ LOOP:
 		err := client.App.RunContext(as.hpCtx, []string{
 			"punchrclient",
 			"--api-key", as.apiKey,
-			"--key-file", path.Join(path.Dir(as.execPath), "punchrclient.keys"),
 			"telemetry-host", "",
 			"telemetry-port", "",
 		})
@@ -300,7 +359,7 @@ LOOP:
 		if err != nil && strings.Contains(err.Error(), "unauthorized") {
 			as.app.SendNotification(fyne.NewNotification("Unauthorized", "Your API-Key may be not correct"))
 			as.gui.menuItemStatus.Label = "🔴 Error: API-Key not correct"
-			break LOOP
+			break
 		}
 
 		as.desk.SetSystemTrayIcon(glovePendingEmoji)
@@ -363,4 +422,9 @@ func Start() {
 	go appState.Loop()
 
 	appState.app.Run()
+}
+
+func isValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
 }
