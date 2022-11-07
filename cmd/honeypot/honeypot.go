@@ -45,23 +45,15 @@ var (
 	)
 )
 
-var (
-	version = "dev" // set via goreleaser
-	commit  = ""    // set via goreleaser
-)
+var Version = "dev"
 
 func main() {
-	shortCommit := commit
-	if len(shortCommit) > 7 {
-		shortCommit = shortCommit[:7]
-	}
-
 	app := &cli.App{
 		Name:      "honeypot",
 		Usage:     "A libp2p host allowing unlimited inbound connections.",
 		UsageText: "honeypot [global options] command [command options] [arguments...]",
 		Action:    RootAction,
-		Version:   fmt.Sprintf("%s+%s", version, shortCommit),
+		Version:   Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "port",

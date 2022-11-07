@@ -1,4 +1,7 @@
-VERSION=0.6.0-rc1
+VERSION_CLIENT=`cat cmd/client/version`
+VERSION_CLIENT_GUI=`cat gui/client/version`
+VERSION_HONEYPOT=`cat cmd/honeypot/version`
+VERSION_SERVER=`cat cmd/server/version`
 
 default: all
 
@@ -26,13 +29,13 @@ build-linux-server:
 build: clean build-honeypot build-client build-server
 
 build-honeypot:
-	go build -o dist/punchrhoneypot cmd/honeypot/*
+	go build -ldflags="-X 'cmd/honeypot.Version=$(VERSION_HONEYPOT)'" -o dist/punchrhoneypot cmd/honeypot/*
 
 build-client:
-	go build -o dist/punchrclient cmd/client/*
+	go build -ldflags="-X 'pkg/client.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*
 
 build-server:
-	go build -o dist/punchrserver cmd/server/*
+	go build -ldflags="-X 'cmd/server.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*
 
 format:
 	gofumpt -w -l .
@@ -71,6 +74,7 @@ package-darwin:
 		-app-version=${VERSION} \
 		-arch=arm64,amd64 \
 		-icon=`pwd`/gui/client/glove-active.png \
+		-ldflags="-X 'gui/client.Version=$(VERSION_CLIENT_GUI)'" \
 		-name=Punchr
 
 package-linux:
@@ -79,6 +83,7 @@ package-linux:
 		-app-version=${VERSION} \
 		-arch=* \
 		-icon=`pwd`/gui/client/glove-active.png \
+		-ldflags="-X 'gui/client.Version=$(VERSION_CLIENT_GUI)'" \
 		-name=Punchr \
 		-release
 

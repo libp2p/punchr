@@ -35,6 +35,8 @@ var gloveInactive []byte
 //go:embed glove-pending.png
 var glovePending []byte
 
+var Version = "dev"
+
 var (
 	gloveActiveEmoji   = fyne.NewStaticResource("glove-active", gloveActive)
 	gloveInactiveEmoji = fyne.NewStaticResource("glove-inactive", gloveInactive)

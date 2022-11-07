@@ -25,10 +25,7 @@ import (
 	"github.com/dennis-tra/punchr/pkg/pb"
 )
 
-var (
-	version = "dev" // set via goreleaser
-	commit  = ""    // set via goreleaser
-)
+var Version = "dev"
 
 var allocationQueryDurationHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	Name: "db_allocation_query_duration_seconds",
@@ -40,17 +37,12 @@ func init() {
 }
 
 func main() {
-	shortCommit := commit
-	if len(shortCommit) > 7 {
-		shortCommit = shortCommit[:7]
-	}
-
 	app := &cli.App{
 		Name:      "punchrserver",
 		Usage:     "A gRPC server that exposes peers to hole punch and tracks the results.",
 		UsageText: "punchrserver [global options] command [command options] [arguments...]",
 		Action:    RootAction,
-		Version:   fmt.Sprintf("%s+%s", version, shortCommit),
+		Version:   Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "port",

@@ -4,12 +4,14 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var Version = "dev"
+
 var App = &cli.App{
 	Name:      "punchrclient",
 	Usage:     "A libp2p host that is capable of DCUtR.",
 	UsageText: "punchrclient [global options] command [command options] [arguments...]",
 	Action:    RootAction,
-	Version:   "0.6.0-rc1",
+	Version:   Version,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:        "telemetry-host",
