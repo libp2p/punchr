@@ -186,5 +186,11 @@ func (h *Host) WalkDHT(ctx context.Context) {
 			log.WithError(timeoutCtx.Err()).Infoln("Done walking the DHT!")
 		}
 		completedWalks.Inc()
+
+		for _, conn := range h.Network().Conns() {
+			if err := conn.Close(); err != nil {
+				log.WithError(err).WithField("remoteID", util.FmtPeerID(conn.RemotePeer())).Warnln("Could not close connection to peer.")
+			}
+		}
 	}
 }
