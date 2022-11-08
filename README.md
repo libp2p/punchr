@@ -11,7 +11,7 @@
 > 
 > MacOS: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-darwin-amd64.dmg)
 > 
-> Linux: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-linux-386.tar.xz)
+> Linux: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.6.0/punchr-gui-linux-386.tar.xz) | `tar -xf punchr-gui-linux-amd64.tar.xz && make user-install`
 > 
 > More options available on the [release page](https://github.com/dennis-tra/punchr/releases/v0.6.0).
 
@@ -388,13 +388,8 @@ sudo service punchr-honeypot start
 Run:
 
 ```shell
-SIGNING_CERTIFICATE="Developer ID Application: Firstname Lastname (DevID)" NOTARIZATION_PROFILE="APPSTORE_CONNECT" make dmg
+SIGNING_CERTIFICATE="Developer ID Application: Firstname Lastname (DevID)" NOTARIZATION_PROFILE="APPSTORE_CONNECT" make gui
 ```
-
-## go-client
-
-Tag a commit with a semantic version and this will trigger a GitHub-Action. This will build go-client binaries for several platforms and create a new GitHub release.
-
 
 # Outcomes
 
