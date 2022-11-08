@@ -135,6 +135,13 @@ func main() {
 				DefaultText: "10",
 				Value:       10,
 			},
+			&cli.IntFlag{
+				Name:        "max-crawls",
+				Usage:       "The maximum number of consecutive crawls",
+				EnvVars:     []string{"PUNCHR_HONEYPOT_MAX_CRAWLS"},
+				DefaultText: "1",
+				Value:       1,
+			},
 			&cli.StringFlag{
 				Name:        "udger-db",
 				Usage:       "Path to the Udger database",
@@ -166,6 +173,8 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "new db client")
 	}
 
+	ctx, cancel := context.WithCancel(c.Context)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	crawlCount := 0
@@ -175,8 +184,12 @@ func RootAction(c *cli.Context) error {
 		for {
 			time.Sleep(10 * time.Second)
 
+			if crawlCount == c.Int("max-crawls") {
+				cancel()
+			}
+
 			select {
-			case <-c.Context.Done():
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -184,14 +197,14 @@ func RootAction(c *cli.Context) error {
 			log.Infoln("Starting crawl number", crawlCount)
 
 			// Initialize honeypot libp2p host
-			h, err := InitHost(c, c.String("port"), dbClient)
+			h, err := InitHost(ctx, c, dbClient)
 			if err != nil {
 				log.WithError(err).Warnln("Could not initialize libp2p host")
 				continue
 			}
 
 			// Connect honeypot host to bootstrap nodes
-			if err := h.Bootstrap(c.Context); err != nil {
+			if err := h.Bootstrap(ctx); err != nil {
 				log.WithError(err).Warnln("Could not bootstrap libp2p host")
 				if err = h.Close(); err != nil {
 					log.WithError(err).Warnln("Could not shut down libp2p host")
@@ -200,7 +213,7 @@ func RootAction(c *cli.Context) error {
 			}
 
 			// Slowly start passing by other libp2p hosts for them to add us to their routing table.
-			if err = h.WalkDHT(c.Context); err != nil {
+			if err = h.WalkDHT(ctx); err != nil {
 				log.WithError(err).Warnln("Could not walk DHT")
 			}
 
@@ -211,7 +224,7 @@ func RootAction(c *cli.Context) error {
 	}()
 
 	// Waiting for shutdown signal
-	<-c.Context.Done()
+	<-ctx.Done()
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
 	log.Info("Waiting for crawl to stop")

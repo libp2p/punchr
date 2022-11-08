@@ -37,7 +37,7 @@ type Host struct {
 	crawlers int
 }
 
-func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
+func InitHost(ctx context.Context, c *cli.Context, dbClient *db.Client) (*Host, error) {
 	log.Info("Starting libp2p host...")
 
 	// Load private key data from file or create a new identity
@@ -57,6 +57,8 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 		return nil, errors.Wrap(err, "new resource manager")
 	}
 
+	port := c.String("port")
+
 	// Configure new libp2p host
 	var dht *kaddht.IpfsDHT
 	agentVersion := "punchr/honeypot/" + c.App.Version
@@ -70,7 +72,7 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip6/::/udp/%s/quic", port)),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			var err error
-			dht, err = kaddht.New(c.Context, h, kaddht.Mode(kaddht.ModeServer))
+			dht, err = kaddht.New(ctx, h, kaddht.Mode(kaddht.ModeServer))
 			return dht, err
 		}),
 	)
@@ -79,14 +81,14 @@ func InitHost(c *cli.Context, port string, dbClient *db.Client) (*Host, error) {
 	}
 
 	h := &Host{
-		ctx:      c.Context,
+		ctx:      ctx,
 		Host:     libp2pHost,
 		DBClient: dbClient,
 		DHT:      dht,
 		crawlers: c.Int("crawler-count"),
 	}
 
-	h.DBPeer, err = h.DBClient.UpsertPeer(c.Context, h.DBClient, h.ID(), &agentVersion, h.GetProtocols(h.ID()))
+	h.DBPeer, err = h.DBClient.UpsertPeer(ctx, h.DBClient, h.ID(), &agentVersion, h.GetProtocols(h.ID()))
 	if err != nil {
 		return nil, errors.Wrap(err, "save new host identity")
 	}
