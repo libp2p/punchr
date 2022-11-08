@@ -28,6 +28,8 @@ import (
 	"github.com/dennis-tra/punchr/pkg/pb"
 )
 
+var ErrUnauthorized = fmt.Errorf("unauthorized")
+
 type Server struct {
 	pb.UnimplementedPunchrServiceServer
 	DBClient    *db.Client
@@ -36,7 +38,16 @@ type Server struct {
 
 func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	authID, err := s.checkApiKey(ctx, req.ApiKey)
-	if err != nil {
+	if errors.Is(err, ErrUnauthorized) {
+		dbAuth := models.Authorization{
+			APIKey:   req.GetApiKey(),
+			Username: "Anonymous",
+		}
+		if err = dbAuth.Insert(ctx, s.DBClient, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "inserting authorization")
+		}
+		authID = dbAuth.ID
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -555,7 +566,7 @@ func (s Server) checkApiKey(ctx context.Context, apiKey *string) (int, error) {
 
 	dbAuthorization, err := s.DBClient.GetAuthorization(ctx, s.DBClient, *apiKey)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("unauthorized")
+		return 0, ErrUnauthorized
 	} else if err != nil {
 		return 0, errors.Wrap(err, "checking authorization for api key")
 	}
