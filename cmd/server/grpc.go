@@ -103,6 +103,16 @@ func (s Server) GetAddrInfo(ctx context.Context, req *pb.GetAddrInfoRequest) (*p
 	}
 
 	if len(dbHosts) == 0 {
+		log.Warnln("Hosts not registered. Registering them now for next request")
+		for _, hostID := range req.AllHostIds {
+			_, err := s.Register(ctx, &pb.RegisterRequest{
+				ClientId: hostID,
+				ApiKey:   req.ApiKey,
+			})
+			if err != nil {
+				log.WithError(err).Warnln("Could not register host")
+			}
+		}
 		return nil, fmt.Errorf("not registered, please restart the client")
 	}
 
