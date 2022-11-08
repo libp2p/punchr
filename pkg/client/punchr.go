@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -187,7 +188,9 @@ func (p Punchr) StartHolePunching(ctx context.Context) error {
 		h.protocolFiltersLk.Unlock()
 
 		if addrInfo == nil {
-			if err != nil {
+			if err != nil && strings.Contains(err.Error(), "please restart the client") {
+				return errors.Wrap(err, "restart requested")
+			} else if err != nil {
 				log.WithError(err).Warnln("Error requesting addr info")
 			} else {
 				log.Infoln("No peer to hole punch received waiting 10s")
