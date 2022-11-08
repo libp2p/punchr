@@ -3,8 +3,6 @@ VERSION_CLIENT_GUI=`cat gui/client/version`
 VERSION_HONEYPOT=`cat cmd/honeypot/version`
 VERSION_SERVER=`cat cmd/server/version`
 
-default: all
-
 test:
 	go test ./...
 
@@ -16,13 +14,13 @@ clean:
 build: clean build-honeypot build-client build-server
 
 build-honeypot:
-	go build -ldflags="-X 'cmd/honeypot.Version=$(VERSION_HONEYPOT)'" -o dist/punchrhoneypot cmd/honeypot/*.go
+	go build -ldflags="-X 'main.Version=$(VERSION_HONEYPOT)'" -o dist/punchrhoneypot cmd/honeypot/*.go
 
 build-client:
-	go build -ldflags="-X 'pkg/client.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*.go
+	go build -ldflags="-X 'main.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*.go
 
 build-server:
-	go build -ldflags="-X 'cmd/server.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*.go
+	go build -ldflags="-X 'main.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*.go
 
 format:
 	gofumpt -w -l .
@@ -45,30 +43,47 @@ models:
 database:
 	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=punchr -e POSTGRES_DB=punchr postgres:14
 
-database-reset: migrate-down migrate-up models
-
 migrate-up:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations up
 
 migrate-down:
 	migrate -database 'postgres://punchr:password@localhost:5432/punchr?sslmode=disable' -path pkg/db/migrations down
 
-package: package-darwin package-linux
+database-reset: migrate-down migrate-up models
+
+gui: clean package-linux package-freebsd dmg
 
 package-darwin:
 	fyne-cross darwin \
 		-app-version=$(VERSION_CLIENT_GUI) \
 		-arch=arm64,amd64 \
-		-ldflags="-X 'gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client.VersionCLI=$(VERSION_CLIENT)'" \
 		-name=Punchr
+
+	# fyne-cross doesn't really pick up the right architectures. So we'll compile it again
+	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'gui/client/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client/client.VersionCLI=$(VERSION_CLIENT)'" -o fyne-cross/dist/darwin-amd64/Punchr.app/Contents/MacOS/punchr fyne.go
+	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'gui/client/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client/client.VersionCLI=$(VERSION_CLIENT)'" -o fyne-cross/dist/darwin-arm64/Punchr.app/Contents/MacOS/punchr fyne.go
 
 package-linux:
 	fyne-cross linux \
 		-app-version=$(VERSION_CLIENT_GUI) \
-		-arch=* \
-		-ldflags="-X 'gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client.VersionCLI=$(VERSION_CLIENT)'" \
+		-arch=amd64,386 \
+		-ldflags="-X 'gui/client/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client/client.VersionCLI=$(VERSION_CLIENT)'" \
 		-name=Punchr \
 		-release
+
+	mv fyne-cross/dist/linux-amd64/Punchr.tar.xz dist/punchr-gui-linux-amd64.tar.xz
+	mv fyne-cross/dist/linux-386/Punchr.tar.xz dist/punchr-gui-linux-386.tar.xz
+
+package-freebsd:
+	fyne-cross freebsd \
+		-app-version=$(VERSION_CLIENT_GUI) \
+		-arch=amd64,arm64 \
+		-ldflags="-X 'gui/client/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'gui/client/client.VersionCLI=$(VERSION_CLIENT)'" \
+		-name=Punchr \
+		-release
+
+	mv fyne-cross/dist/freebsd-amd64/Punchr.tar.xz dist/punchr-gui-freebsd-amd64.tar.xz
+	mv fyne-cross/dist/freebsd-arm64/Punchr.tar.xz dist/punchr-gui-freebsd-arm64.tar.xz
 
 sign: package-darwin
 	codesign \
@@ -98,7 +113,7 @@ dmg: sign
 		--app-drop-link 600 185 \
 		--codesign "${SIGNING_CERTIFICATE}" \
 		--notarize "${NOTARIZATION_PROFILE}" \
-		./fyne-cross/dist/darwin-amd64/Punchr.dmg \
+		./dist/punchr-gui-darwin-amd64.dmg \
 		./fyne-cross/dist/darwin-amd64/Punchr.app
 		
 	create-dmg \
@@ -111,5 +126,5 @@ dmg: sign
 		--app-drop-link 600 185 \
 		--codesign "${SIGNING_CERTIFICATE}" \
 		--notarize "${NOTARIZATION_PROFILE}" \
-		./fyne-cross/dist/darwin-arm64/Punchr.dmg \
+		./dist/punchr-gui-darwin-arm64.dmg \
 		./fyne-cross/dist/darwin-arm64/Punchr.app
