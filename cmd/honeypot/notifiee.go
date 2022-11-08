@@ -19,36 +19,40 @@ import (
 	"github.com/dennis-tra/punchr/pkg/util"
 )
 
-func (h *Host) Listen(network.Network, ma.Multiaddr)         {}
-func (h *Host) ListenClose(network.Network, ma.Multiaddr)    {}
-func (h *Host) OpenedStream(network.Network, network.Stream) {}
-func (h *Host) ClosedStream(network.Network, network.Stream) {}
-func (h *Host) Disconnected(network.Network, network.Conn)   {}
+func (h *Host) Listen(network.Network, ma.Multiaddr)       {}
+func (h *Host) ListenClose(network.Network, ma.Multiaddr)  {}
+func (h *Host) Disconnected(network.Network, network.Conn) {}
 func (h *Host) Connected(_ network.Network, conn network.Conn) {
 	if conn.Stat().Direction != network.DirInbound {
 		return
 	}
 
-	if err := h.handleNewConnection(conn); err != nil {
-		log.WithError(err).Warnln("An error occurred while handling the new connection")
-		handledConns.With(prometheus.Labels{"status": "error"}).Inc()
-	}
+	remotePeer := conn.RemotePeer()
+	remoteMultiaddr := conn.RemoteMultiaddr()
+	stat := conn.Stat()
+
+	go func() {
+		if err := h.handleNewConnection(remotePeer, remoteMultiaddr, stat); err != nil {
+			log.WithError(err).Warnln("An error occurred while handling the new connection")
+			handledConns.With(prometheus.Labels{"status": "error"}).Inc()
+		}
+	}()
 }
 
 // handleNewConnection handles the new connection establishment.
 // We can do expensive things here as it's called within a go-routine by swarm.
-func (h *Host) handleNewConnection(conn network.Conn) error {
-	defer log.WithFields(log.Fields{"remoteID": util.FmtPeerID(conn.RemotePeer())}).Infoln("Handled connection")
+func (h *Host) handleNewConnection(remotePeer peer.ID, remoteMultiaddr ma.Multiaddr, stat network.ConnStats) error {
+	defer log.WithFields(log.Fields{"remoteID": util.FmtPeerID(remotePeer)}).Infoln("Handled connection")
 
 	// Wait for the "identify" protocol to complete
-	if err := h.IdentifyWait(h.ctx, conn.RemotePeer()); err != nil {
+	if err := h.IdentifyWait(h.ctx, remotePeer); err != nil {
 		return errors.Wrap(err, "identify wait")
 	}
 
 	// Grab all peer infos from the peer store
-	agentVersion := h.GetAgentVersion(conn.RemotePeer())
-	protocols := h.GetProtocols(conn.RemotePeer())
-	maddrs := h.GetMultiAddresses(conn.RemotePeer())
+	agentVersion := h.GetAgentVersion(remotePeer)
+	protocols := h.GetProtocols(remotePeer)
+	maddrs := h.GetMultiAddresses(remotePeer)
 
 	if !util.SupportDCUtR(protocols) {
 		// don't save peer as it doesn't support DCUtR
@@ -67,13 +71,13 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	// It can happen that the `conn.RemoteMultiaddr()` is not part of the peer store maddrs.
 	found := false
 	for _, maddr := range maddrs {
-		if maddr.Equal(conn.RemoteMultiaddr()) {
+		if maddr.Equal(remoteMultiaddr) {
 			found = true
 			break
 		}
 	}
 	if !found {
-		maddrs = append(maddrs, conn.RemoteMultiaddr())
+		maddrs = append(maddrs, remoteMultiaddr)
 	}
 
 	// Start a database transaction
@@ -90,7 +94,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	}
 
 	// Save the connected peer
-	dbPeer, err := h.DBClient.UpsertPeer(h.ctx, txn, conn.RemotePeer(), agentVersion, protocols)
+	dbPeer, err := h.DBClient.UpsertPeer(h.ctx, txn, remotePeer, agentVersion, protocols)
 	if err != nil {
 		return errors.Wrap(err, "upsert peer")
 	}
@@ -100,7 +104,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 	var connMaddrID int64
 	var advertisedMaddrs []*models.MultiAddress
 	for _, dbMaddr := range dbMaddrs {
-		if dbMaddr.Maddr == conn.RemoteMultiaddr().String() {
+		if dbMaddr.Maddr == remoteMultiaddr.String() {
 			connMaddrID = dbMaddr.ID
 		} else {
 			advertisedMaddrs = append(advertisedMaddrs, dbMaddr)
@@ -112,7 +116,7 @@ func (h *Host) handleNewConnection(conn network.Conn) error {
 		LocalID:            h.DBPeer.ID,
 		RemoteID:           dbPeer.ID,
 		ConnMultiAddressID: connMaddrID,
-		OpenedAt:           conn.Stat().Opened,
+		OpenedAt:           stat.Opened,
 	}
 	if err = dbConnEvt.Insert(h.ctx, txn, boil.Infer()); err != nil {
 		return errors.Wrap(err, "insert connection event")
