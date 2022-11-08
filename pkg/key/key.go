@@ -2,6 +2,7 @@ package key
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path"
 
@@ -27,6 +28,19 @@ func LoadApiKey(c *cli.Context) (string, error) {
 		return "", errors.Wrap(err, "read api key file")
 	}
 	return string(apiKeyBytes), nil
+}
+
+func SaveApiKey(newApiKey string) error {
+	apiKeyURI, err := xdg.ConfigFile("punchr/api-key.txt")
+	if err != nil {
+		apiKeyURI = path.Join("api-key.txt")
+	}
+
+	if err = os.WriteFile(apiKeyURI, []byte(newApiKey), 0644); err != nil {
+		return fmt.Errorf("writing new api key: %w", err)
+	}
+
+	return nil
 }
 
 // Load attempts to load private key information from the given private key file.

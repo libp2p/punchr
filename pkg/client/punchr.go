@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/adrg/xdg"
+	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -58,7 +60,12 @@ func NewPunchr(c *cli.Context) (*Punchr, error) {
 	}
 
 	apiKey, err := key.LoadApiKey(c)
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		apiKey = uuid.NewString()
+		if err = key.SaveApiKey(apiKey); err != nil {
+			return nil, errors.Wrap(err, "saving new api key")
+		}
+	} else if err != nil {
 		return nil, errors.Wrap(err, "load api key")
 	}
 

@@ -49,18 +49,23 @@ var (
 )
 
 type AppState struct {
-	app            fyne.App
-	desk           desktop.App
-	autostartApp   *autostart.App
-	execPath       string
-	isHolePunching bool
-	events         chan any
-	gui            *Gui
-	apiKey         string
-	apiKeyURI      fyne.URI
+	app          fyne.App
+	desk         desktop.App
+	autostartApp *autostart.App
+	execPath     string
+	events       chan any
+	gui          *Gui
+	apiKey       string
+	apiKeyURI    fyne.URI
 
-	hpCtx       context.Context
-	hpCtxCancel context.CancelFunc
+	hpCtx          context.Context
+	hpCtxCancel    context.CancelFunc
+	isHolePunching bool
+
+	generatedApiKey          bool
+	startAfterStop           bool
+	isFirstStart             bool
+	showedConfirmationDialog bool
 }
 
 type Gui struct {
@@ -119,6 +124,7 @@ type EvtCloseConfirmationDialog struct{}
 type EvtToggleAutoStart struct{}
 type EvtSaveApiKey struct{ apiKey string }
 type EvtSaveConfirmation struct{ launchOnLogin bool }
+type EvtStoppedHolePunching struct{}
 
 func (as *AppState) Init() error {
 
@@ -131,6 +137,14 @@ func (as *AppState) Init() error {
 	if err := as.LoadApiKey(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.WithError(err).Warnln("Error loading API Key")
 	}
+
+	if as.apiKey == "" {
+		if err = as.SaveApiKey(uuid.NewString()); err != nil {
+			log.WithError(err).Warnln("Error generating and saving API Key")
+		}
+		as.generatedApiKey = true
+	}
+	as.isFirstStart = as.generatedApiKey && !as.autostartApp.IsEnabled()
 
 	as.gui.menuItemStatus.Disabled = true
 	as.gui.menuItemStartStopHolePunching.Label = "🔴 Hole Punching Stopped"
@@ -172,8 +186,10 @@ func (as *AppState) Loop() {
 		log.Infof("Handle gui event %T\n", event)
 		switch evt := event.(type) {
 		case *EvtOnStarted:
-			if as.apiKey == "" {
+			if as.generatedApiKey {
 				as.ShowApiKeyDialog()
+			} else if as.isFirstStart {
+				as.ShowConfirmationDialog()
 			} else {
 				time.Sleep(time.Second)
 				SetActivationPolicy()
@@ -182,6 +198,18 @@ func (as *AppState) Loop() {
 			if as.isHolePunching {
 				as.StopHolePunching()
 			} else {
+				as.StartHolePunching()
+			}
+		case *EvtStoppedHolePunching:
+			as.hpCtx = nil
+			as.hpCtxCancel = nil
+			as.desk.SetSystemTrayIcon(gloveInactiveEmoji)
+			as.gui.menuItemStartStopHolePunching.Label = "🔴 Hole Punching Stopped"
+			as.gui.sysTrayMenu.Refresh()
+			as.isHolePunching = false
+
+			if as.startAfterStop {
+				as.startAfterStop = false
 				as.StartHolePunching()
 			}
 		case *EvtShowAPIKeyDialog:
@@ -195,28 +223,32 @@ func (as *AppState) Loop() {
 				as.EnableAutoStart()
 			}
 		case *EvtSaveApiKey:
-			newApiKey := as.apiKey == ""
+			isNewApiKey := as.apiKey != evt.apiKey
 			if err := as.SaveApiKey(evt.apiKey); err != nil {
 				log.WithError(err).WithField("apiKey", evt.apiKey).Warnln("Could not save API-Key")
 				return
 			}
-			as.gui.menuItemStatus.Label = "API-Key: " + as.apiKey
-			as.gui.menuItemStartStopHolePunching.Disabled = false
-			as.gui.sysTrayMenu.Refresh()
-
-			if as.gui.apiKeyDialog != nil {
-				(*as.gui.apiKeyDialog).Close()
+			if !as.isHolePunching {
+				as.gui.menuItemStatus.Label = "API-Key: " + as.apiKey
+				go as.gui.sysTrayMenu.Refresh()
 			}
 
-			if !as.isHolePunching && newApiKey {
-				go func() {
-					as.events <- &EvtToggleHolePunching{}
-				}()
-				as.ShowConfirmationDialog()
+			if as.gui.apiKeyDialog != nil {
+				go (*as.gui.apiKeyDialog).Close()
+			}
+
+			if isNewApiKey {
+				as.StopHolePunching()
+				as.startAfterStop = true
 			}
 		case *EvtCloseAPIKeyDialog:
 			as.gui.apiKeyDialog = nil
-			SetActivationPolicy()
+
+			if as.isFirstStart && !as.showedConfirmationDialog {
+				as.ShowConfirmationDialog()
+			} else {
+				SetActivationPolicy()
+			}
 		case *EvtSaveConfirmation:
 			if evt.launchOnLogin {
 				as.EnableAutoStart()
@@ -224,8 +256,9 @@ func (as *AppState) Loop() {
 				as.DisableAutoStart()
 			}
 			if as.gui.confirmationDialog != nil {
-				(*as.gui.confirmationDialog).Close()
+				go (*as.gui.confirmationDialog).Close()
 			}
+			SetActivationPolicy()
 
 		case *EvtCloseConfirmationDialog:
 			as.gui.confirmationDialog = nil
@@ -248,6 +281,7 @@ func (as *AppState) ShowConfirmationDialog() {
 	window.SetContent(container.New(layout.NewVBoxLayout(), l, container.New(layout.NewHBoxLayout(), btnYes, btnNo)))
 
 	go window.Show()
+	as.showedConfirmationDialog = true
 }
 
 func (as *AppState) ShowApiKeyDialog() {
@@ -255,8 +289,10 @@ func (as *AppState) ShowApiKeyDialog() {
 	window := as.app.NewWindow("Punchr API-Key")
 	as.gui.apiKeyDialog = &window
 
-	l := widget.NewLabel("If you don't have an API-Key yet please request one here:")
-	urlBtn := widget.NewButton("Request API-Key", func() {
+	l := widget.NewLabel("Do you have a personal API-Key? If so, enter it below.\nOtherwise you can continue with a generated one.")
+	apiKeyLabel := widget.NewLabel("Your current API-Key: " + as.apiKey + "\nIf you didn't enter one it was generated for you.")
+	apiKeyLabel.TextStyle = fyne.TextStyle{Italic: true}
+	urlBtn := widget.NewButton("Request\npersonal API-Key", func() {
 		u, err := url.ParseRequestURI("https://forms.gle/gwc4NtgdFbKcaeza9")
 		if err != nil {
 			panic(err)
@@ -268,9 +304,11 @@ func (as *AppState) ShowApiKeyDialog() {
 
 	entry := widget.NewEntry()
 	entry.SetPlaceHolder("Please enter your API-Key")
-	entry.SetText(as.apiKey)
 
 	btn := widget.NewButton("Save API-Key", func() { as.events <- &EvtSaveApiKey{apiKey: strings.TrimSpace(entry.Text)} })
+	btn.Disable()
+
+	btnCancel := widget.NewButton("Continue", func() { window.Close() })
 	window.SetOnClosed(func() { as.events <- &EvtCloseAPIKeyDialog{} })
 	entry.OnChanged = func(s string) {
 		s = strings.TrimSpace(s)
@@ -281,11 +319,7 @@ func (as *AppState) ShowApiKeyDialog() {
 		}
 	}
 
-	if strings.TrimSpace(as.apiKey) == "" {
-		btn.Disable()
-	}
-
-	window.SetContent(container.New(layout.NewVBoxLayout(), container.New(layout.NewHBoxLayout(), l, urlBtn), entry, btn))
+	window.SetContent(container.New(layout.NewVBoxLayout(), container.New(layout.NewHBoxLayout(), l, urlBtn), apiKeyLabel, entry, btn, btnCancel))
 
 	go window.Show()
 }
@@ -376,14 +410,7 @@ LOOP:
 		}
 	}
 
-	as.hpCtx = nil
-	as.hpCtxCancel = nil
-
-	as.desk.SetSystemTrayIcon(gloveInactiveEmoji)
-	as.gui.menuItemStartStopHolePunching.Label = "🔴 Hole Punching Stopped"
-	as.gui.sysTrayMenu.Refresh()
-
-	as.isHolePunching = false
+	as.events <- &EvtStoppedHolePunching{}
 }
 
 func (as *AppState) EnableAutoStart() {
