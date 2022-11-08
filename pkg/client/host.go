@@ -12,7 +12,10 @@ import (
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/libp2p/go-libp2p/p2p/net/nat"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -42,6 +45,7 @@ type Host struct {
 
 	protocolFiltersLk sync.RWMutex
 	protocolFilters   []int32
+	natmngr           basichost.NATManager
 }
 
 var (
@@ -72,7 +76,7 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		rcmgr:                rcmgr,
 		maddrs:               map[string]struct{}{},
 	}
-
+	var nm basichost.NATManager
 	// Configure new libp2p host
 	libp2pHost, err := libp2p.New(
 		libp2p.Identity(privKey),
@@ -83,12 +87,17 @@ func InitHost(c *cli.Context, privKey crypto.PrivKey) (*Host, error) {
 		libp2p.ListenAddrStrings("/ip6/::/udp/0/quic"),
 		libp2p.EnableHolePunching(holepunch.WithTracer(h), holepunch.WithAddrFilter(h)),
 		libp2p.ResourceManager(rcmgr),
+		libp2p.NATManager(func(network network.Network) basichost.NATManager {
+			nm = basichost.NewNATManager(network)
+			return nm
+		}),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
 
 	h.Host = libp2pHost
+	h.natmngr = nm
 
 	return h, nil
 }
@@ -279,7 +288,12 @@ func (h *Host) HolePunch(ctx context.Context, addrInfo peer.AddrInfo) (*HolePunc
 	defer h.UnregisterPeerToTrace(addrInfo.ID)
 
 	// initialize a new hole punch state
-	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs, h.Addrs(), h.ProtocolFilters())
+	mappings := []nat.Mapping{}
+	if h.natmngr.NAT() != nil {
+		mappings = h.natmngr.NAT().Mappings()
+	}
+
+	hpState := NewHolePunchState(h.ID(), addrInfo.ID, addrInfo.Addrs, h.Addrs(), h.ProtocolFilters(), mappings)
 	defer func() { hpState.EndedAt = time.Now() }()
 
 	// Track open connections after the hole punch

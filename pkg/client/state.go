@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/net/nat"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -107,9 +108,12 @@ type HolePunchState struct {
 
 	// LatencyMeasurements of different types
 	LatencyMeasurements []LatencyMeasurement
+
+	// NAT Mappings
+	NATMappings []nat.Mapping
 }
 
-func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr, filters []int32) *HolePunchState {
+func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Multiaddr, lmaddrs []multiaddr.Multiaddr, filters []int32, mappings []nat.Mapping) *HolePunchState {
 	return &HolePunchState{
 		HostID:              hostID,
 		RemoteID:            remoteID,
@@ -120,6 +124,7 @@ func NewHolePunchState(hostID peer.ID, remoteID peer.ID, rmaddrs []multiaddr.Mul
 		OpenMaddrsAfter:     []multiaddr.Multiaddr{},
 		LatencyMeasurements: []LatencyMeasurement{},
 		ProtocolFilters:     filters,
+		NATMappings:         mappings,
 	}
 }
 
@@ -190,6 +195,28 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		errStr = &hps.Error
 	}
 
+	portMappings := []*pb.NATMapping{}
+	for _, mapping := range hps.NATMappings {
+		eAddr, err := mapping.ExternalAddr()
+		if err != nil {
+			continue
+		}
+
+		iPort := int32(mapping.InternalPort())
+		ePort := int32(mapping.ExternalPort())
+		protocol := mapping.Protocol()
+		addr := eAddr.String()
+		netw := eAddr.Network()
+
+		portMappings = append(portMappings, &pb.NATMapping{
+			InternalPort: &iPort,
+			ExternalPort: &ePort,
+			Protocol:     &protocol,
+			Addr:         &addr,
+			AddrNetwork:  &netw,
+		})
+	}
+
 	return &pb.TrackHolePunchRequest{
 		ApiKey:               &apiKey,
 		ClientId:             localID,
@@ -207,6 +234,7 @@ func (hps HolePunchState) ToProto(apiKey string) (*pb.TrackHolePunchRequest, err
 		NetworkInformation:   hps.NetworkInformation,
 		LatencyMeasurements:  lms,
 		Protocols:            filterProtocols,
+		NatMappings:          portMappings,
 	}, nil
 }
 
