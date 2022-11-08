@@ -7,7 +7,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -164,28 +166,56 @@ func RootAction(c *cli.Context) error {
 		return errors.Wrap(err, "new db client")
 	}
 
-	// Initialize honeypot libp2p host
-	h, err := InitHost(c, c.String("port"), dbClient)
-	if err != nil {
-		return errors.Wrap(err, "init host")
-	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	crawlCount := 0
+	go func() {
+		defer wg.Done()
 
-	// Connect honeypot host to bootstrap nodes
-	if err := h.Bootstrap(c.Context); err != nil {
-		return errors.Wrap(err, "bootstrap host")
-	}
+		for {
+			time.Sleep(10 * time.Second)
 
-	// Slowly start passing by other libp2p hosts for them to add us to their routing table.
-	go h.WalkDHT(c.Context)
+			select {
+			case <-c.Context.Done():
+				return
+			default:
+			}
+			crawlCount += 1
+			log.Infoln("Starting crawl number ", crawlCount)
+
+			// Initialize honeypot libp2p host
+			h, err := InitHost(c, c.String("port"), dbClient)
+			if err != nil {
+				log.WithError(err).Warnln("Could not initialize libp2p host")
+				continue
+			}
+
+			// Connect honeypot host to bootstrap nodes
+			if err := h.Bootstrap(c.Context); err != nil {
+				log.WithError(err).Warnln("Could not bootstrap libp2p host")
+				if err = h.Close(); err != nil {
+					log.WithError(err).Warnln("Could not shut down libp2p host")
+				}
+				continue
+			}
+
+			// Slowly start passing by other libp2p hosts for them to add us to their routing table.
+			if err = h.WalkDHT(c.Context); err != nil {
+				log.WithError(err).Warnln("Could not walk DHT")
+			}
+
+			if err = h.Close(); err != nil {
+				log.WithError(err).Warnln("Could not shut down libp2p host")
+			}
+		}
+	}()
 
 	// Waiting for shutdown signal
 	<-c.Context.Done()
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
-	log.Info("Shutting down libp2p host")
-	if err = h.Close(); err != nil {
-		log.WithError(err).Warnln("closing libp2p host")
-	}
+	log.Info("Waiting for crawl to stop")
+	wg.Wait()
 
 	log.Info("Closing database connection")
 	if err = dbClient.Close(); err != nil {

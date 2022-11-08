@@ -140,57 +140,42 @@ func (h *Host) Bootstrap(ctx context.Context) error {
 }
 
 // WalkDHT slowly enumerates the whole DHT to announce ourselves to the network.
-func (h *Host) WalkDHT(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
+func (h *Host) WalkDHT(ctx context.Context) error {
+	log.Infoln("Start walking the DHT...")
 
-		log.Infoln("Start walking the DHT...")
-
-		c, err := crawler.New(h, crawler.WithParallelism(h.crawlers), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
-		if err != nil {
-			log.WithError(err).Infoln("Could not create crawler")
-			time.Sleep(10 * time.Second)
-			continue
-		}
-
-		bps := kaddht.GetDefaultBootstrapPeerAddrInfos()
-		seedPeers := make([]*peer.AddrInfo, len(bps))
-		for i, bp := range bps {
-			seedPeers[i] = &bp
-		}
-
-		handleSuccess := func(p peer.ID, rtPeers []*peer.AddrInfo) {
-			log.WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
-			crawledPeers.With(prometheus.Labels{"status": "ok"}).Inc()
-		}
-
-		handleFail := func(p peer.ID, err error) {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return
-			}
-			log.WithError(err).WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
-			crawledPeers.With(prometheus.Labels{"status": "error"}).Inc()
-		}
-
-		timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		c.Run(timeoutCtx, seedPeers, handleSuccess, handleFail)
-		cancel()
-
-		if timeoutCtx.Err() == nil {
-			log.Infoln("Done walking the DHT!")
-		} else {
-			log.WithError(timeoutCtx.Err()).Infoln("Done walking the DHT!")
-		}
-		completedWalks.Inc()
-
-		for _, conn := range h.Network().Conns() {
-			if err := conn.Close(); err != nil {
-				log.WithError(err).WithField("remoteID", util.FmtPeerID(conn.RemotePeer())).Warnln("Could not close connection to peer.")
-			}
-		}
+	c, err := crawler.New(h, crawler.WithParallelism(h.crawlers), crawler.WithConnectTimeout(5*time.Second), crawler.WithMsgTimeout(5*time.Second))
+	if err != nil {
+		return errors.Wrap(err, "create crawler")
 	}
+
+	bps := kaddht.GetDefaultBootstrapPeerAddrInfos()
+	seedPeers := make([]*peer.AddrInfo, len(bps))
+	for i, bp := range bps {
+		seedPeers[i] = &bp
+	}
+
+	handleSuccess := func(p peer.ID, rtPeers []*peer.AddrInfo) {
+		log.WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
+		crawledPeers.With(prometheus.Labels{"status": "ok"}).Inc()
+	}
+
+	handleFail := func(p peer.ID, err error) {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
+		log.WithError(err).WithField("remoteID", util.FmtPeerID(p)).Infoln("Done crawling peer")
+		crawledPeers.With(prometheus.Labels{"status": "error"}).Inc()
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	c.Run(timeoutCtx, seedPeers, handleSuccess, handleFail)
+	cancel()
+
+	if timeoutCtx.Err() != nil {
+		return errors.Wrap(timeoutCtx.Err(), "timeout walking DHT")
+	}
+
+	completedWalks.Inc()
+
+	return nil
 }
