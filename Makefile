@@ -13,30 +13,16 @@ clean:
 	rm -r fyne-cross || true
 	mkdir dist
 
-build-linux: clean build-linux-honeypot build-linux-client build-linux-server
-
-build-linux-honeypot:
-	GOOS=linux GOARCH=amd64 go build -o dist/punchrhoneypot cmd/honeypot/*
-
-build-linux-client:
-	GOOS=linux GOARCH=amd64 go build -o dist/punchrclient cmd/client/*
-
-build-raspi-client:
-	GOOS=linux GOARCH=arm GOARM=7 go build -o dist/punchrclient cmd/client/*
-
-build-linux-server:
-	GOOS=linux GOARCH=amd64 go build -o dist/punchrserver cmd/server/*
-
 build: clean build-honeypot build-client build-server
 
 build-honeypot:
-	go build -ldflags="-X 'cmd/honeypot.Version=$(VERSION_HONEYPOT)'" -o dist/punchrhoneypot cmd/honeypot/*
+	go build -ldflags="-X 'cmd/honeypot.Version=$(VERSION_HONEYPOT)'" -o dist/punchrhoneypot cmd/honeypot/*.go
 
 build-client:
-	go build -ldflags="-X 'pkg/client.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*
+	go build -ldflags="-X 'pkg/client.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*.go
 
 build-server:
-	go build -ldflags="-X 'cmd/server.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*
+	go build -ldflags="-X 'cmd/server.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*.go
 
 format:
 	gofumpt -w -l .
