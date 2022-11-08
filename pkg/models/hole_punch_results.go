@@ -173,6 +173,7 @@ var HolePunchResultRels = struct {
 	HolePunchAttempts               string
 	HolePunchResultsXMultiAddresses string
 	LatencyMeasurements             string
+	PortMappings                    string
 }{
 	ListenMultiAddressesSet:         "ListenMultiAddressesSet",
 	Local:                           "Local",
@@ -180,6 +181,7 @@ var HolePunchResultRels = struct {
 	HolePunchAttempts:               "HolePunchAttempts",
 	HolePunchResultsXMultiAddresses: "HolePunchResultsXMultiAddresses",
 	LatencyMeasurements:             "LatencyMeasurements",
+	PortMappings:                    "PortMappings",
 }
 
 // holePunchResultR is where relationships are stored.
@@ -190,6 +192,7 @@ type holePunchResultR struct {
 	HolePunchAttempts               HolePunchAttemptSlice              `boil:"HolePunchAttempts" json:"HolePunchAttempts" toml:"HolePunchAttempts" yaml:"HolePunchAttempts"`
 	HolePunchResultsXMultiAddresses HolePunchResultsXMultiAddressSlice `boil:"HolePunchResultsXMultiAddresses" json:"HolePunchResultsXMultiAddresses" toml:"HolePunchResultsXMultiAddresses" yaml:"HolePunchResultsXMultiAddresses"`
 	LatencyMeasurements             LatencyMeasurementSlice            `boil:"LatencyMeasurements" json:"LatencyMeasurements" toml:"LatencyMeasurements" yaml:"LatencyMeasurements"`
+	PortMappings                    PortMappingSlice                   `boil:"PortMappings" json:"PortMappings" toml:"PortMappings" yaml:"PortMappings"`
 }
 
 // NewStruct creates a new relationship struct
@@ -237,6 +240,13 @@ func (r *holePunchResultR) GetLatencyMeasurements() LatencyMeasurementSlice {
 		return nil
 	}
 	return r.LatencyMeasurements
+}
+
+func (r *holePunchResultR) GetPortMappings() PortMappingSlice {
+	if r == nil {
+		return nil
+	}
+	return r.PortMappings
 }
 
 // holePunchResultL is where Load methods for each relationship are stored.
@@ -601,6 +611,20 @@ func (o *HolePunchResult) LatencyMeasurements(mods ...qm.QueryMod) latencyMeasur
 	)
 
 	return LatencyMeasurements(queryMods...)
+}
+
+// PortMappings retrieves all the port_mapping's PortMappings with an executor.
+func (o *HolePunchResult) PortMappings(mods ...qm.QueryMod) portMappingQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"port_mappings\".\"hole_punch_result_id\"=?", o.ID),
+	)
+
+	return PortMappings(queryMods...)
 }
 
 // LoadListenMultiAddressesSet allows an eager lookup of values, cached into the
@@ -1305,6 +1329,120 @@ func (holePunchResultL) LoadLatencyMeasurements(ctx context.Context, e boil.Cont
 	return nil
 }
 
+// LoadPortMappings allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (holePunchResultL) LoadPortMappings(ctx context.Context, e boil.ContextExecutor, singular bool, maybeHolePunchResult interface{}, mods queries.Applicator) error {
+	var slice []*HolePunchResult
+	var object *HolePunchResult
+
+	if singular {
+		var ok bool
+		object, ok = maybeHolePunchResult.(*HolePunchResult)
+		if !ok {
+			object = new(HolePunchResult)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeHolePunchResult)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeHolePunchResult))
+			}
+		}
+	} else {
+		s, ok := maybeHolePunchResult.(*[]*HolePunchResult)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeHolePunchResult)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeHolePunchResult))
+			}
+		}
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &holePunchResultR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &holePunchResultR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`port_mappings`),
+		qm.WhereIn(`port_mappings.hole_punch_result_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load port_mappings")
+	}
+
+	var resultSlice []*PortMapping
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice port_mappings")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on port_mappings")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for port_mappings")
+	}
+
+	if len(portMappingAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.PortMappings = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &portMappingR{}
+			}
+			foreign.R.HolePunchResult = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.HolePunchResultID {
+				local.R.PortMappings = append(local.R.PortMappings, foreign)
+				if foreign.R == nil {
+					foreign.R = &portMappingR{}
+				}
+				foreign.R.HolePunchResult = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetListenMultiAddressesSet of the holePunchResult to the related item.
 // Sets o.R.ListenMultiAddressesSet to related.
 // Adds o to related.R.ListenMultiAddressesSetHolePunchResults.
@@ -1596,6 +1734,59 @@ func (o *HolePunchResult) AddLatencyMeasurements(ctx context.Context, exec boil.
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &latencyMeasurementR{
+				HolePunchResult: o,
+			}
+		} else {
+			rel.R.HolePunchResult = o
+		}
+	}
+	return nil
+}
+
+// AddPortMappings adds the given related objects to the existing relationships
+// of the hole_punch_result, optionally inserting them as new records.
+// Appends related to o.R.PortMappings.
+// Sets related.R.HolePunchResult appropriately.
+func (o *HolePunchResult) AddPortMappings(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PortMapping) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.HolePunchResultID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"port_mappings\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"hole_punch_result_id"}),
+				strmangle.WhereClause("\"", "\"", 2, portMappingPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.HolePunchResultID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &holePunchResultR{
+			PortMappings: related,
+		}
+	} else {
+		o.R.PortMappings = append(o.R.PortMappings, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &portMappingR{
 				HolePunchResult: o,
 			}
 		} else {

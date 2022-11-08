@@ -126,6 +126,9 @@ message TrackHolePunchRequest {
 
   // Network information if the network has changed
   optional NetworkInformation network_information = 16;
+
+  // AutoNAT port mappings
+  repeated NATMapping nat_mappings = 17;
 }
 
 message TrackHolePunchResponse {}
@@ -225,4 +228,12 @@ message NetworkInformation {
 
   // The error that occurred when looking up the support for IPv6
   optional string supports_ipv6_error = 4;
+}
+
+message NATMapping {
+  required int32 internal_port = 1;
+  required int32 external_port = 2;
+  required string protocol = 3;
+  required string addr = 4;
+  required string addr_network = 5;
 }

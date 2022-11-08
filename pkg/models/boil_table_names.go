@@ -19,6 +19,7 @@ var TableNames = struct {
 	NetworkInformation              string
 	PeerLogs                        string
 	Peers                           string
+	PortMappings                    string
 }{
 	Authorizations:                  "authorizations",
 	Clients:                         "clients",
@@ -35,4 +36,5 @@ var TableNames = struct {
 	NetworkInformation:              "network_information",
 	PeerLogs:                        "peer_logs",
 	Peers:                           "peers",
+	PortMappings:                    "port_mappings",
 }

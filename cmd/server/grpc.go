@@ -346,15 +346,13 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		filters[i] = int64(p)
 	}
 
-	fmt.Printf("Filters: %v\n", filters)
-
 	hpr := &models.HolePunchResult{
 		LocalID:                   dbLocalPeer.ID,
 		ListenMultiAddressesSetID: maddrSetID,
 		RemoteID:                  dbRemotePeer.ID,
 		ConnectStartedAt:          time.Unix(0, int64(*req.ConnectStartedAt)),
 		ConnectEndedAt:            time.Unix(0, int64(*req.ConnectEndedAt)),
-		HasDirectConns:            *req.HasDirectConns,
+		HasDirectConns:            req.GetHasDirectConns(),
 		ProtocolFilters:           filters,
 		Outcome:                   s.mapHolePunchOutcome(req),
 		Error:                     null.StringFromPtr(req.Error),
@@ -363,6 +361,21 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 
 	if err = hpr.Insert(ctx, txn, boil.Infer()); err != nil {
 		return nil, errors.Wrap(err, "insert hole punch result")
+	}
+
+	for _, mapping := range req.NatMappings {
+		dbPortMapping := models.PortMapping{
+			HolePunchResultID: hpr.ID,
+			InternalPort:      int(mapping.GetInternalPort()),
+			ExternalPort:      int(mapping.GetExternalPort()),
+			Protocol:          mapping.GetProtocol(),
+			Addr:              mapping.GetAddr(),
+			AddrNetwork:       mapping.GetAddrNetwork(),
+		}
+
+		if err := dbPortMapping.Insert(ctx, txn, boil.Infer()); err != nil {
+			return nil, errors.Wrap(err, "insert port mapping")
+		}
 	}
 
 	if err = hpr.AddHolePunchAttempts(ctx, txn, true, dbhpas...); err != nil {

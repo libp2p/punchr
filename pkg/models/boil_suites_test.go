@@ -25,6 +25,7 @@ func TestParent(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformations)
 	t.Run("PeerLogs", testPeerLogs)
 	t.Run("Peers", testPeers)
+	t.Run("PortMappings", testPortMappings)
 }
 
 func TestDelete(t *testing.T) {
@@ -41,6 +42,7 @@ func TestDelete(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsDelete)
 	t.Run("PeerLogs", testPeerLogsDelete)
 	t.Run("Peers", testPeersDelete)
+	t.Run("PortMappings", testPortMappingsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
@@ -57,6 +59,7 @@ func TestQueryDeleteAll(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsQueryDeleteAll)
 	t.Run("PeerLogs", testPeerLogsQueryDeleteAll)
 	t.Run("Peers", testPeersQueryDeleteAll)
+	t.Run("PortMappings", testPortMappingsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
@@ -73,6 +76,7 @@ func TestSliceDeleteAll(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsSliceDeleteAll)
 	t.Run("PeerLogs", testPeerLogsSliceDeleteAll)
 	t.Run("Peers", testPeersSliceDeleteAll)
+	t.Run("PortMappings", testPortMappingsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
@@ -89,6 +93,7 @@ func TestExists(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsExists)
 	t.Run("PeerLogs", testPeerLogsExists)
 	t.Run("Peers", testPeersExists)
+	t.Run("PortMappings", testPortMappingsExists)
 }
 
 func TestFind(t *testing.T) {
@@ -105,6 +110,7 @@ func TestFind(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsFind)
 	t.Run("PeerLogs", testPeerLogsFind)
 	t.Run("Peers", testPeersFind)
+	t.Run("PortMappings", testPortMappingsFind)
 }
 
 func TestBind(t *testing.T) {
@@ -121,6 +127,7 @@ func TestBind(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsBind)
 	t.Run("PeerLogs", testPeerLogsBind)
 	t.Run("Peers", testPeersBind)
+	t.Run("PortMappings", testPortMappingsBind)
 }
 
 func TestOne(t *testing.T) {
@@ -137,6 +144,7 @@ func TestOne(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsOne)
 	t.Run("PeerLogs", testPeerLogsOne)
 	t.Run("Peers", testPeersOne)
+	t.Run("PortMappings", testPortMappingsOne)
 }
 
 func TestAll(t *testing.T) {
@@ -153,6 +161,7 @@ func TestAll(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsAll)
 	t.Run("PeerLogs", testPeerLogsAll)
 	t.Run("Peers", testPeersAll)
+	t.Run("PortMappings", testPortMappingsAll)
 }
 
 func TestCount(t *testing.T) {
@@ -169,6 +178,7 @@ func TestCount(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsCount)
 	t.Run("PeerLogs", testPeerLogsCount)
 	t.Run("Peers", testPeersCount)
+	t.Run("PortMappings", testPortMappingsCount)
 }
 
 func TestHooks(t *testing.T) {
@@ -185,6 +195,7 @@ func TestHooks(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsHooks)
 	t.Run("PeerLogs", testPeerLogsHooks)
 	t.Run("Peers", testPeersHooks)
+	t.Run("PortMappings", testPortMappingsHooks)
 }
 
 func TestInsert(t *testing.T) {
@@ -214,6 +225,8 @@ func TestInsert(t *testing.T) {
 	t.Run("PeerLogs", testPeerLogsInsertWhitelist)
 	t.Run("Peers", testPeersInsert)
 	t.Run("Peers", testPeersInsertWhitelist)
+	t.Run("PortMappings", testPortMappingsInsert)
+	t.Run("PortMappings", testPortMappingsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
@@ -236,6 +249,7 @@ func TestToOne(t *testing.T) {
 	t.Run("LatencyMeasurementToPeerUsingRemote", testLatencyMeasurementToOnePeerUsingRemote)
 	t.Run("NetworkInformationToPeerUsingPeer", testNetworkInformationToOnePeerUsingPeer)
 	t.Run("PeerLogToPeerUsingPeer", testPeerLogToOnePeerUsingPeer)
+	t.Run("PortMappingToHolePunchResultUsingHolePunchResult", testPortMappingToOneHolePunchResultUsingHolePunchResult)
 }
 
 // TestOneToOne tests cannot be run in parallel
@@ -251,6 +265,7 @@ func TestToMany(t *testing.T) {
 	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyHolePunchAttempts)
 	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyHolePunchResultsXMultiAddresses)
 	t.Run("HolePunchResultToLatencyMeasurements", testHolePunchResultToManyLatencyMeasurements)
+	t.Run("HolePunchResultToPortMappings", testHolePunchResultToManyPortMappings)
 	t.Run("MultiAddressToConnMultiAddressConnectionEvents", testMultiAddressToManyConnMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyConnectionEvents)
 	t.Run("MultiAddressToHolePunchAttempts", testMultiAddressToManyHolePunchAttempts)
@@ -288,6 +303,7 @@ func TestToOneSet(t *testing.T) {
 	t.Run("LatencyMeasurementToPeerUsingRemoteLatencyMeasurements", testLatencyMeasurementToOneSetOpPeerUsingRemote)
 	t.Run("NetworkInformationToPeerUsingNetworkInformations", testNetworkInformationToOneSetOpPeerUsingPeer)
 	t.Run("PeerLogToPeerUsingPeerLogs", testPeerLogToOneSetOpPeerUsingPeer)
+	t.Run("PortMappingToHolePunchResultUsingPortMappings", testPortMappingToOneSetOpHolePunchResultUsingHolePunchResult)
 }
 
 // TestToOneRemove tests cannot be run in parallel
@@ -311,6 +327,7 @@ func TestToManyAdd(t *testing.T) {
 	t.Run("HolePunchResultToHolePunchAttempts", testHolePunchResultToManyAddOpHolePunchAttempts)
 	t.Run("HolePunchResultToHolePunchResultsXMultiAddresses", testHolePunchResultToManyAddOpHolePunchResultsXMultiAddresses)
 	t.Run("HolePunchResultToLatencyMeasurements", testHolePunchResultToManyAddOpLatencyMeasurements)
+	t.Run("HolePunchResultToPortMappings", testHolePunchResultToManyAddOpPortMappings)
 	t.Run("MultiAddressToConnMultiAddressConnectionEvents", testMultiAddressToManyAddOpConnMultiAddressConnectionEvents)
 	t.Run("MultiAddressToConnectionEvents", testMultiAddressToManyAddOpConnectionEvents)
 	t.Run("MultiAddressToHolePunchAttempts", testMultiAddressToManyAddOpHolePunchAttempts)
@@ -360,6 +377,7 @@ func TestReload(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsReload)
 	t.Run("PeerLogs", testPeerLogsReload)
 	t.Run("Peers", testPeersReload)
+	t.Run("PortMappings", testPortMappingsReload)
 }
 
 func TestReloadAll(t *testing.T) {
@@ -376,6 +394,7 @@ func TestReloadAll(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsReloadAll)
 	t.Run("PeerLogs", testPeerLogsReloadAll)
 	t.Run("Peers", testPeersReloadAll)
+	t.Run("PortMappings", testPortMappingsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
@@ -392,6 +411,7 @@ func TestSelect(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsSelect)
 	t.Run("PeerLogs", testPeerLogsSelect)
 	t.Run("Peers", testPeersSelect)
+	t.Run("PortMappings", testPortMappingsSelect)
 }
 
 func TestUpdate(t *testing.T) {
@@ -408,6 +428,7 @@ func TestUpdate(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsUpdate)
 	t.Run("PeerLogs", testPeerLogsUpdate)
 	t.Run("Peers", testPeersUpdate)
+	t.Run("PortMappings", testPortMappingsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
@@ -424,4 +445,5 @@ func TestSliceUpdateAll(t *testing.T) {
 	t.Run("NetworkInformations", testNetworkInformationsSliceUpdateAll)
 	t.Run("PeerLogs", testPeerLogsSliceUpdateAll)
 	t.Run("Peers", testPeersSliceUpdateAll)
+	t.Run("PortMappings", testPortMappingsSliceUpdateAll)
 }

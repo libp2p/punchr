@@ -31,4 +31,6 @@ func TestUpsert(t *testing.T) {
 	t.Run("PeerLogs", testPeerLogsUpsert)
 
 	t.Run("Peers", testPeersUpsert)
+
+	t.Run("PortMappings", testPortMappingsUpsert)
 }
