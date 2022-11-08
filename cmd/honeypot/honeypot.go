@@ -181,7 +181,7 @@ func RootAction(c *cli.Context) error {
 			default:
 			}
 			crawlCount += 1
-			log.Infoln("Starting crawl number ", crawlCount)
+			log.Infoln("Starting crawl number", crawlCount)
 
 			// Initialize honeypot libp2p host
 			h, err := InitHost(c, c.String("port"), dbClient)
