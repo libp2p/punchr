@@ -175,6 +175,7 @@ func (as *AppState) Loop() {
 			if as.apiKey == "" {
 				as.ShowApiKeyDialog()
 			} else {
+				time.Sleep(time.Second)
 				SetActivationPolicy()
 			}
 		case *EvtToggleHolePunching:
