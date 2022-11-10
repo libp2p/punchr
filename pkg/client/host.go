@@ -270,6 +270,12 @@ func (h *Host) MeasurePing(ctx context.Context, pid peer.ID, mType pb.LatencyMea
 		}
 		cancel()
 
+		if len(lm.rtts) == 0 {
+			// If there are no latency measurements just return.
+			// resultsChan is closed via defer above
+			return
+		}
+
 		resultsChan <- lm
 	}()
 
