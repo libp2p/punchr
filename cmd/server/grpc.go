@@ -39,9 +39,10 @@ type Server struct {
 func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	authID, err := s.checkApiKey(ctx, req.ApiKey)
 	if errors.Is(err, ErrUnauthorized) {
+		log.Infoln("Creating anonymous authentication")
 		dbAuth := models.Authorization{
 			APIKey:   req.GetApiKey(),
-			Username: "Anonymous",
+			Username: "anonymous",
 		}
 		if err = dbAuth.Insert(ctx, s.DBClient, boil.Infer()); err != nil {
 			return nil, errors.Wrap(err, "inserting authorization")
@@ -55,6 +56,7 @@ func (s Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regi
 	if err != nil {
 		return nil, errors.Wrap(err, "peer ID from client ID")
 	}
+	log.WithField("clientID", clientID).Infoln("Registering client")
 
 	// Start a database transaction
 	txn, err := s.DBClient.BeginTx(ctx, nil)
