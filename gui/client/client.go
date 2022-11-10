@@ -38,8 +38,7 @@ var gloveInactive []byte
 var glovePending []byte
 
 var (
-	VersionCLI = "dev"
-	VersionGUI = "dev"
+	Version = "dev"
 )
 
 var (
@@ -148,7 +147,7 @@ func (as *AppState) Init() error {
 
 	as.gui.menuItemStatus.Disabled = true
 	as.gui.menuItemStartStopHolePunching.Label = "🔴 Hole Punching Stopped"
-	as.gui.menuItemVersionInfo.Label = fmt.Sprintf("GUI: %s | CLI: %s", VersionGUI, VersionCLI)
+	as.gui.menuItemVersionInfo.Label = fmt.Sprintf("GUI: %s | CLI: %s", Version, client.App.Version)
 	as.gui.menuItemVersionInfo.Disabled = true
 	as.gui.menuItemStartStopHolePunching.Action = func() { as.events <- &EvtToggleHolePunching{} }
 	as.gui.menuItemSetApiKey.Action = func() { as.events <- &EvtShowAPIKeyDialog{} }

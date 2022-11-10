@@ -60,14 +60,14 @@ package-darwin:
 		-name=Punchr
 
 	# fyne-cross doesn't really pick up the right architectures. So we'll compile it again
-	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'github.com/dennis-tra/punchr/gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/gui/client.VersionCLI=$(VERSION_CLIENT)'" -o fyne-cross/dist/darwin-amd64/Punchr.app/Contents/MacOS/punchr fyne.go
-	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'github.com/dennis-tra/punchr/gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/gui/client.VersionCLI=$(VERSION_CLIENT)'" -o fyne-cross/dist/darwin-arm64/Punchr.app/Contents/MacOS/punchr fyne.go
+	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'github.com/dennis-tra/punchr/gui/client.Version=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/pkg/client.Version=$(VERSION_CLIENT)'" -o fyne-cross/dist/darwin-amd64/Punchr.app/Contents/MacOS/punchr fyne.go
+	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'github.com/dennis-tra/punchr/gui/client.Version=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/pkg/client.Version=$(VERSION_CLIENT)'" -o fyne-cross/dist/darwin-arm64/Punchr.app/Contents/MacOS/punchr fyne.go
 
 package-linux:
 	fyne-cross linux \
 		-app-version=$(VERSION_CLIENT_GUI) \
 		-arch=amd64,386 \
-		-ldflags="-X 'github.com/dennis-tra/punchr/gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/gui/client.VersionCLI=$(VERSION_CLIENT)'" \
+		-ldflags="-X 'github.com/dennis-tra/punchr/gui/client.Version=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/pkg/client.Version=$(VERSION_CLIENT)'" \
 		-name=Punchr \
 		-release
 
@@ -78,7 +78,7 @@ package-freebsd:
 	fyne-cross freebsd \
 		-app-version=$(VERSION_CLIENT_GUI) \
 		-arch=amd64,arm64 \
-		-ldflags="-X 'github.com/dennis-tra/punchr/gui/client.VersionGUI=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/gui/client.VersionCLI=$(VERSION_CLIENT)'" \
+		-ldflags="-X 'github.com/dennis-tra/punchr/gui/client.Version=$(VERSION_CLIENT_GUI)' -X 'github.com/dennis-tra/punchr/pkg/client.Version=$(VERSION_CLIENT)'" \
 		-name=Punchr \
 		-release
 
