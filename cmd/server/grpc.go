@@ -261,9 +261,6 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 		return nil, errors.Wrap(err, "no listen multi addresses given")
 	}
 
-	start := time.Now()
-	defer func() { log.WithField("dur", time.Since(start).String()).Infoln("Tracked result") }()
-
 	clientID, err := peer.IDFromBytes(req.ClientId)
 	if err != nil {
 		return nil, errors.Wrap(err, "peer ID from client ID")
