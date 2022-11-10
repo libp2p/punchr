@@ -893,7 +893,7 @@ func testLatencyMeasurementsSelect(t *testing.T) {
 }
 
 var (
-	latencyMeasurementDBTypes = map[string]string{`ID`: `integer`, `RemoteID`: `bigint`, `HolePunchResultID`: `integer`, `MultiAddressID`: `bigint`, `Mtype`: `enum.latency_measurement_type('TO_RELAY','TO_REMOTE_THROUGH_RELAY','TO_REMOTE_AFTER_HOLEPUNCH')`, `RTTS`: `ARRAYdouble precision`, `RTTAvg`: `double precision`, `RTTMax`: `double precision`, `RTTMin`: `double precision`, `RTTSTD`: `double precision`}
+	latencyMeasurementDBTypes = map[string]string{`ID`: `integer`, `RemoteID`: `bigint`, `HolePunchResultID`: `integer`, `MultiAddressID`: `bigint`, `Mtype`: `enum.latency_measurement_type('TO_RELAY','TO_REMOTE_THROUGH_RELAY','TO_REMOTE_AFTER_HOLEPUNCH')`, `RTTS`: `ARRAYdouble precision`, `RTTErrs`: `ARRAYtext`, `RTTAvg`: `double precision`, `RTTMax`: `double precision`, `RTTMin`: `double precision`, `RTTSTD`: `double precision`}
 	_                         = bytes.MinRead
 )
 

@@ -525,6 +525,7 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			MultiAddressID:    dbMaddr.ID,
 			Mtype:             dbMtype,
 			RTTS:              dbRtts,
+			RTTErrs:           lm.RttErrs,
 			RTTAvg:            stat.Mean(dbRtts, nil),
 			RTTMax:            rttMax,
 			RTTMin:            rttMin,

@@ -15,11 +15,12 @@ CREATE TABLE latency_measurements
     multi_address_id     BIGINT                   NOT NULL,
     mtype                latency_measurement_type NOT NULL,
 
-    rtts                 float[]                  NOT NULL,
-    rtt_avg              float                    NOT NULL,
-    rtt_max              float                    NOT NULL,
-    rtt_min              float                    NOT NULL,
-    rtt_std              float                    NOT NULL,
+    rtts                 FLOAT[]                  NOT NULL,
+    rtt_errs             TEXT[]                   NOT NULL,
+    rtt_avg              FLOAT                    NOT NULL,
+    rtt_max              FLOAT                    NOT NULL,
+    rtt_min              FLOAT                    NOT NULL,
+    rtt_std              FLOAT                    NOT NULL,
 
     CONSTRAINT fk_latency_measurements_remote_id FOREIGN KEY (remote_id) REFERENCES peers (id) ON DELETE CASCADE,
     CONSTRAINT fk_latency_measurements_multi_address_id FOREIGN KEY (multi_address_id) REFERENCES multi_addresses (id) ON DELETE CASCADE,

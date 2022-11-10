@@ -30,6 +30,7 @@ type LatencyMeasurement struct {
 	MultiAddressID    int64              `boil:"multi_address_id" json:"multi_address_id" toml:"multi_address_id" yaml:"multi_address_id"`
 	Mtype             string             `boil:"mtype" json:"mtype" toml:"mtype" yaml:"mtype"`
 	RTTS              types.Float64Array `boil:"rtts" json:"rtts" toml:"rtts" yaml:"rtts"`
+	RTTErrs           types.StringArray  `boil:"rtt_errs" json:"rtt_errs" toml:"rtt_errs" yaml:"rtt_errs"`
 	RTTAvg            float64            `boil:"rtt_avg" json:"rtt_avg" toml:"rtt_avg" yaml:"rtt_avg"`
 	RTTMax            float64            `boil:"rtt_max" json:"rtt_max" toml:"rtt_max" yaml:"rtt_max"`
 	RTTMin            float64            `boil:"rtt_min" json:"rtt_min" toml:"rtt_min" yaml:"rtt_min"`
@@ -46,6 +47,7 @@ var LatencyMeasurementColumns = struct {
 	MultiAddressID    string
 	Mtype             string
 	RTTS              string
+	RTTErrs           string
 	RTTAvg            string
 	RTTMax            string
 	RTTMin            string
@@ -57,6 +59,7 @@ var LatencyMeasurementColumns = struct {
 	MultiAddressID:    "multi_address_id",
 	Mtype:             "mtype",
 	RTTS:              "rtts",
+	RTTErrs:           "rtt_errs",
 	RTTAvg:            "rtt_avg",
 	RTTMax:            "rtt_max",
 	RTTMin:            "rtt_min",
@@ -70,6 +73,7 @@ var LatencyMeasurementTableColumns = struct {
 	MultiAddressID    string
 	Mtype             string
 	RTTS              string
+	RTTErrs           string
 	RTTAvg            string
 	RTTMax            string
 	RTTMin            string
@@ -81,6 +85,7 @@ var LatencyMeasurementTableColumns = struct {
 	MultiAddressID:    "latency_measurements.multi_address_id",
 	Mtype:             "latency_measurements.mtype",
 	RTTS:              "latency_measurements.rtts",
+	RTTErrs:           "latency_measurements.rtt_errs",
 	RTTAvg:            "latency_measurements.rtt_avg",
 	RTTMax:            "latency_measurements.rtt_max",
 	RTTMin:            "latency_measurements.rtt_min",
@@ -107,6 +112,27 @@ func (w whereHelpertypes_Float64Array) GT(x types.Float64Array) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
 func (w whereHelpertypes_Float64Array) GTE(x types.Float64Array) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
+type whereHelpertypes_StringArray struct{ field string }
+
+func (w whereHelpertypes_StringArray) EQ(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelpertypes_StringArray) NEQ(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelpertypes_StringArray) LT(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpertypes_StringArray) LTE(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpertypes_StringArray) GT(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
@@ -146,6 +172,7 @@ var LatencyMeasurementWhere = struct {
 	MultiAddressID    whereHelperint64
 	Mtype             whereHelperstring
 	RTTS              whereHelpertypes_Float64Array
+	RTTErrs           whereHelpertypes_StringArray
 	RTTAvg            whereHelperfloat64
 	RTTMax            whereHelperfloat64
 	RTTMin            whereHelperfloat64
@@ -157,6 +184,7 @@ var LatencyMeasurementWhere = struct {
 	MultiAddressID:    whereHelperint64{field: "\"latency_measurements\".\"multi_address_id\""},
 	Mtype:             whereHelperstring{field: "\"latency_measurements\".\"mtype\""},
 	RTTS:              whereHelpertypes_Float64Array{field: "\"latency_measurements\".\"rtts\""},
+	RTTErrs:           whereHelpertypes_StringArray{field: "\"latency_measurements\".\"rtt_errs\""},
 	RTTAvg:            whereHelperfloat64{field: "\"latency_measurements\".\"rtt_avg\""},
 	RTTMax:            whereHelperfloat64{field: "\"latency_measurements\".\"rtt_max\""},
 	RTTMin:            whereHelperfloat64{field: "\"latency_measurements\".\"rtt_min\""},
@@ -211,8 +239,8 @@ func (r *latencyMeasurementR) GetRemote() *Peer {
 type latencyMeasurementL struct{}
 
 var (
-	latencyMeasurementAllColumns            = []string{"id", "remote_id", "hole_punch_result_id", "multi_address_id", "mtype", "rtts", "rtt_avg", "rtt_max", "rtt_min", "rtt_std"}
-	latencyMeasurementColumnsWithoutDefault = []string{"remote_id", "hole_punch_result_id", "multi_address_id", "mtype", "rtts", "rtt_avg", "rtt_max", "rtt_min", "rtt_std"}
+	latencyMeasurementAllColumns            = []string{"id", "remote_id", "hole_punch_result_id", "multi_address_id", "mtype", "rtts", "rtt_errs", "rtt_avg", "rtt_max", "rtt_min", "rtt_std"}
+	latencyMeasurementColumnsWithoutDefault = []string{"remote_id", "hole_punch_result_id", "multi_address_id", "mtype", "rtts", "rtt_errs", "rtt_avg", "rtt_max", "rtt_min", "rtt_std"}
 	latencyMeasurementColumnsWithDefault    = []string{"id"}
 	latencyMeasurementPrimaryKeyColumns     = []string{"id"}
 	latencyMeasurementGeneratedColumns      = []string{"id"}
