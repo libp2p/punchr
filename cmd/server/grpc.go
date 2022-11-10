@@ -512,6 +512,14 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			dbRtts[i] = float64(rtt)
 		}
 
+		// Max/Min panic for zero length arrays
+		rttMax := float64(-1)
+		rttMin := float64(-1)
+		if len(dbRtts) > 0 {
+			rttMax = floats.Max(dbRtts)
+			rttMin = floats.Min(dbRtts)
+		}
+
 		dblm := models.LatencyMeasurement{
 			RemoteID:          dbLmRemotePeer.ID,
 			HolePunchResultID: hpr.ID,
@@ -519,8 +527,8 @@ func (s Server) TrackHolePunch(ctx context.Context, req *pb.TrackHolePunchReques
 			Mtype:             dbMtype,
 			RTTS:              dbRtts,
 			RTTAvg:            stat.Mean(dbRtts, nil),
-			RTTMax:            floats.Max(dbRtts),
-			RTTMin:            floats.Min(dbRtts),
+			RTTMax:            rttMax,
+			RTTMin:            rttMin,
 			RTTSTD:            stat.StdDev(dbRtts, nil),
 		}
 
