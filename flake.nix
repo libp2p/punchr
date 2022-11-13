@@ -25,7 +25,7 @@
           # Sha of go modules. To update uncomment the below line and comment
           # out the current sha. Then update the sha.
           # vendorSha256 = pkgs.lib.fakeSha256;
-          vendorSha256 = "sha256-nb0oq3vA8ANlppmpKzL61n6eS96eXiBI6Mumxu00rII=";
+          vendorSha256 = "sha256-qR1kWFY3un9TRKu/3rEMnn+shkDTkh+Lsg/Om1Klf4w=";
 
           meta = with pkgs.lib; {
             description = "";
