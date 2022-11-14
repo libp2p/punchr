@@ -1,0 +1,20 @@
+# Build nebula
+FROM golang:1.19 AS builder
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=$(cat cmd/honeypot/version)'" -o dist/punchrhoneypot cmd/honeypot/*.go
+
+# Create lightweight container to run nebula
+FROM alpine:latest
+
+RUN adduser -D -H punchr
+USER punchr
+WORKDIR /home/punchr
+
+COPY --from=builder /build/dist/punchrhoneypot /usr/local/bin/punchr
+CMD punchr

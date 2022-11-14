@@ -1,56 +1,11 @@
 version: "3.9"
 services:
-  postgres:
-    image: postgres:13
-    container_name: punchr_db
-    restart: always
-    user: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - psql_data:/var/lib/postgresql/data
-      - "./postgres.init.sh:/docker-entrypoint-initdb.d/postgres.init.sh"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U punchr"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-    environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_USER: punchr
-      POSTGRES_DB: punchr
-    networks:
-      punchr:
-  prometheus:
-    container_name: punchr_prometheus
-    image: prom/prometheus:v2.34.0
-    restart: always
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    networks:
-      punchr:
-  grafana: # default - user: admin, pw: admin
-    container_name: punchr_grafana
-    image: grafana/grafana:8.3.1
-    restart: always
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      punchr:
-networks:
   punchr:
-    name: punchr
-volumes:
-  psql_data:
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: /home/punchr/data
-  prometheus_data: {}
-  grafana_data: {}
+    image: dennistra/punchr-client:latest
+    container_name: punchr_client
+    restart: always
+    user: punchr
+    environment:
+      # More option at pkg/client/app.go
+      PUNCHR_CLIENT_API_KEY: # Add your API key here
+    network_mode: host

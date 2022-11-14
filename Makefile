@@ -22,6 +22,15 @@ build-client:
 build-server:
 	go build -ldflags="-X 'main.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*.go
 
+docker-client:
+	docker build -t dennistra/punchr-client:latest -t dennistra/punchr-client:$(VERSION_CLIENT) -f docker/Dockerfile_client .
+
+docker-server:
+	docker build -t dennistra/punchr-server:latest -t dennistra/punchr-server:$(VERSION_SERVER) -f docker/Dockerfile_server .
+
+docker-honeypot:
+	docker build -t dennistra/punchr-honeypot:latest -t dennistra/punchr-honeypot:$(VERSION_HONEYPOT) -f docker/Dockerfile_honeypot .
+
 format:
 	gofumpt -w -l .
 
