@@ -73,6 +73,7 @@ type Gui struct {
 	menuItemStartStopHolePunching *fyne.MenuItem
 	menuItemSetApiKey             *fyne.MenuItem
 	menuItemAutoStart             *fyne.MenuItem
+	menuItemResults               *fyne.MenuItem
 	menuItemVersionInfo           *fyne.MenuItem
 	apiKeyDialog                  *fyne.Window
 	confirmationDialog            *fyne.Window
@@ -111,6 +112,7 @@ func NewAppState() (*AppState, error) {
 			menuItemSetApiKey:             fyne.NewMenuItem("Set API Key", nil),
 			menuItemAutoStart:             fyne.NewMenuItem("", nil),
 			menuItemVersionInfo:           fyne.NewMenuItem("", nil),
+			menuItemResults:               fyne.NewMenuItem("Your Personal Results", nil),
 		},
 	}, nil
 }
@@ -124,6 +126,7 @@ type EvtToggleAutoStart struct{}
 type EvtSaveApiKey struct{ apiKey string }
 type EvtSaveConfirmation struct{ launchOnLogin bool }
 type EvtStoppedHolePunching struct{}
+type EvtOpenGrafanaResults struct{}
 
 func (as *AppState) Init() error {
 
@@ -152,7 +155,8 @@ func (as *AppState) Init() error {
 	as.gui.menuItemStartStopHolePunching.Action = func() { as.events <- &EvtToggleHolePunching{} }
 	as.gui.menuItemSetApiKey.Action = func() { as.events <- &EvtShowAPIKeyDialog{} }
 	as.gui.menuItemAutoStart.Action = func() { as.events <- &EvtToggleAutoStart{} }
-	as.gui.sysTrayMenu = fyne.NewMenu("Punchr", as.gui.menuItemStatus, fyne.NewMenuItemSeparator(), as.gui.menuItemSetApiKey, fyne.NewMenuItemSeparator(), as.gui.menuItemStartStopHolePunching, as.gui.menuItemAutoStart, fyne.NewMenuItemSeparator(), as.gui.menuItemVersionInfo)
+	as.gui.menuItemResults.Action = func() { as.events <- &EvtOpenGrafanaResults{} }
+	as.gui.sysTrayMenu = fyne.NewMenu("Punchr", as.gui.menuItemStatus, fyne.NewMenuItemSeparator(), as.gui.menuItemSetApiKey, fyne.NewMenuItemSeparator(), as.gui.menuItemStartStopHolePunching, as.gui.menuItemAutoStart, fyne.NewMenuItemSeparator(), as.gui.menuItemResults, fyne.NewMenuItemSeparator(), as.gui.menuItemVersionInfo)
 
 	as.desk.SetSystemTrayMenu(as.gui.sysTrayMenu)
 
@@ -210,6 +214,15 @@ func (as *AppState) Loop() {
 			if as.startAfterStop {
 				as.startAfterStop = false
 				as.StartHolePunching()
+			}
+		case *EvtOpenGrafanaResults:
+			u, err := url.ParseRequestURI("https://punchr.dtrautwein.eu/results?apiKey=" + as.apiKey)
+			if err != nil {
+				log.WithError(err).Errorln("Could not parse results URI")
+				break
+			}
+			if err = as.app.OpenURL(u); err != nil {
+				log.WithError(err).Warnln("Could not open URL")
 			}
 		case *EvtShowAPIKeyDialog:
 			if as.gui.apiKeyDialog == nil {
