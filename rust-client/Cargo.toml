@@ -6,17 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "3.1.6", features = ["derive"]}
+clap = { version = "4.0.26", features = ["derive"]}
 env_logger = "0.9"
 either = "1.6.1"
 futures = "0.3"
-futures-timer = "2"
-libp2p = { version = "0.46.1", default-features = false, features = ["dcutr", "dns-async-std", "identify", "noise", "relay", "ping", "tcp-async-io", "yamux"] }
+futures-timer = "3.0.0"
+libp2p = { version = "0.49.0", default-features = false, features = ["async-std", "dcutr", "dns", "identify", "noise", "relay", "ping", "tcp", "yamux"] }
 log = "0.4"
-prost = "0.9"
+prost = "0.11.2"
 rand = "0.8.5"   
 tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
-tonic = { version = "0.6", features = ["tls"] }
+tonic = { version = "0.8.2", features = ["tls"] }
 
 [build-dependencies]
-tonic-build = "0.6"
+tonic-build = "0.8.2"
