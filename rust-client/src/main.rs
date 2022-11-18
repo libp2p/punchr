@@ -28,6 +28,7 @@ use std::ops::ControlFlow;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint};
 
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub mod grpc {
     tonic::include_proto!("_");
 }
@@ -277,6 +278,10 @@ impl HolePunchState {
             ended_at: 0,
             listen_multi_addresses: client_listen_addrs.map(|a| a.to_vec()).collect(),
             api_key,
+            protocols: Vec::new(),
+            latency_measurements: Vec::new(),
+            network_information: None,
+            nat_mappings: Vec::new(),
         };
         HolePunchState {
             request,
