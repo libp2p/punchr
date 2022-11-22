@@ -17,19 +17,19 @@ build-honeypot:
 	go build -ldflags="-X 'main.Version=$(VERSION_HONEYPOT)'" -o dist/punchrhoneypot cmd/honeypot/*.go
 
 build-client:
-	go build -ldflags="-X 'main.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*.go
+	go build -ldflags="-s -w -X 'main.Version=$(VERSION_CLIENT)'" -o dist/punchrclient cmd/client/*.go
 
 build-server:
 	go build -ldflags="-X 'main.Version=$(VERSION_SERVER)'" -o dist/punchrserver cmd/server/*.go
 
 docker-client:
-	docker build -t dennistra/punchr-client:latest -t dennistra/punchr-client:$(VERSION_CLIENT) -f docker/Dockerfile_client .
+	docker build --platform linux/amd64 -t dennistra/punchr-client:latest -t dennistra/punchr-client:$(VERSION_CLIENT) -f docker/Dockerfile_client .
 
 docker-server:
-	docker build -t dennistra/punchr-server:latest -t dennistra/punchr-server:$(VERSION_SERVER) -f docker/Dockerfile_server .
+	docker build --platform linux/amd64 -t dennistra/punchr-server:latest -t dennistra/punchr-server:$(VERSION_SERVER) -f docker/Dockerfile_server .
 
 docker-honeypot:
-	docker build -t dennistra/punchr-honeypot:latest -t dennistra/punchr-honeypot:$(VERSION_HONEYPOT) -f docker/Dockerfile_honeypot .
+	docker build --platform linux/amd64 -t dennistra/punchr-honeypot:latest -t dennistra/punchr-honeypot:$(VERSION_HONEYPOT) -f docker/Dockerfile_honeypot .
 
 format:
 	gofumpt -w -l .
