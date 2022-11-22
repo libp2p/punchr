@@ -4,8 +4,12 @@ services:
     image: dennistra/punchr-client:latest
     container_name: punchr_client
     restart: always
-    user: punchr
     environment:
       # More option at pkg/client/app.go
       PUNCHR_CLIENT_API_KEY: # Add your API key here
     network_mode: host
+    volumes:
+      - punchr_config:/root/.config/punchr/
+
+volumes:
+  punchr_config:

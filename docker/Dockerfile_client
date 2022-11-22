@@ -1,4 +1,3 @@
-# Build nebula
 FROM golang:1.19 AS builder
 
 WORKDIR /build
@@ -7,14 +6,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=$(cat cmd/client/version)'" -o dist/punchrclient cmd/client/*.go
+RUN CGO_ENABLED=0 make build-client
 
 # Create lightweight container to run nebula
 FROM alpine:latest
 
-RUN adduser -D -H punchr
-USER punchr
-WORKDIR /home/punchr
+WORKDIR /root
 
 COPY --from=builder /build/dist/punchrclient /usr/local/bin/punchr
 CMD punchr
