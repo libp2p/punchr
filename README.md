@@ -15,7 +15,7 @@
 > 
 > You **do not** need a running IPFS node. A CLI version and more options are available on the [release page](https://github.com/dennis-tra/punchr/releases/v0.8.0).
 > 
-> Optionally, [**register here**](https://forms.gle/ueNS5iGQup6oszCQ8), request a personal API-Key, and receive a custom analysis of the data that you contributed.
+> Optionally, [**register here**](https://forms.gle/h1ABCpS87jYmg9a48), request a personal API-Key, and receive a custom analysis of the data that you contributed.
 
 This repo contains components to measure the [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
