@@ -15,6 +15,9 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@64c0c85d18e984422218383b81c52f8b077404d3 # v1.1.2
+
       - name: Checkout sources
         uses: actions/checkout@v2
 
@@ -24,7 +27,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-
+      
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
