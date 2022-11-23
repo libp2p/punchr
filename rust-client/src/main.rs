@@ -4,12 +4,8 @@ use futures::stream::StreamExt;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
 use libp2p::core::transport::OrTransport;
 use libp2p::core::{upgrade, ConnectedPoint, ProtocolName, UpgradeInfo};
-use libp2p::dcutr;
 use libp2p::dcutr::behaviour::UpgradeError;
 use libp2p::dns::DnsConfig;
-use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
-use libp2p::noise;
-use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{
@@ -17,8 +13,8 @@ use libp2p::swarm::{
     SwarmBuilder, SwarmEvent,
 };
 use libp2p::tcp::{GenTcpConfig, TcpTransport};
-use libp2p::Transport;
-use libp2p::{identity, PeerId};
+use libp2p::{dcutr, identify, identity, noise, ping};
+use libp2p::{PeerId, Transport};
 use log::{info, warn};
 use std::convert::TryInto;
 use std::env;
@@ -28,6 +24,7 @@ use std::ops::ControlFlow;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::transport::{Certificate, ClientTlsConfig, Endpoint};
 
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub mod grpc {
     tonic::include_proto!("_");
 }
@@ -207,13 +204,13 @@ async fn init_swarm(
     .multiplex(libp2p::yamux::YamuxConfig::default())
     .boxed();
 
-    let identify_config = IdentifyConfig::new("/ipfs/0.1.0".to_string(), local_key.public())
+    let identify_config = identify::Config::new("/ipfs/0.1.0".to_string(), local_key.public())
         .with_agent_version(agent_version());
 
     let behaviour = Behaviour {
         relay: relay_behaviour,
-        ping: Ping::new(PingConfig::new()),
-        identify: Identify::new(identify_config),
+        ping: ping::Behaviour::new(ping::Config::new()),
+        identify: identify::Behaviour::new(identify_config),
         dcutr: dcutr::behaviour::Behaviour::new(),
     };
 
@@ -277,6 +274,10 @@ impl HolePunchState {
             ended_at: 0,
             listen_multi_addresses: client_listen_addrs.map(|a| a.to_vec()).collect(),
             api_key,
+            protocols: Vec::new(),
+            latency_measurements: Vec::new(),
+            network_information: None,
+            nat_mappings: Vec::new(),
         };
         HolePunchState {
             request,
@@ -549,28 +550,28 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
 #[behaviour(out_event = "Event", event_process = false)]
 struct Behaviour {
     relay: Client,
-    ping: Ping,
-    identify: Identify,
+    ping: ping::Behaviour,
+    identify: identify::Behaviour,
     dcutr: dcutr::behaviour::Behaviour,
 }
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 enum Event {
-    Ping(PingEvent),
-    Identify(IdentifyEvent),
+    Ping(ping::Event),
+    Identify(identify::Event),
     Relay(client::Event),
     Dcutr(dcutr::behaviour::Event),
 }
 
-impl From<PingEvent> for Event {
-    fn from(e: PingEvent) -> Self {
+impl From<ping::Event> for Event {
+    fn from(e: ping::Event) -> Self {
         Event::Ping(e)
     }
 }
 
-impl From<IdentifyEvent> for Event {
-    fn from(e: IdentifyEvent) -> Self {
+impl From<identify::Event> for Event {
+    fn from(e: identify::Event) -> Self {
         Event::Identify(e)
     }
 }
