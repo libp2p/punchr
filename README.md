@@ -176,6 +176,7 @@ Resource requirements:
 - `Storage` - `~35MB`
 - `Memory` - `~100MB`
 - `CPU` - `~2.5%`
+- `Bandwidth` - `~0.25MB`/min
 
 
 <details>
