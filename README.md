@@ -282,7 +282,7 @@ make migrate-up
 
 ### RaspberryPi
 
-Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases). Then you could install a systemd service at `/etc/systemd/system/punchrclient.service`:
+Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases). Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
 
 ```text
 [Unit]
