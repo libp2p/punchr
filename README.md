@@ -287,7 +287,7 @@ Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page
 ```text
 [Unit]
 Description=Punchr Client
-After=network.target
+After=network-online.target
 
 [Service]
 User=pi
