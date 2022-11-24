@@ -9,11 +9,11 @@
 > We are running a hole punching month during December 2022.
 > Download the clients here (direct download links):
 > 
-> MacOS: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-darwin-amd64.dmg) (if prompted, please allow incoming connections)
+> MacOS: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-amd64.dmg) (if prompted, please allow incoming connections)
 > 
-> Linux: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-linux-386.tar.xz) | `tar -xf punchr-gui-linux-amd64.tar.xz && make user-install`
+> Linux: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-386.tar.xz) | `tar -xf punchr-gui-linux-amd64.tar.xz && make user-install`
 > 
-> You **do not** need a running IPFS node. A CLI version and more options are available on the [release page](https://github.com/dennis-tra/punchr/releases/v0.8.0).
+> You **do not** need a running IPFS node. A CLI version and more options are available on the [release page](https://github.com/dennis-tra/punchr/releases/v0.9.0).
 > 
 > Optionally, [**register here**](https://forms.gle/h1ABCpS87jYmg9a48), request a personal API-Key, and receive a custom analysis of the data that you contributed.
 
@@ -75,13 +75,13 @@ The goal is to measure the hole punching success rate. For that, we are using a 
 
 ## MacOS
 
-For macOS there is a menu bar application that you can download here: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-darwin-amd64.dmg)
+For macOS there is a menu bar application that you can download here: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-amd64.dmg)
 
 For the CLI version head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary.
 
 ## Linux
 
-For Linux there's also a system tray application that you can download here: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.8.0/punchr-gui-linux-386.tar.xz)
+For Linux there's also a system tray application that you can download here: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-386.tar.xz)
 
 You can install it by running: `tar -xf punchr-gui-linux-amd64.tar.xz && make user-install`
 
@@ -147,7 +147,7 @@ USAGE:
    punchrserver [global options] command [command options] [arguments...]
 
 VERSION:
-   0.8.0
+   0.9.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
