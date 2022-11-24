@@ -305,7 +305,7 @@ func (as *AppState) ShowApiKeyDialog() {
 	apiKeyLabel := widget.NewLabel("Your current API-Key: " + as.apiKey + "\nIf you didn't enter one it was generated for you.")
 	apiKeyLabel.TextStyle = fyne.TextStyle{Italic: true}
 	urlBtn := widget.NewButton("Request\npersonal API-Key", func() {
-		u, err := url.ParseRequestURI("https://forms.gle/gwc4NtgdFbKcaeza9")
+		u, err := url.ParseRequestURI("https://forms.gle/h1ABCpS87jYmg9a48")
 		if err != nil {
 			panic(err)
 		}
