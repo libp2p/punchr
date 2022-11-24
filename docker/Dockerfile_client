@@ -9,7 +9,7 @@ RUN go mod download
 COPY . ./
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=$(cat cmd/client/version)'" -o dist/punchrclient cmd/client/*.go
 
-# Create lightweight container to run nebula
+# Create lightweight container to run punchr
 FROM alpine:latest
 
 RUN adduser -D -H punchr
