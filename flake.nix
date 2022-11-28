@@ -15,6 +15,10 @@
         rustStable = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
+        rustPlatform = (pkgs.makeRustPlatform {
+          cargo = pkgs.rust-bin.stable.latest.default;
+          rustc = pkgs.rust-bin.stable.latest.default;
+        });
       in
       {
         packages.client = pkgs.buildGo118Module rec {
@@ -39,7 +43,7 @@
             platforms = platforms.linux ++ platforms.darwin;
           };
         };
-        packages.rust-client = pkgs.rustPlatform.buildRustPackage rec {
+        packages.rust-client = rustPlatform.buildRustPackage rec {
           src = ./rust-client;
 
           pname = "rust-client";
@@ -83,7 +87,6 @@
             pkgs.rustfmt
             pkgs.libiconv
             pkgs.protobuf
-
           ];
         };
       })) // {
