@@ -12,7 +12,7 @@ use libp2p::swarm::{
     ConnectionHandlerUpgrErr, DialError, IntoConnectionHandler, NetworkBehaviour, Swarm,
     SwarmBuilder, SwarmEvent,
 };
-use libp2p::tcp::{GenTcpConfig, TcpTransport};
+use libp2p::tcp;
 use libp2p::{dcutr, identify, identity, noise, ping};
 use libp2p::{PeerId, Transport};
 use log::{info, warn};
@@ -197,7 +197,10 @@ async fn init_swarm(
 
     let transport = OrTransport::new(
         relay_transport,
-        DnsConfig::system(TcpTransport::new(GenTcpConfig::new().port_reuse(true))).await?,
+        DnsConfig::system(tcp::async_io::Transport::new(
+            tcp::Config::new().port_reuse(true),
+        ))
+        .await?,
     )
     .upgrade(upgrade::Version::V1)
     .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
@@ -214,7 +217,7 @@ async fn init_swarm(
         dcutr: dcutr::behaviour::Behaviour::new(),
     };
 
-    let mut swarm = SwarmBuilder::new(transport, behaviour, local_peer_id)
+    let mut swarm = SwarmBuilder::with_async_std_executor(transport, behaviour, local_peer_id)
         .dial_concurrency_factor(10_u8.try_into()?)
         .build();
 
@@ -546,7 +549,7 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
     identity::Keypair::Ed25519(secret_key.into())
 }
 
-#[derive(libp2p::NetworkBehaviour)]
+#[derive(NetworkBehaviour)]
 #[behaviour(out_event = "Event", event_process = false)]
 struct Behaviour {
     relay: Client,
