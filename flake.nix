@@ -3,13 +3,17 @@
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.nixpkgs.url = "github:nixos/nixpkgs/release-22.05";
   inputs.nixpkgs-darwin.url = "github:nixos/nixpkgs/nixpkgs-22.05-darwin";
+  inputs.rust-overlay.url = "github:oxalica/rust-overlay";
 
-  outputs = { self, flake-utils, ... }@inputs:
+
+  outputs = { self, flake-utils, rust-overlay, ... }@inputs:
     (flake-utils.lib.eachDefaultSystem (system:
       let
+        overlays = [ (import rust-overlay) ];
         nixpkgs = if system == "aarch64-darwin" then inputs.nixpkgs-darwin else inputs.nixpkgs;
-        pkgs = import nixpkgs {
-          system = system;
+        pkgs = import nixpkgs { inherit system overlays; };
+        rustStable = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" ];
         };
       in
       {
@@ -73,7 +77,14 @@
 
         devShell = pkgs.mkShell {
           PUNCHR_PROTO = ./punchr.proto;
-          buildInputs = [ pkgs.go pkgs.cargo pkgs.rustfmt pkgs.libiconv ];
+          buildInputs = [
+            pkgs.go
+            rustStable
+            pkgs.rustfmt
+            pkgs.libiconv
+            pkgs.protobuf
+
+          ];
         };
       })) // {
       nixosModules.client = { config, pkgs, ... }:
