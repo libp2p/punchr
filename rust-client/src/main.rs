@@ -1,7 +1,9 @@
 use clap::Parser;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
+use libp2p::core::either::EitherOutput;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
+use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::OrTransport;
 use libp2p::core::{upgrade, ConnectedPoint, ProtocolName, UpgradeInfo};
 use libp2p::dcutr::behaviour::UpgradeError;
@@ -12,8 +14,7 @@ use libp2p::swarm::{
     ConnectionHandlerUpgrErr, DialError, IntoConnectionHandler, NetworkBehaviour, Swarm,
     SwarmBuilder, SwarmEvent,
 };
-use libp2p::tcp;
-use libp2p::{dcutr, identify, identity, noise, ping};
+use libp2p::{dcutr, identify, identity, noise, ping, quic, tcp};
 use libp2p::{PeerId, Transport};
 use log::{info, warn};
 use std::convert::TryInto;
@@ -140,21 +141,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(Multiaddr::try_from)
             .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
 
-        let filter_remote_addrs: Vec<Multiaddr> = remote_addrs
-            .into_iter()
-            .filter(|a| !a.iter().any(|p| p == libp2p::multiaddr::Protocol::Quic))
-            .collect();
-
         let state = HolePunchState::new(
             local_peer_id,
             swarm.listeners(),
             remote_peer_id,
-            filter_remote_addrs.iter().map(|a| a.to_vec()).collect(),
+            remote_addrs.iter().map(|a| a.to_vec()).collect(),
             api_key.clone(),
         );
 
-        if filter_remote_addrs.is_empty() {
-            let request = state.cancel();
+        if remote_addrs.is_empty() {
+            let request = state.cancel("list of remote addresses is empty");
             client
                 .track_hole_punch(tonic::Request::new(request))
                 .await?;
@@ -163,12 +159,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         info!(
             "Attempting to punch through to {:?} via {:?}.",
-            remote_peer_id, filter_remote_addrs
+            remote_peer_id, remote_addrs
         );
 
         swarm.dial(
             DialOpts::peer_id(remote_peer_id)
-                .addresses(filter_remote_addrs)
+                .addresses(remote_addrs)
                 .build(),
         )?;
 
@@ -195,7 +191,7 @@ async fn init_swarm(
 
     let (relay_transport, relay_behaviour) = Client::new_transport_and_behaviour(local_peer_id);
 
-    let transport = OrTransport::new(
+    let tcp_relay_transport = OrTransport::new(
         relay_transport,
         DnsConfig::system(tcp::async_io::Transport::new(
             tcp::Config::new().port_reuse(true),
@@ -204,8 +200,15 @@ async fn init_swarm(
     )
     .upgrade(upgrade::Version::V1)
     .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-    .multiplex(libp2p::yamux::YamuxConfig::default())
-    .boxed();
+    .multiplex(libp2p::yamux::YamuxConfig::default());
+    let quic_transport = quic::async_std::Transport::new(quic::Config::new(&local_key));
+
+    let transport = OrTransport::new(quic_transport, tcp_relay_transport)
+        .map(|either_output, _| match either_output {
+            EitherOutput::First((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            EitherOutput::Second((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+        })
+        .boxed();
 
     let identify_config = identify::Config::new("/ipfs/0.1.0".to_string(), local_key.public())
         .with_agent_version(agent_version());
@@ -225,6 +228,13 @@ async fn init_swarm(
         Multiaddr::empty()
             .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
             .with(Protocol::Tcp(0)),
+    )?;
+
+    swarm.listen_on(
+        Multiaddr::empty()
+            .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
+            .with(Protocol::Udp(0))
+            .with(Protocol::Quic),
     )?;
 
     // Wait to listen on all interfaces.
@@ -289,15 +299,21 @@ impl HolePunchState {
         }
     }
 
-    fn cancel(mut self) -> grpc::TrackHolePunchRequest {
+    fn cancel(mut self, reason: &str) -> grpc::TrackHolePunchRequest {
         info!(
-            "Skipping hole punch through to {:?} via {:?} because the Quic transport is not supported.",
-            self.remote_id, self.request.remote_multi_addresses.iter().map(|a| Multiaddr::try_from(a.clone()).unwrap()).collect::<Vec<_>>()
+            "Skipping hole punch through to {:?} via {:?} because {}.",
+            self.remote_id,
+            self.request
+                .remote_multi_addresses
+                .iter()
+                .map(|a| Multiaddr::try_from(a.clone()).unwrap())
+                .collect::<Vec<_>>(),
+            reason
         );
         let unix_time_now = unix_time_now();
         self.request.connect_ended_at = unix_time_now;
         self.request.ended_at = unix_time_now;
-        self.request.error = Some("rust-lib2p doesn't support quic transport yet.".into());
+        self.request.error = Some(reason.into());
         self.request.outcome = grpc::HolePunchOutcome::Cancelled.into();
         self.request
     }
