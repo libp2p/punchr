@@ -259,6 +259,36 @@ async fn init_swarm(
         }
     }
 
+    for ipfs_bootstrap_node in [
+        "/ip4/139.178.91.71/tcp/4001/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        "/ip6/2604:1380:4602:5c00::3/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        "/ip6/2604:1380:40e1:9c00::1/udp/4001/quic/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+        "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+    ].into_iter() {
+        let a: Multiaddr = ipfs_bootstrap_node.parse()?;
+        swarm.dial(a)?;
+    }
+
+    // Wait to dial all bootstrap nodes over IP and transport combinations, thus learning all our observed addresses.
+    let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(10)).fuse();
+    loop {
+        futures::select! {
+            event = swarm.select_next_some() => {
+                match event {
+                    SwarmEvent::ConnectionEstablished{ endpoint, .. } => {
+                        info!("Connection established via {:?}", endpoint);
+                    }
+                    SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
+                    _ => {},
+                }
+            }
+            _ = delay => {
+                // Likely listening on all interfaces now, thus continuing by breaking the loop.
+                break;
+            }
+        }
+    }
+
     Ok(swarm)
 }
 
