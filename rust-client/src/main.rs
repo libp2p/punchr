@@ -201,7 +201,10 @@ async fn init_swarm(
     .upgrade(upgrade::Version::V1)
     .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
     .multiplex(libp2p::yamux::YamuxConfig::default());
-    let quic_transport = quic::async_std::Transport::new(quic::Config::new(&local_key));
+
+    let mut quic_config = quic::Config::new(&local_key);
+    quic_config.support_draft_29 = true;
+    let quic_transport = quic::async_std::Transport::new(quic_config);
 
     let transport = OrTransport::new(quic_transport, tcp_relay_transport)
         .map(|either_output, _| match either_output {
