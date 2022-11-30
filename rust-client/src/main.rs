@@ -17,6 +17,7 @@ use libp2p::swarm::{
 use libp2p::{dcutr, identify, identity, noise, ping, quic, tcp};
 use libp2p::{PeerId, Transport};
 use log::{info, warn};
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::env;
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -282,14 +283,17 @@ async fn init_swarm(
 
     while !nodes.is_empty() {
         match swarm.select_next_some().await {
-            SwarmEvent::ConnectionEstablished{ endpoint, .. } => {
+            SwarmEvent::ConnectionEstablished { endpoint, .. } => {
                 info!("Connection established via {:?}", endpoint);
             }
             SwarmEvent::Behaviour(Event::Identify(identify::Event::Received { peer_id, info })) => {
                 info!("{:?}", info);
                 nodes.remove(&peer_id);
-            },
-            SwarmEvent::OutgoingConnectionError { peer_id: Some(peer_id), error } => {
+            }
+            SwarmEvent::OutgoingConnectionError {
+                peer_id: Some(peer_id),
+                error,
+            } => {
                 // `Swarm::dial` extracts the PeerId from the multiaddr.
                 nodes.remove(&peer_id);
                 log::error!("dial to {} failed: {:?}", peer_id, error);
@@ -297,7 +301,7 @@ async fn init_swarm(
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 nodes.remove(&peer_id);
             }
-            _ => {},
+            _ => {}
         }
     }
 
