@@ -19,7 +19,7 @@ use libp2p::{PeerId, Transport};
 use log::{info, warn};
 use std::convert::TryInto;
 use std::env;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -193,10 +193,7 @@ async fn init_swarm(
 
     let tcp_relay_transport = OrTransport::new(
         relay_transport,
-        DnsConfig::system(tcp::async_io::Transport::new(
-            tcp::Config::new().port_reuse(true),
-        ))
-        .await?,
+        tcp::async_io::Transport::new(tcp::Config::new().port_reuse(true)),
     )
     .upgrade(upgrade::Version::V1)
     .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
@@ -206,12 +203,14 @@ async fn init_swarm(
     quic_config.support_draft_29 = true;
     let quic_transport = quic::async_std::Transport::new(quic_config);
 
-    let transport = OrTransport::new(quic_transport, tcp_relay_transport)
-        .map(|either_output, _| match either_output {
+    let transport = DnsConfig::system(OrTransport::new(quic_transport, tcp_relay_transport).map(
+        |either_output, _| match either_output {
             EitherOutput::First((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
             EitherOutput::Second((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-        })
-        .boxed();
+        },
+    ))
+    .await?
+    .boxed();
 
     let identify_config = identify::Config::new("/ipfs/0.1.0".to_string(), local_key.public())
         .with_agent_version(agent_version());
@@ -227,18 +226,25 @@ async fn init_swarm(
         .dial_concurrency_factor(10_u8.try_into()?)
         .build();
 
-    swarm.listen_on(
-        Multiaddr::empty()
-            .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
-            .with(Protocol::Tcp(0)),
-    )?;
+    for ip_addr_version in [
+        Protocol::from(Ipv4Addr::UNSPECIFIED),
+        Protocol::from(Ipv6Addr::UNSPECIFIED),
+    ]
+    .into_iter()
+    {
+        swarm.listen_on(
+            Multiaddr::empty()
+                .with(ip_addr_version.clone())
+                .with(Protocol::Tcp(0)),
+        )?;
 
-    swarm.listen_on(
-        Multiaddr::empty()
-            .with("0.0.0.0".parse::<Ipv4Addr>()?.into())
-            .with(Protocol::Udp(0))
-            .with(Protocol::Quic),
-    )?;
+        swarm.listen_on(
+            Multiaddr::empty()
+                .with(ip_addr_version)
+                .with(Protocol::Udp(0))
+                .with(Protocol::Quic),
+        )?;
+    }
 
     // Wait to listen on all interfaces.
     let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(1)).fuse();
