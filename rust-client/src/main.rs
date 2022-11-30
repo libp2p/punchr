@@ -265,33 +265,39 @@ async fn init_swarm(
         }
     }
 
-    for ipfs_bootstrap_node in [
+    let mut nodes = [
         "/ip4/139.178.91.71/tcp/4001/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
         "/ip6/2604:1380:4602:5c00::3/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
         "/ip6/2604:1380:40e1:9c00::1/udp/4001/quic/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
         "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
-    ].into_iter() {
-        let a: Multiaddr = ipfs_bootstrap_node.parse()?;
-        swarm.dial(a)?;
-    }
+    ].into_iter().map(|ipfs_bootstrap_node| {
+        let mut a: Multiaddr = ipfs_bootstrap_node.parse()?;
+        swarm.dial(a.clone())?;
+        let peer_id = match a.pop().unwrap() {
+            Protocol::P2p(hash) => PeerId::from_multihash(hash).unwrap(),
+            _ => unreachable!("All ipfs bootstrap node multiaddresses include the peer-id.")
+        };
+        Ok(peer_id)
+    }).collect::<Result<HashSet<_>,  Box<dyn std::error::Error>>>()?;
 
-    // Wait to dial all bootstrap nodes over IP and transport combinations, thus learning all our observed addresses.
-    let mut delay = futures_timer::Delay::new(std::time::Duration::from_secs(10)).fuse();
-    loop {
-        futures::select! {
-            event = swarm.select_next_some() => {
-                match event {
-                    SwarmEvent::ConnectionEstablished{ endpoint, .. } => {
-                        info!("Connection established via {:?}", endpoint);
-                    }
-                    SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
-                    _ => {},
-                }
+    while !nodes.is_empty() {
+        match swarm.select_next_some().await {
+            SwarmEvent::ConnectionEstablished{ endpoint, .. } => {
+                info!("Connection established via {:?}", endpoint);
             }
-            _ = delay => {
-                // Likely listening on all interfaces now, thus continuing by breaking the loop.
-                break;
+            SwarmEvent::Behaviour(Event::Identify(identify::Event::Received { peer_id, info })) => {
+                info!("{:?}", info);
+                nodes.remove(&peer_id);
+            },
+            SwarmEvent::OutgoingConnectionError { peer_id: Some(peer_id), error } => {
+                // `Swarm::dial` extracts the PeerId from the multiaddr.
+                nodes.remove(&peer_id);
+                log::error!("dial to {} failed: {:?}", peer_id, error);
             }
+            SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                nodes.remove(&peer_id);
+            }
+            _ => {},
         }
     }
 
