@@ -296,7 +296,7 @@ async fn init_swarm(
             } => {
                 // `Swarm::dial` extracts the PeerId from the multiaddr.
                 nodes.remove(&peer_id);
-                log::error!("dial to {} failed: {:?}", peer_id, error);
+                log::info!("dial to {} failed: {:?}", peer_id, error);
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 nodes.remove(&peer_id);
