@@ -283,7 +283,7 @@ make migrate-up
 
 ### RaspberryPi
 
-Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases). Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
+Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases), rename it to `punchrclient`, and give it execute permissions `chmod +x punchrclient`. Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
 
 ```text
 [Unit]
@@ -304,12 +304,6 @@ To start the service run:
 
 ```shell
 sudo service punchr-client start
-```
-
-If the client can't connect to bootstrap peers try this additional command line paramater in `ExecStart`:
-
-```shell
---bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 ```
 
 ### NixOS
