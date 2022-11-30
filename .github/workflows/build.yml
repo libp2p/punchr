@@ -1,0 +1,21 @@
+name: "Build clients"
+on:
+  pull_request:
+  push:
+jobs:
+  build-go-client:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=channel:nixos-22.05
+    - run: nix build .#client
+  build-rust-client:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=channel:nixos-22.05
+    - run: nix build .#rust-client

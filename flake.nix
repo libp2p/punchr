@@ -2,13 +2,23 @@
   description = "Punchr";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.nixpkgs.url = "github:nixos/nixpkgs/release-22.05";
+  inputs.nixpkgs-darwin.url = "github:nixos/nixpkgs/nixpkgs-22.05-darwin";
+  inputs.rust-overlay.url = "github:oxalica/rust-overlay";
 
-  outputs = { self, nixpkgs, flake-utils }:
+
+  outputs = { self, flake-utils, rust-overlay, ... }@inputs:
     (flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs {
-          system = system;
+        overlays = [ (import rust-overlay) ];
+        nixpkgs = if system == "aarch64-darwin" then inputs.nixpkgs-darwin else inputs.nixpkgs;
+        pkgs = import nixpkgs { inherit system overlays; };
+        rustStable = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" ];
         };
+        rustPlatform = (pkgs.makeRustPlatform {
+          cargo = pkgs.rust-bin.stable.latest.default;
+          rustc = pkgs.rust-bin.stable.latest.default;
+        });
       in
       {
         packages.client = pkgs.buildGo118Module rec {
@@ -23,7 +33,7 @@
           # Sha of go modules. To update uncomment the below line and comment
           # out the current sha. Then update the sha.
           # vendorSha256 = pkgs.lib.fakeSha256;
-          vendorSha256 = "sha256-nb0oq3vA8ANlppmpKzL61n6eS96eXiBI6Mumxu00rII=";
+          vendorSha256 = "sha256-qR1kWFY3un9TRKu/3rEMnn+shkDTkh+Lsg/Om1Klf4w=";
 
           meta = with pkgs.lib; {
             description = "";
@@ -33,19 +43,74 @@
             platforms = platforms.linux ++ platforms.darwin;
           };
         };
+        packages.rust-client = rustPlatform.buildRustPackage rec {
+          src = ./rust-client;
+
+          pname = "rust-client";
+          version = "0.0.1";
+          checkPhase = "";
+
+          nativeBuildInputs = [
+            pkgs.cmake
+            pkgs.rustfmt
+            pkgs.protobuf
+          ];
+
+          buildInputs = [
+            pkgs.libiconv
+          ] ++ (if system == "aarch64-darwin" then [
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+          ] else [ ]);
+
+          cargoLock = {
+            lockFile = ./rust-client/Cargo.lock;
+          };
+
+          PUNCHR_PROTO = ./punchr.proto;
+
+          meta = with pkgs.lib; {
+            description = "Hole punching stats gatherer, in Rust";
+            homepage = "https://github.com/dennis-tra/punchr";
+            license = licenses.mit;
+            maintainers = with maintainers; [ "marcopolo" ];
+            platforms = platforms.linux ++ platforms.darwin;
+          };
+        };
+
         defaultPackage = self.packages.${system}.client;
+
         devShell = pkgs.mkShell {
-          buildInputs = [ pkgs.go ];
+          PUNCHR_PROTO = ./punchr.proto;
+          buildInputs = [
+            pkgs.go
+            rustStable
+            pkgs.rustfmt
+            pkgs.libiconv
+            pkgs.protobuf
+          ];
         };
       })) // {
       nixosModules.client = { config, pkgs, ... }:
-        let cfg = config.services.punchr-client;
+        let
+          nixpkgs = inputs.nixpkgs;
+          lib = nixpkgs.lib;
+          cfg = config.services.punchr-client;
         in
         {
           options.services.punchr-client = {
             apiKey = nixpkgs.lib.mkOption {
               description = "Punchr API Key";
               type = nixpkgs.lib.types.str;
+            };
+            enableGoClient = nixpkgs.lib.mkOption {
+              description = "Enable the Go Client";
+              type = nixpkgs.lib.types.bool;
+              default = true;
+            };
+            enableRustClient = nixpkgs.lib.mkOption {
+              description = "Enable the Rust Client";
+              type = nixpkgs.lib.types.bool;
+              default = true;
             };
             clientKeyFile = nixpkgs.lib.mkOption {
               description = "Path to file where punchr saves the host identities. Should be writable by punchr-client";
@@ -64,19 +129,32 @@
             users.users.punchr.isSystemUser = true;
             users.users.punchr.group = "punchr";
             users.groups.punchr = { };
-            systemd.services.punchr-client = {
-              description = "punchr-client";
-              wantedBy = [ "multi-user.target" ];
-              after = [ "network.target" ];
-              serviceConfig = {
-                Environment = "PUNCHR_CLIENT_API_KEY=${cfg.apiKey} PUNCHR_CLIENT_KEY_FILE=${cfg.clientKeyFile} NEBULA_BOOTSTRAP_PEERS=${cfg.bootstrapPeers}";
-                ExecStart = "${
-                  self.packages.${pkgs.system}.client
-                  }/bin/client";
-                Restart = "always";
-                RestartSec = "1min";
-                User = "punchr";
-              };
+            systemd.services = {
+              punchr-go-client = (lib.mkIf cfg.enableGoClient {
+                description = "punchr-go-client";
+                wantedBy = [ "multi-user.target" ];
+                after = [ "network.target" ];
+                serviceConfig = {
+                  Environment = "PUNCHR_CLIENT_API_KEY=${cfg.apiKey} PUNCHR_CLIENT_KEY_FILE=${cfg.clientKeyFile} NEBULA_BOOTSTRAP_PEERS=${cfg.bootstrapPeers}";
+                  ExecStart = "${self.packages.${pkgs.system}.client}/bin/client";
+                  Restart = "always";
+                  RestartSec = "1min";
+                  User = "punchr";
+                };
+              });
+
+              punchr-rust-client = (lib.mkIf cfg.enableRustClient {
+                description = "punchr-rust-client";
+                wantedBy = [ "multi-user.target" ];
+                after = [ "network.target" ];
+                serviceConfig = {
+                  Environment = "API_KEY=${cfg.apiKey}";
+                  ExecStart = "${self.packages.${pkgs.system}.rust-client}/bin/rust-client";
+                  Restart = "always";
+                  RestartSec = "1min";
+                  User = "punchr";
+                };
+              });
             };
           };
         };
