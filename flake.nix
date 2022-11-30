@@ -64,6 +64,12 @@
 
           cargoLock = {
             lockFile = ./rust-client/Cargo.lock;
+            outputHashes = {
+              # Update the hash by using a fake hash, and then updating it with
+              # the correct one when the build fails
+              # "libp2p-0.50.0" = pkgs.lib.fakeSha256;
+              "libp2p-0.50.0" = "sha256-9l3i5UwgJGihDfw8Q+zf5nd0FjjAOhK/nyhnqWO18Ko=";
+            };
           };
 
           PUNCHR_PROTO = ./punchr.proto;
