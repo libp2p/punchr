@@ -193,10 +193,7 @@ async fn init_swarm(
 
     let tcp_relay_transport = OrTransport::new(
         relay_transport,
-        DnsConfig::system(tcp::async_io::Transport::new(
-            tcp::Config::new().port_reuse(true),
-        ))
-        .await?,
+        tcp::async_io::Transport::new(tcp::Config::new().port_reuse(true)),
     )
     .upgrade(upgrade::Version::V1)
     .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
@@ -206,12 +203,14 @@ async fn init_swarm(
     quic_config.support_draft_29 = true;
     let quic_transport = quic::async_std::Transport::new(quic_config);
 
-    let transport = OrTransport::new(quic_transport, tcp_relay_transport)
-        .map(|either_output, _| match either_output {
+    let transport = DnsConfig::system(OrTransport::new(quic_transport, tcp_relay_transport).map(
+        |either_output, _| match either_output {
             EitherOutput::First((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
             EitherOutput::Second((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-        })
-        .boxed();
+        },
+    ))
+    .await?
+    .boxed();
 
     let identify_config = identify::Config::new("/ipfs/0.1.0".to_string(), local_key.public())
         .with_agent_version(agent_version());
