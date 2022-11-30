@@ -1,7 +1,10 @@
 [package]
 name = "rust-client"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+description = "Rust implementation of the punchr project"
+repository = "https://github.com/dennis-tra/punchr"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,7 +17,7 @@ futures-timer = "3.0.0"
 libp2p = { version = "0.50.0", git = "https://github.com/elenaf9/rust-libp2p", rev = "e09a8602f0de8d15281a2d01c57050e81d9d8622", features = ["async-std", "dcutr", "dns", "identify", "noise", "relay", "ping", "quic", "tcp", "yamux", "macros", "rsa"] }
 log = "0.4"
 prost = "0.11.2"
-rand = "0.8.5"   
+rand = "0.8.5"
 tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
 tonic = { version = "0.8.2", features = ["tls"] }
 
