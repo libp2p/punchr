@@ -87,6 +87,10 @@ You can install it by running: `tar -xf punchr-gui-linux-amd64.tar.xz && make us
 
 For the CLI version head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary.
 
+### Arch Linux
+
+If you are running Arch (or Manjaro), you can grab `rust-punchr` from AUR: https://aur.archlinux.org/packages/rust-punchr-bin
+
 ## Self Compilation
 
 Run `make build` and find the executables in the `dist` folder. To participate in the measurement campaign you only need to pay attention to the `punchrclient` binary.
