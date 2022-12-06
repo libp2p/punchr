@@ -40,11 +40,11 @@ IPFS þing Jul 2022         |  IPFS Camp Oct 2022
 - [Punchr](#punchr)
 - [Background](#background)
 - [Installation](#installation)
-  - [MacOS](#macos)
-    - [Go Client](#go-client)
-  - [Linux](#linux)
-  - [Self Compilation](#self-compilation)
-    - [Rust Client](#rust-client)
+  - [Go Client](#go-client)
+    - [MacOS](#macos)
+    - [Linux](#linux)
+    - [Self Compilation](#self-compilation)
+  - [Rust Client](#rust-client)
 - [Components](#components)
   - [`honeypot`](#honeypot)
   - [`server`](#server)
@@ -75,15 +75,15 @@ The goal is to measure the hole punching success rate. For that, we are using a 
 
 # Installation
 
-## MacOS
+## Go Client
 
-### Go Client
+### MacOS
 
 For macOS there is a menu bar application that you can download here: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-amd64.dmg)
 
 For the CLI version head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary.
 
-## Linux
+### Linux
 
 For Linux there's also a system tray application that you can download here: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-386.tar.xz)
 
@@ -91,11 +91,11 @@ You can install it by running: `tar -xf punchr-gui-linux-amd64.tar.xz && make us
 
 For the CLI version head over to the [GitHub releases page](https://github.com/dennis-tra/punchr/releases) and download the appropriate binary.
 
-## Self Compilation
+### Self Compilation
 
 Run `make build` and find the executables in the `dist` folder. To participate in the measurement campaign you only need to pay attention to the `punchrclient` binary.
 
-### Rust Client
+## Rust Client
 
 ```
 cd rust-client
