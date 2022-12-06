@@ -45,6 +45,8 @@ IPFS þing Jul 2022         |  IPFS Camp Oct 2022
     - [Linux](#linux)
     - [Self Compilation](#self-compilation)
   - [Rust Client](#rust-client)
+    - [Self Compilation](#self-compilation)
+    - [Arch Linux](#arch-linux)
 - [Components](#components)
   - [`honeypot`](#honeypot)
   - [`server`](#server)
@@ -97,6 +99,8 @@ Run `make build` and find the executables in the `dist` folder. To participate i
 
 ## Rust Client
 
+### Self Compilation
+
 ```
 cd rust-client
 
@@ -110,6 +114,10 @@ export API_KEY=<YOUR_API_KEY>
 # As an alternative via cargo
 cargo run --release
 ```
+
+### Arch Linux
+
+If you are running Arch (or Manjaro), you can grab `rust-punchr` from AUR: https://aur.archlinux.org/packages/rust-punchr-bin
 
 # Components
 
@@ -303,12 +311,12 @@ make migrate-up
 
 ### RaspberryPi
 
-Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases). Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
+Download a `linux_armv6` or `linux_armv7` release from the [GitHub releases page](https://github.com/dennis-tra/punchr/releases), rename it to `punchrclient`, and give it execute permissions `chmod +x punchrclient`. Then you could install a systemd service at `/etc/systemd/system/punchr-client.service`:
 
 ```text
 [Unit]
 Description=Punchr Client
-After=network.target
+After=network-online.target
 
 [Service]
 User=pi
@@ -324,12 +332,6 @@ To start the service run:
 
 ```shell
 sudo service punchr-client start
-```
-
-If the client can't connect to bootstrap peers try this additional command line paramater in `ExecStart`:
-
-```shell
---bootstrap-peers="/ip4/147.75.83.83/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb,/ip4/147.75.77.187/tcp/4001/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa,/ip4/147.75.109.29/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 ```
 
 ### NixOS
