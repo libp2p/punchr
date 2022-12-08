@@ -139,8 +139,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .multi_addresses
             .clone()
             .into_iter()
-            .map(Multiaddr::try_from)
-            .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
+            .filter_map(|a| Multiaddr::try_from(a).ok())
+            .collect::<Vec<_>>();
 
         let state = HolePunchState::new(
             local_peer_id,
@@ -355,7 +355,7 @@ impl HolePunchState {
             self.request
                 .remote_multi_addresses
                 .iter()
-                .map(|a| Multiaddr::try_from(a.clone()).unwrap())
+                .filter_map(|a| Multiaddr::try_from(a.clone()).ok())
                 .collect::<Vec<_>>(),
             reason
         );
