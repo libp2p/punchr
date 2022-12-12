@@ -16,7 +16,7 @@ use libp2p::swarm::{
 };
 use libp2p::{dcutr, identify, identity, noise, ping, quic, tcp};
 use libp2p::{PeerId, Transport};
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::env;
@@ -139,8 +139,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .multi_addresses
             .clone()
             .into_iter()
-            .map(Multiaddr::try_from)
-            .collect::<Result<Vec<_>, libp2p::multiaddr::Error>>()?;
+            .filter_map(|addr| match Multiaddr::try_from(addr.clone()) {
+                Ok(a) => Some(a),
+                Err(e) => {
+                    debug!("Filtering out invalid remote addr {addr:?}: {e}");
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         let state = HolePunchState::new(
             local_peer_id,
@@ -355,7 +361,7 @@ impl HolePunchState {
             self.request
                 .remote_multi_addresses
                 .iter()
-                .map(|a| Multiaddr::try_from(a.clone()).unwrap())
+                .filter_map(|a| Multiaddr::try_from(a.clone()).ok())
                 .collect::<Vec<_>>(),
             reason
         );
