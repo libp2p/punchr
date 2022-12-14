@@ -296,7 +296,7 @@ ExecStart=/home/pi/punchrclient --api-key <some-api-key>
 Restart=on-failure
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
 ```
 
 To start the service run:
