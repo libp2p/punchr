@@ -153,7 +153,8 @@ func (h *Host) WalkDHT(ctx context.Context) error {
 	bps := kaddht.GetDefaultBootstrapPeerAddrInfos()
 	seedPeers := make([]*peer.AddrInfo, len(bps))
 	for i, bp := range bps {
-		seedPeers[i] = &bp
+		tmp := bp
+		seedPeers[i] = &tmp
 	}
 
 	handleSuccess := func(p peer.ID, rtPeers []*peer.AddrInfo) {
