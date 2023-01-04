@@ -67,8 +67,8 @@
             outputHashes = {
               # Update the hash by using a fake hash, and then updating it with
               # the correct one when the build fails
-              # "libp2p-0.50.0" = pkgs.lib.fakeSha256;
-              "libp2p-0.50.0" = "sha256-9l3i5UwgJGihDfw8Q+zf5nd0FjjAOhK/nyhnqWO18Ko=";
+              # "libp2p-0.51.0" = pkgs.lib.fakeSha256;
+              "libp2p-0.51.0" = "sha256-pHmud2Km+zL34hUN25vldI9oMJnP47cnessZrzt43BE=";
             };
           };
 
