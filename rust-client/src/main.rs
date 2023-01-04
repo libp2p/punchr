@@ -6,7 +6,6 @@ use libp2p::core::multiaddr::{Multiaddr, Protocol};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::OrTransport;
 use libp2p::core::{upgrade, ConnectedPoint, ProtocolName, UpgradeInfo};
-use libp2p::dcutr::behaviour::UpgradeError;
 use libp2p::dns::DnsConfig;
 use libp2p::relay::v2::client::{self, Client};
 use libp2p::swarm::dial_opts::DialOpts;
@@ -226,7 +225,7 @@ async fn init_swarm(
         relay: relay_behaviour,
         ping: ping::Behaviour::new(ping::Config::new()),
         identify: identify::Behaviour::new(identify_config),
-        dcutr: dcutr::behaviour::Behaviour::new(),
+        dcutr: dcutr::Behaviour::new(local_peer_id),
     };
 
     let mut swarm = SwarmBuilder::with_async_std_executor(transport, behaviour, local_peer_id)
@@ -466,38 +465,38 @@ impl HolePunchState {
 
     fn handle_dcutr_event(
         &mut self,
-        event: dcutr::behaviour::Event,
+        event: dcutr::Event,
     ) -> ControlFlow<(grpc::HolePunchOutcome, Option<String>)> {
         match event {
-            dcutr::behaviour::Event::RemoteInitiatedDirectConnectionUpgrade { .. } => {
+            dcutr::Event::RemoteInitiatedDirectConnectionUpgrade { .. } => {
                 self.active_holepunch_attempt = Some(HolePunchAttemptState {
                     opened_at: self.request.connect_ended_at,
                     started_at: unix_time_now(),
                     addresses: vec![],
                 });
             }
-            dcutr::behaviour::Event::DirectConnectionUpgradeSucceeded { .. } => {
+            dcutr::Event::DirectConnectionUpgradeSucceeded { .. } => {
                 if let Some(attempt) = self.active_holepunch_attempt.take() {
                     let resolved = attempt.resolve(grpc::HolePunchAttemptOutcome::Success, None);
                     self.request.hole_punch_attempts.push(resolved);
                 }
                 return ControlFlow::Break((grpc::HolePunchOutcome::Success, None));
             }
-            dcutr::behaviour::Event::DirectConnectionUpgradeFailed { error, .. } => {
+            dcutr::Event::DirectConnectionUpgradeFailed { error, .. } => {
                 if let Some(attempt) = self.active_holepunch_attempt.take() {
                     let (attempt_outcome, attempt_error) = match error {
-                        UpgradeError::Dial => (
+                        dcutr::Error::Dial => (
                             grpc::HolePunchAttemptOutcome::Failed,
                             "failed to establish a direct connection",
                         ),
-                        UpgradeError::Handler(ConnectionHandlerUpgrErr::Timeout) => (
+                        dcutr::Error::Handler(ConnectionHandlerUpgrErr::Timeout) => (
                             grpc::HolePunchAttemptOutcome::Timeout,
                             "hole-punch timed out",
                         ),
-                        UpgradeError::Handler(ConnectionHandlerUpgrErr::Timer) => {
+                        dcutr::Error::Handler(ConnectionHandlerUpgrErr::Timer) => {
                             (grpc::HolePunchAttemptOutcome::Timeout, "timer error")
                         }
-                        UpgradeError::Handler(ConnectionHandlerUpgrErr::Upgrade(_)) => (
+                        dcutr::Error::Handler(ConnectionHandlerUpgrErr::Upgrade(_)) => (
                             grpc::HolePunchAttemptOutcome::ProtocolError,
                             "protocol error",
                         ),
@@ -508,7 +507,7 @@ impl HolePunchState {
                 let error = Some("none of the 3 attempts succeeded".into());
                 return ControlFlow::Break((grpc::HolePunchOutcome::Failed, error));
             }
-            dcutr::behaviour::Event::InitiatedDirectConnectionUpgrade { .. } => {
+            dcutr::Event::InitiatedDirectConnectionUpgrade { .. } => {
                 unreachable!()
             }
         }
@@ -626,7 +625,7 @@ struct Behaviour {
     relay: Client,
     ping: ping::Behaviour,
     identify: identify::Behaviour,
-    dcutr: dcutr::behaviour::Behaviour,
+    dcutr: dcutr::Behaviour,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -635,7 +634,7 @@ enum Event {
     Ping(ping::Event),
     Identify(identify::Event),
     Relay(client::Event),
-    Dcutr(dcutr::behaviour::Event),
+    Dcutr(dcutr::Event),
 }
 
 impl From<ping::Event> for Event {
@@ -656,8 +655,8 @@ impl From<client::Event> for Event {
     }
 }
 
-impl From<dcutr::behaviour::Event> for Event {
-    fn from(e: dcutr::behaviour::Event) -> Self {
+impl From<dcutr::Event> for Event {
+    fn from(e: dcutr::Event) -> Self {
         Event::Dcutr(e)
     }
 }

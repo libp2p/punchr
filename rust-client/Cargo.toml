@@ -14,7 +14,7 @@ env_logger = "0.10.0"
 either = "1.6.1"
 futures = "0.3"
 futures-timer = "3.0.0"
-libp2p = { version = "0.50.0", git = "https://github.com/elenaf9/rust-libp2p", rev = "e09a8602f0de8d15281a2d01c57050e81d9d8622", features = ["async-std", "dcutr", "dns", "identify", "noise", "relay", "ping", "quic", "tcp", "yamux", "macros", "rsa"] }
+libp2p = { version = "0.51.0", git = "https://github.com/libp2p/rust-libp2p", features = ["async-std", "dcutr", "dns", "identify", "noise", "relay", "ping", "quic", "tcp", "yamux", "macros", "rsa"] }
 log = "0.4"
 prost = "0.11.2"
 rand = "0.8.5"
