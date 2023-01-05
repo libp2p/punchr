@@ -4,19 +4,6 @@
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
-> **Note**
->
-> We are running a hole punching month during December 2022.
-> Download the clients here (direct download links):
-> 
-> MacOS: [`M1/M2`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-arm64.dmg) [`Intel`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-darwin-amd64.dmg) (if prompted, please allow incoming connections)
-> 
-> Linux: [`amd64`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-amd64.tar.xz) [`386`](https://github.com/dennis-tra/punchr/releases/download/v0.9.0/punchr-gui-linux-386.tar.xz) | `tar -xf punchr-gui-linux-amd64.tar.xz && make user-install`
-> 
-> You **do not** need a running IPFS node. A CLI version and more options are available on the [release page](https://github.com/dennis-tra/punchr/releases/v0.9.0).
-> 
-> Optionally, [**register here**](https://forms.gle/h1ABCpS87jYmg9a48), request a personal API-Key, and receive a custom analysis of the data that you contributed.
-
 This repo contains components to measure the [Direct Connection Upgrade through Relay (DCUtR)](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) performance.
 
 Specifically, this repo contains the following [components](#components):
