@@ -1,25 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="punchr@localhost" uuid="0fa649df-3d69-4636-a327-1a0a3c027b4b">
+    <data-source source="LOCAL" name="punchr@punchr-server" uuid="372878a4-5e31-414c-bee2-d2fc8c887cce">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
       <jdbc-url>jdbc:postgresql://localhost:5432/punchr</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="punchr@punchr" uuid="9e47fb30-7b42-4460-885b-651cfad48a73">
+    <data-source source="LOCAL" name="punchr@localhost" uuid="c6244b8b-3356-4b65-ada6-950de11bf93e">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://localhost:5432/punchr</jdbc-url>
-      <working-dir>$ProjectFileDir$</working-dir>
-    </data-source>
-    <data-source source="LOCAL" name="punchr@punchr-aws" uuid="55560aae-e1cf-4d62-811b-c2686ccf8f47">
-      <driver-ref>postgresql</driver-ref>
-      <synchronize>true</synchronize>
-      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://localhost:5432/punchr</jdbc-url>
+      <jdbc-url>jdbc:postgresql://localhost:5433/punchr</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>
