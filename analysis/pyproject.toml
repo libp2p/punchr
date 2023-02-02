@@ -19,6 +19,7 @@ jupyter = "^1.0.0"
 geopandas = "^0.12.1"
 geoplot = "^0.5.1"
 pycountry = "^22.3.5"
+pyogrio = "^0.5.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.8.0"
