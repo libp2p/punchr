@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "punchr"
+name = "punchr-report"
 version = "0.1.0"
 description = "Analysis Scripts for the Punchr NAT Hole Punching Project"
 authors = ["Dennis Trautwein <git@dtrautwein.eu>"]
