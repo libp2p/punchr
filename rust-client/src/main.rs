@@ -1,17 +1,16 @@
 use clap::Parser;
-use futures::future::FutureExt;
+use futures::future::{Either, FutureExt};
 use futures::stream::StreamExt;
-use libp2p::core::either::EitherOutput;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::OrTransport;
 use libp2p::core::{upgrade, ConnectedPoint, ProtocolName, UpgradeInfo};
 use libp2p::dns::DnsConfig;
-use libp2p::relay::v2::client::{self, Client};
+use libp2p::relay;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{
-    ConnectionHandlerUpgrErr, DialError, IntoConnectionHandler, NetworkBehaviour, Swarm,
-    SwarmBuilder, SwarmEvent,
+    keep_alive, ConnectionHandlerUpgrErr, DialError, IntoConnectionHandler, NetworkBehaviour,
+    Swarm, SwarmBuilder, SwarmEvent,
 };
 use libp2p::{dcutr, identify, identity, noise, ping, quic, tcp};
 use libp2p::{PeerId, Transport};
@@ -195,7 +194,7 @@ async fn init_swarm(
         .into_authentic(&local_key)
         .expect("Signing libp2p-noise static DH keypair failed.");
 
-    let (relay_transport, relay_behaviour) = Client::new_transport_and_behaviour(local_peer_id);
+    let (relay_transport, relay_behaviour) = relay::client::new(local_peer_id);
 
     let tcp_relay_transport = OrTransport::new(
         relay_transport,
@@ -211,8 +210,8 @@ async fn init_swarm(
 
     let transport = DnsConfig::system(OrTransport::new(quic_transport, tcp_relay_transport).map(
         |either_output, _| match either_output {
-            EitherOutput::First((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-            EitherOutput::Second((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
         },
     ))
     .await?
@@ -226,6 +225,7 @@ async fn init_swarm(
         ping: ping::Behaviour::new(ping::Config::new()),
         identify: identify::Behaviour::new(identify_config),
         dcutr: dcutr::Behaviour::new(local_peer_id),
+        keep_alive: Default::default(),
     };
 
     let mut swarm = SwarmBuilder::with_async_std_executor(transport, behaviour, local_peer_id)
@@ -272,19 +272,32 @@ async fn init_swarm(
     }
 
     let mut nodes = [
+        // Prioritize QUIC.
+        "/ip4/139.178.91.71/udp/4001/quic/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        "/ip4/147.75.87.27/udp/4001/quic/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        "/ip4/145.40.118.135/udp/4001/quic/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+        "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+        // Fallback to TCP.
         "/ip4/139.178.91.71/tcp/4001/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
         "/ip6/2604:1380:4602:5c00::3/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-        "/ip6/2604:1380:40e1:9c00::1/udp/4001/quic/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-        "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
-    ].into_iter().map(|ipfs_bootstrap_node| {
+        // Ultimately fallback to DNS of bootstrap nodes.
+        "/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        "/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        "/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+        "/dnsaddr/bootstrap.libp2p.io/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+    ]
+    .into_iter()
+    .map(|ipfs_bootstrap_node| {
         let mut a: Multiaddr = ipfs_bootstrap_node.parse()?;
+        log::info!("Dialing bootstrap node {a}");
         swarm.dial(a.clone())?;
         let peer_id = match a.pop().unwrap() {
             Protocol::P2p(hash) => PeerId::from_multihash(hash).unwrap(),
-            _ => unreachable!("All ipfs bootstrap node multiaddresses include the peer-id.")
+            _ => unreachable!("All ipfs bootstrap node multiaddresses include the peer-id."),
         };
         Ok(peer_id)
-    }).collect::<Result<HashSet<_>,  Box<dyn std::error::Error>>>()?;
+    })
+    .collect::<Result<HashSet<_>, Box<dyn std::error::Error>>>()?;
 
     while !nodes.is_empty() {
         match swarm.select_next_some().await {
@@ -303,7 +316,13 @@ async fn init_swarm(
                 nodes.remove(&peer_id);
                 log::info!("dial to {} failed: {:?}", peer_id, error);
             }
-            SwarmEvent::ConnectionClosed { peer_id, .. } => {
+            SwarmEvent::ConnectionClosed {
+                peer_id,
+                endpoint,
+                cause,
+                ..
+            } => {
+                log::info!("Connnection to {peer_id} on {endpoint:?} closed because of {cause:?}.");
                 nodes.remove(&peer_id);
             }
             _ => {}
@@ -386,6 +405,10 @@ impl HolePunchState {
                         break (outcome, error);
                     }
                 }
+                // TODO: Consider TCP requests of old IPFS clients, e.g.
+                // go-ipfs/0.13.0/c9d51bb. It will not dial as a listener, but
+                // instead initiate simultaneous open which the local rust node
+                // rejects as InvalidMessage.
                 SwarmEvent::Behaviour(Event::Identify(event)) => info!("{:?}", event),
                 SwarmEvent::Behaviour(Event::Ping(_)) => {}
                 SwarmEvent::ConnectionEstablished {
@@ -448,7 +471,9 @@ impl HolePunchState {
                         }
                     }
                 }
-                _ => {}
+                e => {
+                    log::info!("{e:?}")
+                }
             }
         };
         self.request.outcome = outcome.into();
@@ -622,10 +647,11 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "Event", event_process = false)]
 struct Behaviour {
-    relay: Client,
+    relay: relay::client::Behaviour,
     ping: ping::Behaviour,
     identify: identify::Behaviour,
     dcutr: dcutr::Behaviour,
+    keep_alive: keep_alive::Behaviour,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -633,7 +659,7 @@ struct Behaviour {
 enum Event {
     Ping(ping::Event),
     Identify(identify::Event),
-    Relay(client::Event),
+    Relay(relay::client::Event),
     Dcutr(dcutr::Event),
 }
 
@@ -649,8 +675,8 @@ impl From<identify::Event> for Event {
     }
 }
 
-impl From<client::Event> for Event {
-    fn from(e: client::Event) -> Self {
+impl From<relay::client::Event> for Event {
+    fn from(e: relay::client::Event) -> Self {
         Event::Relay(e)
     }
 }
@@ -658,6 +684,12 @@ impl From<client::Event> for Event {
 impl From<dcutr::Event> for Event {
     fn from(e: dcutr::Event) -> Self {
         Event::Dcutr(e)
+    }
+}
+
+impl From<void::Void> for Event {
+    fn from(e: void::Void) -> Self {
+        void::unreachable(e)
     }
 }
 

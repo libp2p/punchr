@@ -68,7 +68,7 @@
               # Update the hash by using a fake hash, and then updating it with
               # the correct one when the build fails
               # "libp2p-0.51.0" = pkgs.lib.fakeSha256;
-              "libp2p-0.51.0" = "sha256-pHmud2Km+zL34hUN25vldI9oMJnP47cnessZrzt43BE=";
+              "libp2p-0.51.0" = "sha256-IVTm13gCmMZl4bLODaKFybR5r2R2ObTs8G//GDwoH1A=";
             };
           };
 
