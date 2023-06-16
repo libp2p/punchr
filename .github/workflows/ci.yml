@@ -19,18 +19,10 @@ jobs:
         uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
 
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path=rust-client/Cargo.toml
+        uses: dtolnay/rust-toolchain@stable
 
+      - name: Run cargo check
+        run: cargo check --manifest-path=rust-client/Cargo.toml
