@@ -4,21 +4,22 @@ use futures::stream::StreamExt;
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::OrTransport;
-use libp2p::core::{upgrade, ConnectedPoint, ProtocolName, UpgradeInfo};
+use libp2p::core::{upgrade, ConnectedPoint};
 use libp2p::dns::DnsConfig;
+use libp2p::identify::Info;
 use libp2p::relay;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{
-    keep_alive, ConnectionHandlerUpgrErr, DialError, IntoConnectionHandler, NetworkBehaviour,
-    Swarm, SwarmBuilder, SwarmEvent,
+    keep_alive, DialError, NetworkBehaviour, StreamUpgradeError, Swarm, SwarmBuilder, SwarmEvent,
 };
-use libp2p::{dcutr, identify, identity, noise, ping, quic, tcp};
+use libp2p::{dcutr, identify, identity, noise, ping, tcp};
 use libp2p::{PeerId, Transport};
+use libp2p_quic as quic;
 use log::{debug, info, warn};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::env;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::Ipv6Addr;
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -99,26 +100,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_peer_id = PeerId::from(local_key.public());
     info!("Local peer id: {:?}", local_peer_id);
 
-    let mut protocols = None;
-
     for _ in 0..opt.rounds.unwrap_or(usize::MAX) {
         let mut swarm = init_swarm(local_key.clone()).await?;
-        if protocols.is_none() {
-            let supported_protocols = swarm
-                .behaviour_mut()
-                .new_handler()
-                .inbound_protocol()
-                .protocol_info()
-                .into_iter()
-                .map(|info| String::from_utf8(info.protocol_name().to_vec()))
-                .collect::<Result<Vec<String>, _>>()?;
-            let _ = protocols.insert(supported_protocols);
-        }
 
         let request = tonic::Request::new(grpc::RegisterRequest {
             client_id: local_peer_id.to_bytes(),
             agent_version: agent_version(),
-            protocols: protocols.clone().unwrap(),
+            // TODO: Send the right set of protocols.
+            protocols: vec![],
             api_key: api_key.clone(),
         });
 
@@ -190,10 +179,6 @@ async fn init_swarm(
 ) -> Result<Swarm<Behaviour>, Box<dyn std::error::Error>> {
     let local_peer_id = PeerId::from(local_key.public());
 
-    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&local_key)
-        .expect("Signing libp2p-noise static DH keypair failed.");
-
     let (relay_transport, relay_behaviour) = relay::client::new(local_peer_id);
 
     let tcp_relay_transport = OrTransport::new(
@@ -201,8 +186,8 @@ async fn init_swarm(
         tcp::async_io::Transport::new(tcp::Config::new().port_reuse(true)),
     )
     .upgrade(upgrade::Version::V1)
-    .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-    .multiplex(libp2p::yamux::YamuxConfig::default());
+    .authenticate(noise::Config::new(&local_key).unwrap())
+    .multiplex(libp2p::yamux::Config::default());
 
     let mut quic_config = quic::Config::new(&local_key);
     quic_config.support_draft_29 = true;
@@ -233,7 +218,7 @@ async fn init_swarm(
         .build();
 
     for ip_addr_version in [
-        Protocol::from(Ipv4Addr::UNSPECIFIED),
+        // Protocol::from(Ipv4Addr::UNSPECIFIED),
         Protocol::from(Ipv6Addr::UNSPECIFIED),
     ]
     .into_iter()
@@ -273,18 +258,18 @@ async fn init_swarm(
 
     let mut nodes = [
         // Prioritize QUIC.
-        "/ip4/139.178.91.71/udp/4001/quic/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-        "/ip4/147.75.87.27/udp/4001/quic/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-        "/ip4/145.40.118.135/udp/4001/quic/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-        "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
-        // Fallback to TCP.
-        "/ip4/139.178.91.71/tcp/4001/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-        "/ip6/2604:1380:4602:5c00::3/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-        // Ultimately fallback to DNS of bootstrap nodes.
-        "/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-        "/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-        "/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-        "/dnsaddr/bootstrap.libp2p.io/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+        "/ip6/2604:1380:45e3:6e00::1/udp/4001/quic/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        "/ip6/2604:1380:4602:5c00::3/udp/4001/quic/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        "/ip6/2604:1380:40e1:9c00::1/udp/4001/quic/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+        // "/ip4/104.131.131.82/udp/4001/quic/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+        // // Fallback to TCP.
+        // "/ip4/139.178.91.71/tcp/4001/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        // "/ip6/2604:1380:4602:5c00::3/tcp/4001/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        // // Ultimately fallback to DNS of bootstrap nodes.
+        // "/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+        // "/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+        // "/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+        // "/dnsaddr/bootstrap.libp2p.io/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
     ]
     .into_iter()
     .map(|ipfs_bootstrap_node| {
@@ -292,7 +277,7 @@ async fn init_swarm(
         log::info!("Dialing bootstrap node {a}");
         swarm.dial(a.clone())?;
         let peer_id = match a.pop().unwrap() {
-            Protocol::P2p(hash) => PeerId::from_multihash(hash).unwrap(),
+            Protocol::P2p(id) => id,
             _ => unreachable!("All ipfs bootstrap node multiaddresses include the peer-id."),
         };
         Ok(peer_id)
@@ -301,20 +286,27 @@ async fn init_swarm(
 
     while !nodes.is_empty() {
         match swarm.select_next_some().await {
-            SwarmEvent::ConnectionEstablished { endpoint, .. } => {
-                info!("Connection established via {:?}", endpoint);
-            }
-            SwarmEvent::Behaviour(Event::Identify(identify::Event::Received { peer_id, info })) => {
-                info!("{:?}", info);
+            SwarmEvent::ConnectionEstablished { endpoint, .. } => match endpoint {
+                ConnectedPoint::Dialer { address, .. } => {
+                    info!("Connection established via {:?}", address);
+                }
+                ConnectedPoint::Listener { .. } => unreachable!(),
+            },
+            SwarmEvent::Behaviour(Event::Identify(identify::Event::Received {
+                peer_id,
+                info: Info { observed_addr, .. },
+            })) => {
+                info!("Node observes us as: {}", observed_addr);
                 nodes.remove(&peer_id);
             }
             SwarmEvent::OutgoingConnectionError {
                 peer_id: Some(peer_id),
                 error,
+                connection_id: _,
             } => {
                 // `Swarm::dial` extracts the PeerId from the multiaddr.
                 nodes.remove(&peer_id);
-                log::info!("dial to {} failed: {:?}", peer_id, error);
+                log::error!("dial to bootstrap node {} failed: {:?}", peer_id, error);
             }
             SwarmEvent::ConnectionClosed {
                 peer_id,
@@ -434,7 +426,11 @@ impl HolePunchState {
                         }
                     }
                 }
-                SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+                SwarmEvent::OutgoingConnectionError {
+                    peer_id,
+                    error,
+                    connection_id: _,
+                } => {
                     info!("Outgoing connection error to {:?}: {:?}", peer_id, error);
                     let addresses = match error {
                         DialError::Transport(dials) => dials
@@ -514,14 +510,19 @@ impl HolePunchState {
                             grpc::HolePunchAttemptOutcome::Failed,
                             "failed to establish a direct connection",
                         ),
-                        dcutr::Error::Handler(ConnectionHandlerUpgrErr::Timeout) => (
+                        dcutr::Error::Handler(StreamUpgradeError::Timeout) => (
                             grpc::HolePunchAttemptOutcome::Timeout,
                             "hole-punch timed out",
                         ),
-                        dcutr::Error::Handler(ConnectionHandlerUpgrErr::Timer) => {
-                            (grpc::HolePunchAttemptOutcome::Timeout, "timer error")
-                        }
-                        dcutr::Error::Handler(ConnectionHandlerUpgrErr::Upgrade(_)) => (
+                        dcutr::Error::Handler(StreamUpgradeError::Apply(_)) => (
+                            grpc::HolePunchAttemptOutcome::ProtocolError,
+                            "protocol error",
+                        ),
+                        dcutr::Error::Handler(StreamUpgradeError::NegotiationFailed) => (
+                            grpc::HolePunchAttemptOutcome::ProtocolError,
+                            "protocol error",
+                        ),
+                        dcutr::Error::Handler(StreamUpgradeError::Io(_)) => (
                             grpc::HolePunchAttemptOutcome::ProtocolError,
                             "protocol error",
                         ),
@@ -639,13 +640,11 @@ impl HolePunchAttemptState {
 fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
     let mut bytes = [0u8; 32];
     bytes[0] = secret_key_seed;
-    let secret_key = identity::ed25519::SecretKey::from_bytes(&mut bytes)
-        .expect("this returns `Err` only if the length is wrong; the length is correct; qed");
-    identity::Keypair::Ed25519(secret_key.into())
+    identity::Keypair::ed25519_from_bytes(&mut bytes).unwrap()
 }
 
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "Event", event_process = false)]
+#[behaviour(to_swarm = "Event", event_process = false)]
 struct Behaviour {
     relay: relay::client::Behaviour,
     ping: ping::Behaviour,
