@@ -297,6 +297,7 @@ async fn init_swarm(
                 info: Info { observed_addr, .. },
             })) => {
                 info!("Node observes us as: {}", observed_addr);
+                swarm.add_external_address(observed_addr);
                 nodes.remove(&peer_id);
             }
             SwarmEvent::OutgoingConnectionError {
