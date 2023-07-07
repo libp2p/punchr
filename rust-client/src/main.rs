@@ -321,6 +321,11 @@ async fn init_swarm(
         }
     }
 
+    log::info!(
+        "Collected external addresses: {:?}",
+        swarm.external_addresses().collect::<Vec<_>>()
+    );
+
     Ok(swarm)
 }
 
