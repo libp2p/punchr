@@ -6,7 +6,6 @@ use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::OrTransport;
 use libp2p::core::{upgrade, ConnectedPoint};
 use libp2p::dns::DnsConfig;
-use libp2p::identify::Info;
 use libp2p::relay;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{
@@ -294,7 +293,7 @@ async fn init_swarm(
             },
             SwarmEvent::Behaviour(Event::Identify(identify::Event::Received {
                 peer_id,
-                info: Info { observed_addr, .. },
+                info: identify::Info { observed_addr, .. },
             })) => {
                 info!("Node observes us as: {}", observed_addr);
                 swarm.add_external_address(observed_addr);
@@ -645,7 +644,7 @@ fn generate_ed25519(secret_key_seed: u8) -> identity::Keypair {
 }
 
 #[derive(NetworkBehaviour)]
-#[behaviour(to_swarm = "Event", event_process = false)]
+#[behaviour(to_swarm = "Event")]
 struct Behaviour {
     relay: relay::client::Behaviour,
     ping: ping::Behaviour,
