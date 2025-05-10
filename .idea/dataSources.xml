@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="punchr@punchr-server" uuid="372878a4-5e31-414c-bee2-d2fc8c887cce">
+    <data-source source="LOCAL" name="punchr@punchr-server" read-only="true" uuid="372878a4-5e31-414c-bee2-d2fc8c887cce">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
@@ -12,7 +12,14 @@
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://localhost:5433/punchr</jdbc-url>
+      <jdbc-url>jdbc:postgresql://localhost:5432/punchr</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="punchr@punchr-server-analysis" uuid="5fa1b5af-0e81-41e8-bdb9-193ff54f679c">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/punchr_2023_01_26</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>
