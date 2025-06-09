@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "publication"
+version = "0.1.0"
+description = ""
+authors = ["Dennis Trautwein <git@dtrautwein.eu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+matplotlib = "^3.10.3"
+pandas = "^2.2.3"
+psycopg2 = "^2.9.10"
+numpy = "^2.2.5"
+scipy = "^1.15.3"
+seaborn = "^0.13.2"
+geoip2 = "^5.1.0"
+sqlalchemy = "^2.0.41"
+jupyter = "^1.1.1"
+geopandas = "^1.0.1"
+geoplot = "^0.5.1"
+pycountry = "^24.6.1"
+pyogrio = "^0.11.0"
+scienceplots = "^2.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
